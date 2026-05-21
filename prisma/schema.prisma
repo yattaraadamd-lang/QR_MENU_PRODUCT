@@ -1,0 +1,495 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ─── İşletme ────────────────────────────────────────────────────────────────
+model Business {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String   @unique
+  description         String?
+  logo                String?
+  address             String?
+  phone               String?
+  email               String?
+  isActive            Boolean  @default(true)
+  latitude            Float?
+  longitude           Float?
+  allowedRadiusMeters Int      @default(100)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  users                 User[]
+  categories            Category[]
+  products              Product[]
+  tables                Table[]
+  orders                Order[]
+  serviceRequests       ServiceRequest[]
+  notifications         Notification[]
+  waiterInvites         WaiterInvite[]
+  payments              Payment[]
+  businessSubscriptions BusinessSubscription[]
+  tableSessions         TableSession[]
+  bills                 Bill[]
+
+  @@map("businesses")
+}
+
+// ─── Kullanıcı (Admin + Garson) ─────────────────────────────────────────────
+model User {
+  id         String    @id @default(cuid())
+  businessId String
+  name       String
+  email      String    @unique
+  password   String
+  phone      String?
+  role       UserRole  @default(WAITER)
+  isActive   Boolean   @default(true)
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  WAITER
+}
+
+// ─── Kategori ────────────────────────────────────────────────────────────────
+model Category {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  icon       String?
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([businessId, isActive])
+  @@map("categories")
+}
+
+// ─── Ürün ────────────────────────────────────────────────────────────────────
+model Product {
+  id          String      @id @default(cuid())
+  businessId  String
+  categoryId  String?
+  name        String
+  description String?
+  ingredients String?
+  allergens   String?
+  price       Decimal     @db.Decimal(10, 2)
+  image       String?
+  isAvailable Boolean     @default(true)
+  stockStatus StockStatus @default(IN_STOCK)
+  isPopular   Boolean     @default(false)
+  sortOrder   Int         @default(0)
+  isDeleted   Boolean     @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems OrderItem[]
+
+  @@index([businessId, createdAt])
+  @@index([businessId, isDeleted, isAvailable])
+  @@index([categoryId])
+  @@map("products")
+}
+
+enum StockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+  TEMPORARILY_UNAVAILABLE
+}
+
+// ─── Masa ────────────────────────────────────────────────────────────────────
+model Table {
+  id               String      @id @default(cuid())
+  businessId       String
+  tableNumber      String
+  tableName        String?
+  status           TableStatus @default(EMPTY)
+  isActive         Boolean     @default(true)
+  isDeleted        Boolean     @default(false)
+  deletedAt        DateTime?
+  qrToken          String?     @unique
+  qrTokenExpiresAt DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders          Order[]
+  serviceRequests ServiceRequest[]
+  notifications   Notification[]
+  payments        Payment[]
+  tableSessions   TableSession[]
+  bills           Bill[]
+
+  @@unique([businessId, tableNumber])
+  @@index([businessId, status])
+  @@index([businessId, isDeleted])
+  @@map("tables")
+}
+
+enum TableStatus {
+  EMPTY
+  OCCUPIED
+  HAS_ORDER
+  PREPARING
+  SERVED
+  WAITING_WAITER
+  PAYMENT_REQUESTED
+  CLEANING_NEEDED
+}
+
+// ─── Sipariş ─────────────────────────────────────────────────────────────────
+model Order {
+  id             String      @id @default(cuid())
+  businessId     String
+  tableId        String
+  tableSessionId String?
+  waiterId       String?
+  totalPrice     Decimal     @db.Decimal(10, 2)
+  note           String?
+  status         OrderStatus @default(PENDING)
+  paymentStatus  OrderPaymentStatus @default(UNPAID)
+  cancelReason   String?
+  cancelledAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table        Table         @relation(fields: [tableId], references: [id])
+  tableSession TableSession? @relation(fields: [tableSessionId], references: [id])
+  waiter       User?         @relation(fields: [waiterId], references: [id], onDelete: SetNull)
+  items        OrderItem[]
+  payments     Payment[]
+
+  @@index([businessId, status, createdAt])
+  @@index([businessId, createdAt])
+  @@index([tableId, status])
+  @@index([tableSessionId])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  SERVED
+  CANCELLED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+// ─── Sipariş Kalemi ──────────────────────────────────────────────────────────
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  productId    String
+  productName  String
+  quantity     Int
+  unitPrice    Decimal @db.Decimal(10, 2)
+  totalPrice   Decimal @db.Decimal(10, 2)
+  customerNote String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ─── Hizmet Talebi ───────────────────────────────────────────────────────────
+model ServiceRequest {
+  id          String             @id @default(cuid())
+  businessId  String
+  tableId     String
+  requestType ServiceRequestType
+  note        String?
+  status      RequestStatus      @default(PENDING)
+  createdAt   DateTime           @default(now())
+  completedAt DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table    Table    @relation(fields: [tableId], references: [id])
+
+  @@index([businessId, status, createdAt])
+  @@index([tableId, status])
+  @@map("service_requests")
+}
+
+enum ServiceRequestType {
+  CALL_WAITER
+  ORDER_REQUEST
+  PRODUCT_INFO
+  PAYMENT_REQUEST
+  CLEANING_REQUEST
+  HELP_REQUEST
+  COMPLAINT_SUGGESTION
+}
+
+enum RequestStatus {
+  PENDING
+  SEEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ─── Bildirim ────────────────────────────────────────────────────────────────
+model Notification {
+  id          String           @id @default(cuid())
+  businessId  String
+  tableId     String?
+  userId      String?
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  soundType   SoundType        @default(DEFAULT)
+  seenAt      DateTime?
+  notifiedAt  DateTime?
+  soundPlayed Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table    Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  NEW_ORDER
+  CALL_WAITER
+  PAYMENT_REQUEST
+  SERVICE_REQUEST
+  ORDER_STATUS_UPDATE
+}
+
+enum SoundType {
+  DEFAULT
+  ORDER
+  WAITER_CALL
+  PAYMENT
+  URGENT
+}
+
+// ─── Garson Davet Kodu ───────────────────────────────────────────────────────
+model WaiterInvite {
+  id           String    @id @default(cuid())
+  businessId   String
+  inviteCode   String    @unique
+  isUsed       Boolean   @default(false)
+  usedByUserId String?
+  createdAt    DateTime  @default(now())
+  usedAt       DateTime?
+  expiresAt    DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("waiter_invites")
+}
+
+// ─── Masa Oturumu ────────────────────────────────────────────────────────────
+model TableSession {
+  id          String             @id @default(cuid())
+  businessId  String
+  tableId     String
+  status      TableSessionStatus @default(ACTIVE)
+  startedAt   DateTime           @default(now())
+  endedAt     DateTime?
+  closedById  String?
+  closeReason String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table    Table    @relation(fields: [tableId], references: [id])
+  orders   Order[]
+  bill     Bill?
+  payments Payment[]
+
+  @@index([tableId, status])
+  @@map("table_sessions")
+}
+
+enum TableSessionStatus {
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+// ─── Adisyon / Hesap ─────────────────────────────────────────────────────────
+model Bill {
+  id             String        @id @default(cuid())
+  businessId     String
+  tableId        String
+  tableSessionId String        @unique
+  totalAmount    Decimal       @default(0) @db.Decimal(10, 2)
+  paidAmount     Decimal       @default(0) @db.Decimal(10, 2)
+  remainingAmount Decimal      @default(0) @db.Decimal(10, 2)
+  paymentStatus  BillPaymentStatus @default(UNPAID)
+  status         BillStatus    @default(OPEN)
+  openedAt       DateTime      @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table        Table        @relation(fields: [tableId], references: [id])
+  tableSession TableSession @relation(fields: [tableSessionId], references: [id])
+  payments     Payment[]
+
+  @@map("bills")
+}
+
+enum BillPaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+enum BillStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+
+model CustomerSession {
+  id           String                @id @default(cuid())
+  businessId   String
+  tableId      String
+  sessionToken String                @unique
+  status       CustomerSessionStatus @default(ACTIVE)
+  expiresAt    DateTime
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([sessionToken])
+  @@index([tableId, status])
+  @@map("customer_sessions")
+}
+
+enum CustomerSessionStatus {
+  ACTIVE
+  EXPIRED
+  CLOSED
+}
+
+// ─── Ödeme ──────────────────────────────────────────────────────────────────
+model Payment {
+  id                   String         @id @default(cuid())
+  businessId           String
+  tableId              String
+  tableSessionId       String?
+  billId               String?
+  orderId              String?
+  amount               Decimal        @db.Decimal(10, 2)
+  status               PaymentStatus  @default(PENDING)
+  method               PaymentMethod?
+  note                 String?
+  requestedAt          DateTime       @default(now())
+  paidAt               DateTime?
+  handledById          String?
+  handledByWaiterName  String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table        Table         @relation(fields: [tableId], references: [id])
+  tableSession TableSession? @relation(fields: [tableSessionId], references: [id])
+  bill         Bill?         @relation(fields: [billId], references: [id])
+  order        Order?        @relation(fields: [orderId], references: [id])
+
+  @@index([businessId, status, createdAt])
+  @@index([tableId, status])
+  @@index([tableSessionId])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  FAILED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  ONLINE
+  OTHER
+}
+
+// ─── Abonelik ───────────────────────────────────────────────────────────────
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  name            String
+  monthlyPrice    Decimal  @db.Decimal(10, 2)
+  maxTables       Int?
+  maxWaiters      Int?
+  maxProducts     Int?
+  hasReports      Boolean  @default(false)
+  hasPayments     Boolean  @default(false)
+  hasLocationLock Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subscriptions BusinessSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model BusinessSubscription {
+  id          String             @id @default(cuid())
+  businessId  String
+  planId      String
+  status      SubscriptionStatus
+  startedAt   DateTime
+  endsAt      DateTime?
+  trialEndsAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@map("business_subscriptions")
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}

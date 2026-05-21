@@ -1,0 +1,6 @@
+{
+  "buildCommand": "prisma generate && prisma db push --accept-data-loss && next build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"]
+}

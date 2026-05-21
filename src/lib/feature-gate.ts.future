@@ -1,0 +1,366 @@
+/**
+ * Feature Gate System
+ * 
+ * SaaS feature management: plan-based features ve business overrides
+ */
+
+import { prisma } from "./prisma";
+
+export interface FeatureCheckResult {
+  enabled: boolean;
+  limit?: number | null;
+  reason?: string;
+}
+
+/**
+ * Feature key'leri
+ */
+export const FEATURES = {
+  // Table limits
+  TABLES_UNLIMITED: "tables.unlimited",
+  TABLES_LIMIT: "tables.limit",
+  
+  // Waiter limits
+  WAITERS_UNLIMITED: "waiters.unlimited",
+  WAITERS_LIMIT: "waiters.limit",
+  
+  // Product limits
+  PRODUCTS_UNLIMITED: "products.unlimited",
+  PRODUCTS_LIMIT: "products.limit",
+  
+  // Order limits
+  ORDERS_UNLIMITED: "orders.unlimited",
+  ORDERS_MONTHLY_LIMIT: "orders.monthly_limit",
+  
+  // Advanced features
+  REPORTS_ADVANCED: "reports.advanced",
+  BRANDING_CUSTOM: "branding.custom",
+  ANALYTICS_REALTIME: "analytics.realtime",
+  
+  // Integrations
+  INTEGRATIONS_API: "integrations.api",
+  INTEGRATIONS_WEBHOOK: "integrations.webhook",
+  INTEGRATIONS_POS: "integrations.pos",
+  
+  // Support
+  SUPPORT_PRIORITY: "support.priority",
+  SUPPORT_PHONE: "support.phone",
+  
+  // White label
+  WHITE_LABEL: "white_label",
+  CUSTOM_DOMAIN: "custom_domain",
+} as const;
+
+/**
+ * Business için feature'ın enabled olup olmadığını kontrol et
+ * 
+ * Öncelik sırası:
+ * 1. Business override (varsa)
+ * 2. Plan feature
+ * 3. Default (disabled)
+ */
+export async function isFeatureEnabled(
+  businessId: string,
+  featureKey: string
+): Promise<FeatureCheckResult> {
+  try {
+    // 1. Business override kontrolü
+    const override = await prisma.businessFeatureOverride.findUnique({
+      where: {
+        businessId_featureId: {
+          businessId,
+          featureId: featureKey,
+        },
+      },
+      include: {
+        feature: true,
+      },
+    });
+
+    if (override) {
+      // Override expired mı?
+      if (override.expiresAt && new Date() > override.expiresAt) {
+        // Expired, plan feature'a düş
+      } else {
+        return {
+          enabled: override.enabled,
+          limit: override.limit,
+          reason: "business_override",
+        };
+      }
+    }
+
+    // 2. Plan feature kontrolü
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        businessSubscriptions: {
+          where: { status: "ACTIVE" },
+          include: {
+            plan: {
+              include: {
+                planFeatures: {
+                  where: {
+                    feature: { key: featureKey },
+                  },
+                  include: {
+                    feature: true,
+                  },
+                },
+              },
+            },
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (!business) {
+      return { enabled: false, reason: "business_not_found" };
+    }
+
+    const activeSubscription = business.businessSubscriptions[0];
+    if (!activeSubscription) {
+      return { enabled: false, reason: "no_active_subscription" };
+    }
+
+    const planFeature = activeSubscription.plan.planFeatures[0];
+    if (planFeature) {
+      return {
+        enabled: planFeature.enabled,
+        limit: planFeature.limit,
+        reason: "plan_feature",
+      };
+    }
+
+    // 3. Default: disabled
+    return { enabled: false, reason: "feature_not_in_plan" };
+  } catch (error) {
+    console.error("Feature check error:", error);
+    return { enabled: false, reason: "error" };
+  }
+}
+
+/**
+ * Feature'ın enabled olduğunu assert et, değilse throw
+ */
+export async function assertFeatureEnabled(
+  businessId: string,
+  featureKey: string,
+  errorMessage?: string
+): Promise<void> {
+  const result = await isFeatureEnabled(businessId, featureKey);
+  
+  if (!result.enabled) {
+    throw new FeatureNotEnabledError(
+      errorMessage || `Feature '${featureKey}' is not enabled for this business`,
+      featureKey,
+      result.reason
+    );
+  }
+}
+
+/**
+ * Feature limit'i al
+ */
+export async function getFeatureLimit(
+  businessId: string,
+  featureKey: string
+): Promise<number | null> {
+  const result = await isFeatureEnabled(businessId, featureKey);
+  return result.limit ?? null;
+}
+
+/**
+ * Multiple feature'ları kontrol et
+ */
+export async function checkFeatures(
+  businessId: string,
+  featureKeys: string[]
+): Promise<Record<string, FeatureCheckResult>> {
+  const results: Record<string, FeatureCheckResult> = {};
+  
+  for (const key of featureKeys) {
+    results[key] = await isFeatureEnabled(businessId, key);
+  }
+  
+  return results;
+}
+
+/**
+ * Business için tüm enabled feature'ları listele
+ */
+export async function getEnabledFeatures(
+  businessId: string
+): Promise<string[]> {
+  try {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        businessSubscriptions: {
+          where: { status: "ACTIVE" },
+          include: {
+            plan: {
+              include: {
+                planFeatures: {
+                  where: { enabled: true },
+                  include: { feature: true },
+                },
+              },
+            },
+          },
+          take: 1,
+        },
+        businessFeatureOverrides: {
+          where: {
+            enabled: true,
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: new Date() } },
+            ],
+          },
+          include: { feature: true },
+        },
+      },
+    });
+
+    if (!business) return [];
+
+    const enabledFeatures = new Set<string>();
+
+    // Plan features
+    const activeSubscription = business.businessSubscriptions[0];
+    if (activeSubscription) {
+      activeSubscription.plan.planFeatures.forEach((pf) => {
+        enabledFeatures.add(pf.feature.key);
+      });
+    }
+
+    // Overrides (override plan features)
+    business.businessFeatureOverrides.forEach((override) => {
+      if (override.enabled) {
+        enabledFeatures.add(override.feature.key);
+      } else {
+        enabledFeatures.delete(override.feature.key);
+      }
+    });
+
+    return Array.from(enabledFeatures);
+  } catch (error) {
+    console.error("Get enabled features error:", error);
+    return [];
+  }
+}
+
+/**
+ * Feature override oluştur/güncelle
+ */
+export async function setFeatureOverride(
+  businessId: string,
+  featureKey: string,
+  enabled: boolean,
+  options?: {
+    limit?: number | null;
+    reason?: string;
+    expiresAt?: Date;
+  }
+): Promise<void> {
+  await prisma.businessFeatureOverride.upsert({
+    where: {
+      businessId_featureId: {
+        businessId,
+        featureId: featureKey,
+      },
+    },
+    create: {
+      businessId,
+      featureId: featureKey,
+      enabled,
+      limit: options?.limit,
+      reason: options?.reason,
+      expiresAt: options?.expiresAt,
+    },
+    update: {
+      enabled,
+      limit: options?.limit,
+      reason: options?.reason,
+      expiresAt: options?.expiresAt,
+    },
+  });
+}
+
+/**
+ * Feature override sil
+ */
+export async function removeFeatureOverride(
+  businessId: string,
+  featureKey: string
+): Promise<void> {
+  await prisma.businessFeatureOverride.delete({
+    where: {
+      businessId_featureId: {
+        businessId,
+        featureId: featureKey,
+      },
+    },
+  });
+}
+
+/**
+ * Custom error class
+ */
+export class FeatureNotEnabledError extends Error {
+  constructor(
+    message: string,
+    public featureKey: string,
+    public reason?: string
+  ) {
+    super(message);
+    this.name = "FeatureNotEnabledError";
+  }
+}
+
+/**
+ * Helper: Plan'ın feature'ı var mı kontrol et
+ */
+export async function planHasFeature(
+  planId: string,
+  featureKey: string
+): Promise<boolean> {
+  const planFeature = await prisma.planFeature.findFirst({
+    where: {
+      planId,
+      feature: { key: featureKey },
+      enabled: true,
+    },
+  });
+
+  return !!planFeature;
+}
+
+/**
+ * Helper: Business'ın plan limitleri
+ */
+export async function getBusinessLimits(businessId: string): Promise<{
+  tables: number | null;
+  waiters: number | null;
+  products: number | null;
+  monthlyOrders: number | null;
+}> {
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: {
+      maxTables: true,
+      maxWaiters: true,
+      maxProducts: true,
+      maxMonthlyOrders: true,
+    },
+  });
+
+  return {
+    tables: business?.maxTables ?? null,
+    waiters: business?.maxWaiters ?? null,
+    products: business?.maxProducts ?? null,
+    monthlyOrders: business?.maxMonthlyOrders ?? null,
+  };
+}

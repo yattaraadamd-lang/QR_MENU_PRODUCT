@@ -1,0 +1,382 @@
+/**
+ * Usage Tracking Service
+ * 
+ * SaaS usage metrics ve limit enforcement
+ */
+
+import { prisma } from "./prisma";
+import { getBusinessLimits } from "./feature-gate";
+
+export type UsageMetricType =
+  | "ORDERS_COUNT"
+  | "TABLES_COUNT"
+  | "WAITERS_COUNT"
+  | "PRODUCTS_COUNT"
+  | "API_CALLS_COUNT"
+  | "WEBHOOK_CALLS_COUNT"
+  | "STORAGE_MB";
+
+export type UsagePeriod = "daily" | "monthly" | "total";
+
+/**
+ * Usage metric kaydet
+ */
+export async function recordUsageMetric(
+  businessId: string,
+  metricType: UsageMetricType,
+  value: number,
+  period?: string // YYYY-MM format, default: current month
+): Promise<void> {
+  const periodStr = period || getCurrentPeriod();
+
+  await prisma.usageMetric.upsert({
+    where: {
+      businessId_metricType_period: {
+        businessId,
+        metricType,
+        period: periodStr,
+      },
+    },
+    create: {
+      businessId,
+      metricType,
+      value,
+      period: periodStr,
+    },
+    update: {
+      value,
+      recordedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Usage metric increment
+ */
+export async function incrementUsageMetric(
+  businessId: string,
+  metricType: UsageMetricType,
+  increment: number = 1,
+  period?: string
+): Promise<void> {
+  const periodStr = period || getCurrentPeriod();
+
+  await prisma.usageMetric.upsert({
+    where: {
+      businessId_metricType_period: {
+        businessId,
+        metricType,
+        period: periodStr,
+      },
+    },
+    create: {
+      businessId,
+      metricType,
+      value: increment,
+      period: periodStr,
+    },
+    update: {
+      value: { increment },
+      recordedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Usage metric al
+ */
+export async function getUsageMetric(
+  businessId: string,
+  metricType: UsageMetricType,
+  period?: string
+): Promise<number> {
+  const periodStr = period || getCurrentPeriod();
+
+  const metric = await prisma.usageMetric.findUnique({
+    where: {
+      businessId_metricType_period: {
+        businessId,
+        metricType,
+        period: periodStr,
+      },
+    },
+  });
+
+  return metric?.value ?? 0;
+}
+
+/**
+ * Tüm usage metrics al
+ */
+export async function getAllUsageMetrics(
+  businessId: string,
+  period?: string
+): Promise<Record<UsageMetricType, number>> {
+  const periodStr = period || getCurrentPeriod();
+
+  const metrics = await prisma.usageMetric.findMany({
+    where: {
+      businessId,
+      period: periodStr,
+    },
+  });
+
+  const result: any = {
+    ORDERS_COUNT: 0,
+    TABLES_COUNT: 0,
+    WAITERS_COUNT: 0,
+    PRODUCTS_COUNT: 0,
+    API_CALLS_COUNT: 0,
+    WEBHOOK_CALLS_COUNT: 0,
+    STORAGE_MB: 0,
+  };
+
+  metrics.forEach((m) => {
+    result[m.metricType] = m.value;
+  });
+
+  return result;
+}
+
+/**
+ * Usage limit kontrolü
+ */
+export async function checkUsageLimit(
+  businessId: string,
+  resourceType: "tables" | "waiters" | "products" | "orders",
+  period: UsagePeriod = "total"
+): Promise<{
+  current: number;
+  limit: number | null;
+  exceeded: boolean;
+  percentage: number;
+}> {
+  const limits = await getBusinessLimits(businessId);
+  
+  let current: number;
+  let limit: number | null;
+
+  switch (resourceType) {
+    case "tables":
+      current = await prisma.table.count({
+        where: { businessId, isDeleted: false },
+      });
+      limit = limits.tables;
+      break;
+
+    case "waiters":
+      current = await prisma.user.count({
+        where: { businessId, role: "WAITER", deletedAt: null },
+      });
+      limit = limits.waiters;
+      break;
+
+    case "products":
+      current = await prisma.product.count({
+        where: { businessId, isDeleted: false },
+      });
+      limit = limits.products;
+      break;
+
+    case "orders":
+      if (period === "monthly") {
+        current = await getUsageMetric(businessId, "ORDERS_COUNT");
+        limit = limits.monthlyOrders;
+      } else {
+        current = await prisma.order.count({
+          where: { businessId },
+        });
+        limit = null; // Total orders genelde limitsiz
+      }
+      break;
+
+    default:
+      throw new Error(`Unknown resource type: ${resourceType}`);
+  }
+
+  const exceeded = limit !== null && current >= limit;
+  const percentage = limit !== null ? (current / limit) * 100 : 0;
+
+  return {
+    current,
+    limit,
+    exceeded,
+    percentage,
+  };
+}
+
+/**
+ * Usage limit assert - limit aşıldıysa throw
+ */
+export async function assertUsageLimit(
+  businessId: string,
+  resourceType: "tables" | "waiters" | "products" | "orders",
+  period: UsagePeriod = "total"
+): Promise<void> {
+  const check = await checkUsageLimit(businessId, resourceType, period);
+
+  if (check.exceeded) {
+    throw new UsageLimitExceededError(
+      `${resourceType} limit exceeded: ${check.current}/${check.limit}`,
+      resourceType,
+      check.current,
+      check.limit!
+    );
+  }
+}
+
+/**
+ * Usage event kaydet (audit trail için)
+ */
+export async function recordUsageEvent(
+  businessId: string,
+  eventType: string,
+  metadata?: Record<string, any>
+): Promise<void> {
+  await prisma.usageEvent.create({
+    data: {
+      businessId,
+      eventType,
+      metadata: metadata || {},
+    },
+  });
+}
+
+/**
+ * Usage warning kontrolü (soft limit)
+ */
+export async function checkUsageWarning(
+  businessId: string,
+  resourceType: "tables" | "waiters" | "products" | "orders",
+  warningThreshold: number = 80 // %80
+): Promise<{
+  shouldWarn: boolean;
+  percentage: number;
+  message?: string;
+}> {
+  const check = await checkUsageLimit(businessId, resourceType);
+
+  if (check.limit === null) {
+    return { shouldWarn: false, percentage: 0 };
+  }
+
+  const shouldWarn = check.percentage >= warningThreshold;
+
+  return {
+    shouldWarn,
+    percentage: check.percentage,
+    message: shouldWarn
+      ? `You are using ${check.percentage.toFixed(0)}% of your ${resourceType} limit (${check.current}/${check.limit})`
+      : undefined,
+  };
+}
+
+/**
+ * Tüm usage limits özeti
+ */
+export async function getUsageSummary(businessId: string): Promise<{
+  tables: ReturnType<typeof checkUsageLimit> extends Promise<infer T> ? T : never;
+  waiters: ReturnType<typeof checkUsageLimit> extends Promise<infer T> ? T : never;
+  products: ReturnType<typeof checkUsageLimit> extends Promise<infer T> ? T : never;
+  orders: ReturnType<typeof checkUsageLimit> extends Promise<infer T> ? T : never;
+}> {
+  const [tables, waiters, products, orders] = await Promise.all([
+    checkUsageLimit(businessId, "tables"),
+    checkUsageLimit(businessId, "waiters"),
+    checkUsageLimit(businessId, "products"),
+    checkUsageLimit(businessId, "orders", "monthly"),
+  ]);
+
+  return { tables, waiters, products, orders };
+}
+
+/**
+ * Usage metrics sync (günlük cron job için)
+ */
+export async function syncUsageMetrics(businessId: string): Promise<void> {
+  const period = getCurrentPeriod();
+
+  // Orders count
+  const ordersCount = await prisma.order.count({
+    where: {
+      businessId,
+      createdAt: {
+        gte: new Date(period + "-01"),
+        lt: getNextMonthStart(period),
+      },
+    },
+  });
+  await recordUsageMetric(businessId, "ORDERS_COUNT", ordersCount, period);
+
+  // Tables count
+  const tablesCount = await prisma.table.count({
+    where: { businessId, isDeleted: false },
+  });
+  await recordUsageMetric(businessId, "TABLES_COUNT", tablesCount, period);
+
+  // Waiters count
+  const waitersCount = await prisma.user.count({
+    where: { businessId, role: "WAITER", deletedAt: null },
+  });
+  await recordUsageMetric(businessId, "WAITERS_COUNT", waitersCount, period);
+
+  // Products count
+  const productsCount = await prisma.product.count({
+    where: { businessId, isDeleted: false },
+  });
+  await recordUsageMetric(businessId, "PRODUCTS_COUNT", productsCount, period);
+}
+
+/**
+ * Tüm business'lar için usage sync (cron job)
+ */
+export async function syncAllUsageMetrics(): Promise<void> {
+  const businesses = await prisma.business.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+
+  for (const business of businesses) {
+    try {
+      await syncUsageMetrics(business.id);
+    } catch (error) {
+      console.error(`Usage sync failed for business ${business.id}:`, error);
+    }
+  }
+}
+
+/**
+ * Helper: Current period (YYYY-MM)
+ */
+function getCurrentPeriod(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+/**
+ * Helper: Next month start date
+ */
+function getNextMonthStart(period: string): Date {
+  const [year, month] = period.split("-").map(Number);
+  if (month === 12) {
+    return new Date(year + 1, 0, 1);
+  }
+  return new Date(year, month, 1);
+}
+
+/**
+ * Custom error class
+ */
+export class UsageLimitExceededError extends Error {
+  constructor(
+    message: string,
+    public resourceType: string,
+    public current: number,
+    public limit: number
+  ) {
+    super(message);
+    this.name = "UsageLimitExceededError";
+  }
+}
