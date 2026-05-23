@@ -47,6 +47,9 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [activeRequests, setActiveRequests] = useState<Record<string, boolean>>({});
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [locationPermission, setLocationPermission] = useState<"granted" | "denied" | "prompt" | "checking">("checking");
+  const [isWithinRange, setIsWithinRange] = useState<boolean>(true);
+  const [distanceInfo, setDistanceInfo] = useState<{ distance: number; allowed: number } | null>(null);
 
   const showToast = (msg: string, type: "ok" | "err" = "ok") => {
     setToast({ msg, type });
@@ -128,8 +131,78 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
       navigator.geolocation.getCurrentPosition(p => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null), { timeout: 5000 });
     });
 
+  const checkLocationPermissionAndRange = useCallback(async () => {
+    if (!business || !navigator.geolocation) {
+      setLocationPermission("denied");
+      return;
+    }
+
+    // Konum izni kontrolü
+    if (navigator.permissions) {
+      try {
+        const result = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+        setLocationPermission(result.state as any);
+        
+        result.addEventListener("change", () => {
+          setLocationPermission(result.state as any);
+        });
+      } catch {
+        setLocationPermission("prompt");
+      }
+    }
+
+    // İşletme konum kısıtlaması var mı kontrol et
+    const bizData = business as any;
+    if (!bizData.latitude || !bizData.longitude || !bizData.allowedRadiusMeters) {
+      // Konum kısıtlaması yok, her zaman izin ver
+      setIsWithinRange(true);
+      return;
+    }
+
+    // Kullanıcı konumunu al ve mesafeyi hesapla
+    const loc = await getLocation();
+    if (!loc) {
+      setIsWithinRange(false);
+      return;
+    }
+
+    // Haversine formülü ile mesafe hesapla
+    const R = 6371e3;
+    const dLat = (loc.lat - bizData.latitude) * (Math.PI / 180);
+    const dLon = (loc.lng - bizData.longitude) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(bizData.latitude * (Math.PI / 180)) * Math.cos(loc.lat * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    setDistanceInfo({ distance: Math.round(distance), allowed: bizData.allowedRadiusMeters });
+    setIsWithinRange(distance <= bizData.allowedRadiusMeters);
+  }, [business]);
+
+  useEffect(() => {
+    if (business) {
+      checkLocationPermissionAndRange();
+      // Her 10 saniyede bir konum kontrolü yap
+      const interval = setInterval(checkLocationPermissionAndRange, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [business, checkLocationPermissionAndRange]);
+
   const submitOrder = async () => {
     if (!cart.length || !business || !table) return;
+    
+    // Konum kontrolü
+    if (locationPermission === "denied" || !isWithinRange) {
+      if (locationPermission === "denied") {
+        showToast("Sipariş vermek için konum izni gereklidir", "err");
+      } else {
+        showToast("Sipariş vermek için restoran içinde olmalısınız", "err");
+      }
+      return;
+    }
+    
     setSubmitting(true);
     try {
       const loc = await getLocation();
@@ -146,6 +219,17 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
 
   const sendRequest = async (type: string, reason?: string, note?: string) => {
     if (!business || !table) return;
+    
+    // Konum kontrolü
+    if (locationPermission === "denied" || !isWithinRange) {
+      if (locationPermission === "denied") {
+        showToast("Bu işlem için konum izni gereklidir", "err");
+      } else {
+        showToast("Bu işlem için restoran içinde olmalısınız", "err");
+      }
+      return;
+    }
+    
     const isBlocked =
       (type === "CALL_WAITER" && (activeRequests["CALL_WAITER"] || activeRequests["CALL_WAITER_BLOCKED"])) ||
       (type === "PAYMENT_REQUEST" && (activeRequests["PAYMENT_REQUEST"] || activeRequests["PAYMENT_REQUEST_BLOCKED"]));
@@ -219,9 +303,33 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
             <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Toplam</span>
             <span style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)" }}>{cartTotal.toFixed(2)} ₺</span>
           </div>
-          <button onClick={submitOrder} disabled={submitting} className="btn btn-primary" style={{ width: "100%", padding: "15px 0", borderRadius: 14, fontSize: 16 }}>
-            {submitting ? "Gönderiliyor..." : "Siparişi Gönder 🚀"}
+          <button 
+            onClick={submitOrder} 
+            disabled={submitting || locationPermission === "denied" || !isWithinRange} 
+            className="btn btn-primary" 
+            style={{ 
+              width: "100%", 
+              padding: "15px 0", 
+              borderRadius: 14, 
+              fontSize: 16,
+              opacity: (locationPermission === "denied" || !isWithinRange) ? 0.5 : 1,
+              cursor: (locationPermission === "denied" || !isWithinRange) ? "not-allowed" : "pointer"
+            }}
+          >
+            {submitting ? "Gönderiliyor..." : 
+             locationPermission === "denied" ? "🔒 Konum İzni Gerekli" :
+             !isWithinRange ? "🔒 Restoran Dışındasınız" :
+             "Siparişi Gönder 🚀"}
           </button>
+          {(locationPermission === "denied" || !isWithinRange) && (
+            <p style={{ fontSize: 12, color: "var(--danger)", textAlign: "center", marginTop: 8 }}>
+              {locationPermission === "denied" 
+                ? "Sipariş vermek için tarayıcınızdan konum izni vermeniz gerekiyor."
+                : distanceInfo 
+                  ? `Restoran ${distanceInfo.allowed}m içinde olmalısınız. Şu anki mesafeniz: ${distanceInfo.distance}m`
+                  : "Sipariş vermek için restoran içinde olmalısınız."}
+            </p>
+          )}
         </>
       )}
     </>
@@ -268,6 +376,58 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
           maxWidth: "90vw", textAlign: "center",
         }}>
           {toast.msg}
+        </div>
+      )}
+
+      {/* ── Konum Durumu Banner ────────────────────────────────────────────── */}
+      {(locationPermission === "denied" || !isWithinRange) && (
+        <div style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          background: locationPermission === "denied" ? "#dc2626" : "#f59e0b",
+          color: "white",
+          padding: "12px 16px",
+          textAlign: "center",
+          fontSize: 13,
+          fontWeight: 600,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+        }}>
+          {locationPermission === "denied" ? (
+            <>
+              🔒 Sipariş ve hizmet talepleri için konum izni gereklidir
+              <button
+                onClick={() => {
+                  navigator.geolocation.getCurrentPosition(
+                    () => checkLocationPermissionAndRange(),
+                    () => showToast("Konum izni reddedildi", "err")
+                  );
+                }}
+                style={{
+                  marginLeft: 8,
+                  padding: "4px 12px",
+                  borderRadius: 6,
+                  background: "rgba(255,255,255,0.2)",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                  color: "white",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                İzin Ver
+              </button>
+            </>
+          ) : (
+            <>
+              ⚠️ Restoran dışındasınız - Menüyü görüntüleyebilirsiniz ancak sipariş veremezsiniz
+              {distanceInfo && (
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.9 }}>
+                  Mesafeniz: {distanceInfo.distance}m / İzin verilen: {distanceInfo.allowed}m
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -453,10 +613,30 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
               )}
               <button
                 onClick={() => sendRequest("CALL_WAITER", waiterReason === "Diğer" ? waiterNote : waiterReason)}
-                disabled={!waiterReason || (waiterReason === "Diğer" && !waiterNote.trim())}
-                className="btn btn-primary" style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 16 }}>
-                Garson Çağır
+                disabled={!waiterReason || (waiterReason === "Diğer" && !waiterNote.trim()) || locationPermission === "denied" || !isWithinRange}
+                className="btn btn-primary" 
+                style={{ 
+                  width: "100%", 
+                  padding: "14px 0", 
+                  borderRadius: 14, 
+                  fontSize: 16,
+                  opacity: (locationPermission === "denied" || !isWithinRange) ? 0.5 : 1,
+                  cursor: (locationPermission === "denied" || !isWithinRange) ? "not-allowed" : "pointer"
+                }}
+              >
+                {locationPermission === "denied" ? "🔒 Konum İzni Gerekli" :
+                 !isWithinRange ? "🔒 Restoran Dışındasınız" :
+                 "Garson Çağır"}
               </button>
+              {(locationPermission === "denied" || !isWithinRange) && (
+                <p style={{ fontSize: 12, color: "var(--danger)", textAlign: "center", marginTop: 8 }}>
+                  {locationPermission === "denied" 
+                    ? "Garson çağırmak için tarayıcınızdan konum izni vermeniz gerekiyor."
+                    : distanceInfo 
+                      ? `Restoran ${distanceInfo.allowed}m içinde olmalısınız. Şu anki mesafeniz: ${distanceInfo.distance}m`
+                      : "Garson çağırmak için restoran içinde olmalısınız."}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -478,6 +658,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
                   action: () => { setShowServiceMenu(false); setShowWaiterModal(true); },
                   blocked: activeRequests["CALL_WAITER"] || activeRequests["CALL_WAITER_BLOCKED"],
                   activeMsg: activeRequests["CALL_WAITER"] ? "Çağrınız iletildi, bekleniyor..." : undefined,
+                  requiresLocation: true,
                 },
                 {
                   type: "PAYMENT_REQUEST",
@@ -485,6 +666,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
                   action: () => sendRequest("PAYMENT_REQUEST"),
                   blocked: activeRequests["PAYMENT_REQUEST"] || activeRequests["PAYMENT_REQUEST_BLOCKED"],
                   activeMsg: activeRequests["PAYMENT_REQUEST"] ? "Ödeme talebiniz iletildi, bekleniyor..." : undefined,
+                  requiresLocation: true,
                 },
                 {
                   type: "HELP_REQUEST",
@@ -492,32 +674,40 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
                   action: () => sendRequest("HELP_REQUEST"),
                   blocked: false,
                   activeMsg: undefined,
+                  requiresLocation: true,
                 },
-              ].map(item => (
+              ].map(item => {
+                const isDisabled = item.blocked || (item.requiresLocation && (locationPermission === "denied" || !isWithinRange));
+                return (
                 <div key={item.type}>
-                  <button className="service-btn card" onClick={item.blocked ? undefined : item.action} style={{
+                  <button className="service-btn card" onClick={isDisabled ? undefined : item.action} style={{
                     display: "flex", alignItems: "center", gap: 14, padding: "16px",
-                    borderRadius: 16, border: `1px solid ${item.blocked ? "rgba(220,38,38,0.3)" : "var(--border-color)"}`,
-                    background: item.blocked ? "rgba(220,38,38,0.04)" : "var(--bg-card)",
-                    cursor: item.blocked ? "not-allowed" : "pointer", textAlign: "left",
-                    transition: "all 0.15s", width: "100%", opacity: item.blocked ? 0.8 : 1,
+                    borderRadius: 16, border: `1px solid ${isDisabled ? "rgba(220,38,38,0.3)" : "var(--border-color)"}`,
+                    background: isDisabled ? "rgba(220,38,38,0.04)" : "var(--bg-card)",
+                    cursor: isDisabled ? "not-allowed" : "pointer", textAlign: "left",
+                    transition: "all 0.15s", width: "100%", opacity: isDisabled ? 0.8 : 1,
                     boxShadow: "var(--shadow-sm)"
                   }}>
                     <span style={{ fontSize: 32, flexShrink: 0 }}>{item.icon}</span>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: 700, fontSize: 16, color: item.blocked ? "var(--text-muted)" : "var(--text-primary)" }}>{item.title}</p>
+                      <p style={{ fontWeight: 700, fontSize: 16, color: isDisabled ? "var(--text-muted)" : "var(--text-primary)" }}>{item.title}</p>
                       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>
-                        {item.activeMsg || item.desc}
+                        {item.activeMsg || 
+                         (locationPermission === "denied" && item.requiresLocation ? "🔒 Konum izni gerekli" :
+                          !isWithinRange && item.requiresLocation ? "🔒 Restoran dışındasınız" :
+                          item.desc)}
                       </p>
                     </div>
                     {item.blocked ? (
                       <span style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, flexShrink: 0 }}>⏳ Bekliyor</span>
+                    ) : (locationPermission === "denied" || !isWithinRange) && item.requiresLocation ? (
+                      <span style={{ fontSize: 12, color: "var(--danger)", fontWeight: 600, flexShrink: 0 }}>🔒</span>
                     ) : (
                       <span style={{ color: "var(--text-muted)", fontSize: 20 }}>›</span>
                     )}
                   </button>
                 </div>
-              ))}
+              )}))}
             </div>
           </div>
         </div>

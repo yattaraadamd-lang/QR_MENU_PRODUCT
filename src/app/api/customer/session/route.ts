@@ -5,13 +5,14 @@ import { v4 as uuidv4 } from "uuid";
 export const dynamic = "force-dynamic";
 
 // POST /api/customer/session - Müşteri oturumu oluştur (CustomerSession tablosunda)
+// ✅ Yeni session oluşturmak için qrToken (QR tarama kanıtı) ZORUNLUDUR
 // ✅ Table.qrToken DEĞİŞTİRİLMEZ — kalıcı QR kimliği korunur
 // ✅ Masa durumu DEĞİŞTİRİLMEZ — sadece sipariş verilince değişir
 // ✅ TableSession / Bill OLUŞTURULMAZ — sadece sipariş verilince oluşturulur
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId } = body;
+    const { businessId, tableId, qrToken } = body;
 
     if (!businessId || !tableId) {
       return NextResponse.json(
@@ -42,11 +43,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingSession) {
-      // Mevcut aktif session'ı döndür
+      // Mevcut aktif session'ı döndür — QR tarama gerekmez
       return NextResponse.json({
         sessionToken: existingSession.sessionToken,
         expiresAt: existingSession.expiresAt.toISOString(),
         message: "Mevcut oturum kullanılıyor",
+      });
+    }
+
+    // ✅ Yeni session oluşturmak için qrToken ZORUNLU
+    // QR tarama kanıtı: qrToken masanın kalıcı QR kimliği ile eşleşmeli
+    // Sayfa yenilemesi ile yeni session oluşturulamaz
+    if (!qrToken || qrToken !== table.qrToken) {
+      return NextResponse.json({
+        sessionToken: null,
+        viewOnly: true,
+        message: "Menü görüntülenebilir. Sipariş vermek için QR kodu tekrar okutun.",
       });
     }
 
@@ -63,10 +75,6 @@ export async function POST(request: NextRequest) {
         expiresAt,
       },
     });
-
-    // ✅ Table.qrToken dokunulmadı
-    // ✅ Masa durumu değiştirilmedi
-    // ✅ TableSession / Bill oluşturulmadı
 
     return NextResponse.json({
       sessionToken,
@@ -110,7 +118,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (new Date() > session.expiresAt) {
-      // Süresi dolmuş session'ı EXPIRED yap
       await prisma.customerSession.update({
         where: { id: session.id },
         data: { status: "EXPIRED" },
@@ -127,4 +134,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
 
