@@ -54,27 +54,17 @@ export async function POST(request: NextRequest) {
 
     const business = table.business;
 
-    // Konum Kısıtlaması Kontrolü
-    if (business.latitude && business.longitude && business.allowedRadiusMeters) {
-      if (!customerLat || !customerLng) {
-        return NextResponse.json(
-          { error: "İşletme konum kısıtlaması uyguluyor. Lütfen konum erişimine izin verin." },
-          { status: 403 }
-        );
-      }
-
+    // ✅ Konum kontrolü - OPSIYONEL (sadece log, ödeme talebi engellenmez)
+    // Asıl güvenlik: CustomerSession (aktif mi?) + TableSession (masa kapatılmış mı?)
+    if (customerLat && customerLng && business.latitude && business.longitude && business.allowedRadiusMeters) {
       const distance = getDistanceFromLatLonInMeters(
         business.latitude,
         business.longitude,
         customerLat,
         customerLng
       );
-
       if (distance > business.allowedRadiusMeters) {
-        return NextResponse.json(
-          { error: `Restoranın dışında görünüyorsunuz. İzin verilen mesafe: ${business.allowedRadiusMeters}m, sizin mesafeniz: ${Math.round(distance)}m.` },
-          { status: 403 }
-        );
+        console.log(`⚠️ Ödeme talebi restoran dışından gönderildi. Masa: ${table.tableNumber}, Mesafe: ${Math.round(distance)}m`);
       }
     }
 

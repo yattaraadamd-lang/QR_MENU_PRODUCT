@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { rateLimit, getClientIp, RateLimitPresets, createRateLimitResponse } from "@/lib/rate-limit";
 import { verifyQRSession } from "@/lib/tenant";
 import { validateBody, createOrderSchema } from "@/lib/validation";
+import { getDistanceFromLatLonInMeters } from "@/lib/location-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,25 @@ export async function POST(request: NextRequest) {
 
     const { table } = sessionResult;
     const businessId = table.businessId;
+
+    // Konum kontrolü - OPSIYONEL (sadece uyarı amaçlı, sipariş engellenmez)
+    // Asıl güvenlik CustomerSession + TableSession ile sağlanır
+    const { customerLat, customerLng } = body;
+    if (customerLat && customerLng && table.business) {
+      const biz = table.business as any;
+      if (biz.latitude && biz.longitude && biz.allowedRadiusMeters) {
+        const distance = getDistanceFromLatLonInMeters(
+          biz.latitude,
+          biz.longitude,
+          customerLat,
+          customerLng
+        );
+        // Sadece log, sipariş engellenmez
+        if (distance > biz.allowedRadiusMeters) {
+          console.log(`⚠️ Sipariş restoran dışından verildi. Mesafe: ${Math.round(distance)}m / İzin verilen: ${biz.allowedRadiusMeters}m`);
+        }
+      }
+    }
 
     // Transaction içinde tüm işlemleri yap
     const result = await prisma.$transaction(async (tx) => {

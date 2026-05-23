@@ -76,22 +76,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
     }
 
-    // Konum kısıtlaması kontrolü
-    if (business.latitude && business.longitude && business.allowedRadiusMeters) {
-      if (!customerLat || !customerLng) {
-        return NextResponse.json(
-          { error: "Bu işlem yalnızca işletme içerisindeyken yapılabilir. Lütfen konum erişimine izin verin." },
-          { status: 403 }
-        );
-      }
+    // ✅ Konum kontrolü - OPSIYONEL (sadece log, sipariş engellenmez)
+    // Asıl güvenlik: CustomerSession (aktif mi?) + TableSession (masa kapatılmış mı?)
+    if (customerLat && customerLng && business.latitude && business.longitude && business.allowedRadiusMeters) {
       const distance = getDistanceFromLatLonInMeters(
         business.latitude, business.longitude, customerLat, customerLng
       );
       if (distance > business.allowedRadiusMeters) {
-        return NextResponse.json(
-          { error: "Bu işlem yalnızca işletme içerisindeyken yapılabilir." },
-          { status: 403 }
-        );
+        console.log(`⚠️ Sipariş restoran dışından verildi. Masa: ${table.tableNumber}, Mesafe: ${Math.round(distance)}m / İzin verilen: ${business.allowedRadiusMeters}m`);
       }
     }
 
