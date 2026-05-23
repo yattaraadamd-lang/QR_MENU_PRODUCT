@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import QRCode from "qrcode";
+import { v4 as uuidv4 } from "uuid";
 
 // POST /api/admin/tables/[id]/generate-qr - QR kod oluştur
 export async function POST(
@@ -16,6 +17,11 @@ export async function POST(
 
     const table = await prisma.table.findFirst({
       where: { id: params.id, businessId },
+      include: {
+        business: {
+          select: { slug: true },
+        },
+      },
     });
 
     if (!table) {
@@ -25,15 +31,18 @@ export async function POST(
       );
     }
 
-    if (!table.qrToken) {
-      return NextResponse.json(
-        { error: "Masa için QR token bulunamadı" },
-        { status: 400 }
-      );
+    // ✅ qrToken null ise yeni kalıcı token oluştur ve kaydet
+    let qrToken = table.qrToken;
+    if (!qrToken) {
+      qrToken = `qr_${table.business?.slug || businessId}_${table.tableNumber}_${uuidv4().slice(0, 8)}`;
+      await prisma.table.update({
+        where: { id: params.id },
+        data: { qrToken },
+      });
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const qrUrl = `${appUrl}/qr/${table.qrToken}`;
+    const qrUrl = `${appUrl}/qr/${qrToken}`;
 
     // QR kod görselini oluştur (base64 data URL)
     const qrImageData = await QRCode.toDataURL(qrUrl, {
@@ -48,7 +57,7 @@ export async function POST(
     return NextResponse.json({
       message: "QR kod oluşturuldu",
       qrUrl,
-      qrToken: table.qrToken,
+      qrToken,
       qrImageData,
       tableNumber: table.tableNumber,
       tableName: table.tableName,
@@ -61,3 +70,4 @@ export async function POST(
     );
   }
 }
+

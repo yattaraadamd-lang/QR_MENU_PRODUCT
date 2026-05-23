@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { TableStatus } from "@prisma/client";
 
 // GET /api/qr/[qrToken] - QR token ile işletme ve masa bilgisi getir
+// ✅ Masa durumunu DEĞİŞTİRMEZ — sadece bilgi döndürür
 export async function GET(
   request: NextRequest,
   { params }: { params: { qrToken: string } }
@@ -39,21 +39,14 @@ export async function GET(
       );
     }
 
-    // Masa durumunu OCCUPIED yap (eğer EMPTY ise)
-    if (table.status === TableStatus.EMPTY) {
-      await prisma.table.update({
-        where: { id: table.id },
-        data: { status: TableStatus.OCCUPIED },
-      });
-    }
-
+    // ✅ Masa durumu değiştirilmiyor — sadece bilgi döndürülüyor
     return NextResponse.json({
       business: table.business,
       table: {
         id: table.id,
         tableNumber: table.tableNumber,
         tableName: table.tableName,
-        status: table.status === TableStatus.EMPTY ? TableStatus.OCCUPIED : table.status,
+        status: table.status,
       },
     });
   } catch (error) {

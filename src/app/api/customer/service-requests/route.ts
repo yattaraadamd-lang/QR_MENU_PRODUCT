@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
     }
 
-    // Session token kontrolü
+    // ✅ Session token kontrolü — CustomerSession tablosundan doğrula
     const sessionToken = request.headers.get("x-session-token");
     if (!sessionToken) {
       return NextResponse.json(
@@ -36,12 +36,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Silinen masa kontrolü
+    const customerSession = await prisma.customerSession.findFirst({
+      where: {
+        sessionToken,
+        tableId,
+        businessId,
+        status: "ACTIVE",
+      },
+    });
+
+    if (!customerSession) {
+      return NextResponse.json(
+        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
+        { status: 401 }
+      );
+    }
+
+    if (new Date() > customerSession.expiresAt) {
+      await prisma.customerSession.update({
+        where: { id: customerSession.id },
+        data: { status: "EXPIRED" },
+      });
+      return NextResponse.json(
+        { error: "Oturum süresi doldu. Lütfen QR kodu tekrar okutun." },
+        { status: 401 }
+      );
+    }
+
+    // ✅ Masa kontrolü — silinen masa engellenir
     const table = await prisma.table.findFirst({
       where: {
         id: tableId,
         businessId,
-        qrToken: sessionToken,
         isActive: true,
         isDeleted: false,
       },
@@ -50,15 +76,8 @@ export async function POST(request: NextRequest) {
 
     if (!table || !table.business) {
       return NextResponse.json(
-        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
-        { status: 401 }
-      );
-    }
-
-    if (table.qrTokenExpiresAt && new Date() > table.qrTokenExpiresAt) {
-      return NextResponse.json(
-        { error: "Oturum süresi doldu. Lütfen QR kodu tekrar okutun." },
-        { status: 401 }
+        { error: "Masa bulunamadı veya aktif değil." },
+        { status: 404 }
       );
     }
 
@@ -143,12 +162,15 @@ export async function POST(request: NextRequest) {
       include: { table: true },
     });
 
-    // Masa durumunu güncelle
+    // ✅ Masa durumunu güncelle — SADECE masa zaten dolu ise
+    // Masa EMPTY iken garson çağırma/ödeme isteği masayı dolu YAPMAZ
     let tableStatus = table.status;
-    if (requestType === "CALL_WAITER") {
-      tableStatus = TableStatus.WAITING_WAITER;
-    } else if (requestType === "PAYMENT_REQUEST") {
-      tableStatus = TableStatus.PAYMENT_REQUESTED;
+    if (table.status !== TableStatus.EMPTY) {
+      if (requestType === "CALL_WAITER") {
+        tableStatus = TableStatus.WAITING_WAITER;
+      } else if (requestType === "PAYMENT_REQUEST") {
+        tableStatus = TableStatus.PAYMENT_REQUESTED;
+      }
     }
 
     if (tableStatus !== table.status) {
@@ -227,3 +249,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Talep oluşturulurken bir hata oluştu" }, { status: 500 });
   }
 }
+

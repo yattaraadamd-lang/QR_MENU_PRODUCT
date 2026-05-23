@@ -6,7 +6,7 @@ import { getDistanceFromLatLonInMeters } from "@/lib/location-helpers";
 
 export const dynamic = "force-dynamic";
 
-// Oturum token kontrolü
+// ✅ Oturum token kontrolü — CustomerSession tablosundan doğrula
 async function validateSessionToken(
   request: NextRequest,
   tableId: string
@@ -16,20 +16,24 @@ async function validateSessionToken(
     return { valid: false, error: "Oturum token'ı gerekli. Lütfen QR kodu tekrar okutun." };
   }
 
-  const table = await prisma.table.findFirst({
+  // ✅ CustomerSession tablosundan doğrula — Table.qrToken kullanılmıyor
+  const customerSession = await prisma.customerSession.findFirst({
     where: {
-      id: tableId,
-      qrToken: sessionToken,
-      isActive: true,
-      isDeleted: false, // ✅ Silinen masa kontrolü
+      sessionToken,
+      tableId,
+      status: "ACTIVE",
     },
   });
 
-  if (!table) {
+  if (!customerSession) {
     return { valid: false, error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." };
   }
 
-  if (table.qrTokenExpiresAt && new Date() > table.qrTokenExpiresAt) {
+  if (new Date() > customerSession.expiresAt) {
+    await prisma.customerSession.update({
+      where: { id: customerSession.id },
+      data: { status: "EXPIRED" },
+    });
     return { valid: false, error: "Oturum süresi doldu. Lütfen QR kodu tekrar okutun." };
   }
 
@@ -131,14 +135,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Sipariş oluştur — aktif masa oturumuna bağla
-    // Aktif oturumu bul veya oluştur
+    // ✅ Sipariş oluştur — aktif masa oturumuna bağla
+    // ✅ TableSession ve Bill SADECE SİPARİŞ VERİLİNCE oluşturulur
     let tableSession = await prisma.tableSession.findFirst({
       where: { tableId, businessId, status: "ACTIVE" },
       include: { bill: true },
     });
 
     if (!tableSession) {
+      // ✅ İlk sipariş: yeni TableSession oluştur + adisyon aç
       tableSession = await prisma.tableSession.create({
         data: { businessId, tableId, status: "ACTIVE" },
         include: { bill: true },
@@ -179,7 +184,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Masa durumunu güncelle
+    // ✅ Masa durumunu güncelle — SADECE SİPARİŞ VERİLDİĞİNDE
     await prisma.table.update({
       where: { id: tableId },
       data: { status: TableStatus.HAS_ORDER },
@@ -219,3 +224,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });
   }
 }
+

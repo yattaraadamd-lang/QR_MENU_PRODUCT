@@ -61,10 +61,23 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       });
     }
 
-    // Masa durumunu EMPTY yap
+    // ✅ Masa durumunu EMPTY yap — qrToken SİLİNMEZ (kalıcı QR kimliği)
     await prisma.table.update({
       where: { id: tableSession.tableId },
-      data: { status: "EMPTY", qrToken: null, qrTokenExpiresAt: null },
+      data: { status: "EMPTY" },
+      // ✅ qrToken ve qrTokenExpiresAt dokunulmadı
+    });
+
+    // ✅ Aktif CustomerSession kayıtlarını kapat
+    await prisma.customerSession.updateMany({
+      where: {
+        tableId: tableSession.tableId,
+        businessId,
+        status: "ACTIVE",
+      },
+      data: {
+        status: "CLOSED",
+      },
     });
 
     // Aktif hizmet taleplerini tamamla
@@ -79,3 +92,4 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }
+

@@ -4,7 +4,10 @@ import { v4 as uuidv4 } from "uuid";
 
 export const dynamic = "force-dynamic";
 
-// POST /api/customer/session - Masa oturumu oluştur (2 saatlik token)
+// POST /api/customer/session - Müşteri oturumu oluştur (CustomerSession tablosunda)
+// ✅ Table.qrToken DEĞİŞTİRİLMEZ — kalıcı QR kimliği korunur
+// ✅ Masa durumu DEĞİŞTİRİLMEZ — sadece sipariş verilince değişir
+// ✅ TableSession / Bill OLUŞTURULMAZ — sadece sipariş verilince oluşturulur
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -28,46 +31,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2 saatlik session token oluştur
-    const sessionToken = `session_${uuidv4()}`;
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 saat
-
-    // Masa'nın qrToken ve süresini güncelle
-    await prisma.table.update({
-      where: { id: tableId },
-      data: {
-        qrToken: sessionToken,
-        qrTokenExpiresAt: expiresAt,
-        status: table.status === "EMPTY" ? "OCCUPIED" : table.status,
+    // Aktif CustomerSession var mı kontrol et
+    const existingSession = await prisma.customerSession.findFirst({
+      where: {
+        tableId,
+        businessId,
+        status: "ACTIVE",
+        expiresAt: { gt: new Date() },
       },
     });
 
-    // ✅ Aktif TableSession yoksa oluştur + adisyon aç
-    let tableSession = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-    });
-    if (!tableSession) {
-      tableSession = await prisma.tableSession.create({
-        data: { businessId, tableId, status: "ACTIVE" },
-      });
-      await prisma.bill.create({
-        data: {
-          businessId,
-          tableId,
-          tableSessionId: tableSession.id,
-          totalAmount: 0,
-          paidAmount: 0,
-          remainingAmount: 0,
-          paymentStatus: "UNPAID",
-          status: "OPEN",
-        },
+    if (existingSession) {
+      // Mevcut aktif session'ı döndür
+      return NextResponse.json({
+        sessionToken: existingSession.sessionToken,
+        expiresAt: existingSession.expiresAt.toISOString(),
+        message: "Mevcut oturum kullanılıyor",
       });
     }
+
+    // Yeni CustomerSession oluştur (2 saatlik)
+    const sessionToken = `cs_${uuidv4()}`;
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 saat
+
+    await prisma.customerSession.create({
+      data: {
+        businessId,
+        tableId,
+        sessionToken,
+        status: "ACTIVE",
+        expiresAt,
+      },
+    });
+
+    // ✅ Table.qrToken dokunulmadı
+    // ✅ Masa durumu değiştirilmedi
+    // ✅ TableSession / Bill oluşturulmadı
 
     return NextResponse.json({
       sessionToken,
       expiresAt: expiresAt.toISOString(),
-      tableSessionId: tableSession.id,
       message: "Oturum oluşturuldu",
     });
   } catch (error) {
@@ -93,19 +96,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const table = await prisma.table.findFirst({
+    // ✅ CustomerSession tablosundan doğrula
+    const session = await prisma.customerSession.findFirst({
       where: {
-        id: tableId,
-        qrToken: token,
-        isActive: true,
+        sessionToken: token,
+        tableId,
+        status: "ACTIVE",
       },
     });
 
-    if (!table) {
+    if (!session) {
       return NextResponse.json({ valid: false, error: "Geçersiz oturum" });
     }
 
-    if (table.qrTokenExpiresAt && new Date() > table.qrTokenExpiresAt) {
+    if (new Date() > session.expiresAt) {
+      // Süresi dolmuş session'ı EXPIRED yap
+      await prisma.customerSession.update({
+        where: { id: session.id },
+        data: { status: "EXPIRED" },
+      });
       return NextResponse.json({ valid: false, error: "Oturum süresi doldu" });
     }
 
@@ -118,3 +127,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

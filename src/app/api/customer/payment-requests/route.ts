@@ -15,22 +15,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
     }
 
+    // ✅ Session token kontrolü — CustomerSession tablosundan doğrula
     const sessionToken = request.headers.get("x-session-token");
     if (!sessionToken) {
       return NextResponse.json({ error: "Oturum token'ı gerekli." }, { status: 401 });
     }
 
+    const customerSession = await prisma.customerSession.findFirst({
+      where: {
+        sessionToken,
+        tableId,
+        businessId,
+        status: "ACTIVE",
+      },
+    });
+
+    if (!customerSession) {
+      return NextResponse.json({ error: "Geçersiz oturum veya masa bulunamadı." }, { status: 401 });
+    }
+
+    if (new Date() > customerSession.expiresAt) {
+      await prisma.customerSession.update({
+        where: { id: customerSession.id },
+        data: { status: "EXPIRED" },
+      });
+      return NextResponse.json({ error: "Oturum süresi doldu." }, { status: 401 });
+    }
+
+    // ✅ Masa kontrolü — Table.qrToken'a dokunulmuyor
     const table = await prisma.table.findFirst({
-      where: { id: tableId, businessId, qrToken: sessionToken, isActive: true },
+      where: { id: tableId, businessId, isActive: true, isDeleted: false },
       include: { business: true },
     });
 
     if (!table || !table.business) {
-      return NextResponse.json({ error: "Geçersiz oturum veya masa bulunamadı." }, { status: 401 });
-    }
-
-    if (table.qrTokenExpiresAt && new Date() > table.qrTokenExpiresAt) {
-      return NextResponse.json({ error: "Oturum süresi doldu." }, { status: 401 });
+      return NextResponse.json({ error: "Masa bulunamadı veya aktif değil." }, { status: 404 });
     }
 
     const business = table.business;
@@ -105,10 +124,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    await prisma.table.update({
-      where: { id: tableId },
-      data: { status: TableStatus.PAYMENT_REQUESTED },
-    });
+    // ✅ Masa durumunu güncelle — SADECE masa zaten dolu ise
+    // Masa EMPTY iken ödeme isteği masayı dolu YAPMAZ
+    if (table.status !== TableStatus.EMPTY) {
+      await prisma.table.update({
+        where: { id: tableId },
+        data: { status: TableStatus.PAYMENT_REQUESTED },
+      });
+    }
 
     const title = "Ödeme Talebi";
     const message = `${table.tableName || "Masa " + table.tableNumber} ödeme istiyor (₺${totalAmount.toFixed(2)})`;
@@ -141,3 +164,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Talep oluşturulurken hata oluştu" }, { status: 500 });
   }
 }
+
