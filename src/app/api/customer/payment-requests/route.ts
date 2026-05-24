@@ -2,14 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus, TableStatus, PaymentStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { getDistanceFromLatLonInMeters } from "@/lib/location-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, note, customerLat, customerLng } = body;
+    const { businessId, tableId, note } = body;
 
     if (!businessId || !tableId) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
@@ -53,20 +52,6 @@ export async function POST(request: NextRequest) {
     }
 
     const business = table.business;
-
-    // ✅ Konum kontrolü - OPSIYONEL (sadece log, ödeme talebi engellenmez)
-    // Asıl güvenlik: CustomerSession (aktif mi?) + TableSession (masa kapatılmış mı?)
-    if (customerLat && customerLng && business.latitude && business.longitude && business.allowedRadiusMeters) {
-      const distance = getDistanceFromLatLonInMeters(
-        business.latitude,
-        business.longitude,
-        customerLat,
-        customerLng
-      );
-      if (distance > business.allowedRadiusMeters) {
-        console.log(`⚠️ Ödeme talebi restoran dışından gönderildi. Masa: ${table.tableNumber}, Mesafe: ${Math.round(distance)}m`);
-      }
-    }
 
     // Bekleyen veya hazırlanıp servis edilmiş siparişlerin toplamını bul
     const uncompletedOrders = await prisma.order.findMany({

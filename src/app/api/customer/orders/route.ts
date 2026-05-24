@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OrderStatus, TableStatus } from "@prisma/client";
+import { OrderStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { getDistanceFromLatLonInMeters } from "@/lib/location-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +15,7 @@ async function validateSessionToken(
     return { valid: false, error: "Oturum token'ı gerekli. Lütfen QR kodu tekrar okutun." };
   }
 
-  // ✅ CustomerSession tablosundan doğrula — Table.qrToken kullanılmıyor
+  // ✅ CustomerSession tablosundan doğrula
   const customerSession = await prisma.customerSession.findFirst({
     where: {
       sessionToken,
@@ -44,7 +43,7 @@ async function validateSessionToken(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, items, note, customerLat, customerLng } = body;
+    const { businessId, tableId, items, note } = body;
 
     if (!businessId || !tableId || !items || items.length === 0) {
       return NextResponse.json({ error: "Geçersiz sipariş bilgileri" }, { status: 400 });
@@ -74,17 +73,6 @@ export async function POST(request: NextRequest) {
     // İşletme aktif mi?
     if (!business.isActive) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
-    }
-
-    // ✅ Konum kontrolü - OPSIYONEL (sadece log, sipariş engellenmez)
-    // Asıl güvenlik: CustomerSession (aktif mi?) + TableSession (masa kapatılmış mı?)
-    if (customerLat && customerLng && business.latitude && business.longitude && business.allowedRadiusMeters) {
-      const distance = getDistanceFromLatLonInMeters(
-        business.latitude, business.longitude, customerLat, customerLng
-      );
-      if (distance > business.allowedRadiusMeters) {
-        console.log(`⚠️ Sipariş restoran dışından verildi. Masa: ${table.tableNumber}, Mesafe: ${Math.round(distance)}m / İzin verilen: ${business.allowedRadiusMeters}m`);
-      }
     }
 
     // Ürün kontrolleri
@@ -127,36 +115,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ✅ Sipariş oluştur — aktif masa oturumuna bağla
-    // ✅ TableSession ve Bill SADECE SİPARİŞ VERİLİNCE oluşturulur
-    let tableSession = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-      include: { bill: true },
-    });
-
-    if (!tableSession) {
-      // ✅ İlk sipariş: yeni TableSession oluştur + adisyon aç
-      tableSession = await prisma.tableSession.create({
-        data: { businessId, tableId, status: "ACTIVE" },
-        include: { bill: true },
-      });
-      await prisma.bill.create({
-        data: { businessId, tableId, tableSessionId: tableSession.id, totalAmount: 0, paidAmount: 0, remainingAmount: 0, paymentStatus: "UNPAID", status: "OPEN" },
-      });
-      tableSession = await prisma.tableSession.findFirst({
-        where: { id: tableSession.id },
-        include: { bill: true },
-      }) as any;
-    }
-
+    // ✅ Sipariş oluştur — PENDING durumunda (garson onayı bekliyor)
+    // ✅ TableSession ve Bill SADECE GARSON KABUL EDİNCE oluşturulur
+    // ✅ Masa durumu DEĞİŞMEZ (garson kabul edince değişir)
     const order = await prisma.order.create({
       data: {
         businessId,
         tableId,
-        tableSessionId: tableSession!.id,
+        tableSessionId: null, // Garson kabul edince bağlanır
         totalPrice,
         note: note || null,
-        status: OrderStatus.PENDING,
+        status: OrderStatus.PENDING, // Garson onayı bekliyor
         paymentStatus: "UNPAID",
         items: { create: orderItems },
       },
@@ -166,30 +135,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Adisyon toplamını güncelle
-    if (tableSession?.bill) {
-      const newTotal = Number(tableSession.bill.totalAmount) + totalPrice;
-      const remaining = Math.max(0, newTotal - Number(tableSession.bill.paidAmount));
-      await prisma.bill.update({
-        where: { id: tableSession.bill.id },
-        data: { totalAmount: newTotal, remainingAmount: remaining },
-      });
-    }
-
-    // ✅ Masa durumunu güncelle — SADECE SİPARİŞ VERİLDİĞİNDE
-    await prisma.table.update({
-      where: { id: tableId },
-      data: { status: TableStatus.HAS_ORDER },
-    });
-
     // Bildirim oluştur
     await prisma.notification.create({
       data: {
         businessId,
         tableId,
         type: "NEW_ORDER",
-        title: "Yeni Sipariş",
-        message: `${table.tableName || "Masa " + table.tableNumber} yeni sipariş verdi`,
+        title: "Yeni Sipariş (Onay Bekliyor)",
+        message: `${table.tableName || "Masa " + table.tableNumber} sipariş verdi - Onay bekleniyor`,
         soundType: "ORDER",
       },
     });
@@ -200,17 +153,22 @@ export async function POST(request: NextRequest) {
         orderId: order.id,
         tableNumber: table.tableNumber,
         tableName: table.tableName,
-        message: `${table.tableName || "Masa " + table.tableNumber} yeni sipariş verdi`,
+        message: `${table.tableName || "Masa " + table.tableNumber} sipariş verdi - Onay bekleniyor`,
         soundType: "new_order",
         totalPrice: Number(order.totalPrice),
         itemCount: order.items.length,
+        status: "PENDING",
         createdAt: order.createdAt,
       });
     } catch (e) {
       console.log("Socket emit hatası:", e);
     }
 
-    return NextResponse.json({ message: "Sipariş başarıyla oluşturuldu", order }, { status: 201 });
+    return NextResponse.json({ 
+      message: "Sipariş gönderildi. Garson onayı bekleniyor.", 
+      order,
+      status: "PENDING"
+    }, { status: 201 });
   } catch (error) {
     console.error("Sipariş oluşturma hatası:", error);
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });

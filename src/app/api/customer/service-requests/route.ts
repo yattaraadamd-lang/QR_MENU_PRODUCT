@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { getDistanceFromLatLonInMeters } from "@/lib/location-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +20,7 @@ const COOLDOWN_SECONDS: Record<string, number> = {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, requestType, note, reason, customerLat, customerLng } = body;
+    const { businessId, tableId, requestType, note, reason } = body;
 
     if (!businessId || !tableId || !requestType) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
@@ -86,17 +85,6 @@ export async function POST(request: NextRequest) {
     // İşletme aktif mi?
     if (!business.isActive) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
-    }
-
-    // ✅ Konum kontrolü - OPSIYONEL (sadece log, talep engellenmez)
-    // Asıl güvenlik: CustomerSession (aktif mi?) + TableSession (masa kapatılmış mı?)
-    if (customerLat && customerLng && business.latitude && business.longitude && business.allowedRadiusMeters) {
-      const distance = getDistanceFromLatLonInMeters(
-        business.latitude, business.longitude, customerLat, customerLng
-      );
-      if (distance > business.allowedRadiusMeters) {
-        console.log(`⚠️ Hizmet talebi restoran dışından gönderildi. Masa: ${table.tableNumber}, Tip: ${requestType}, Mesafe: ${Math.round(distance)}m`);
-      }
     }
 
     // ✅ Spam engelleme: aktif talep var mı?

@@ -137,23 +137,16 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
   const cartTotal = cart.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
-  const getLocation = (): Promise<{ lat: number; lng: number } | null> =>
-    new Promise(res => {
-      if (!navigator.geolocation) return res(null);
-      navigator.geolocation.getCurrentPosition(p => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null), { timeout: 5000 });
-    });
-
   const submitOrder = async () => {
     if (!cart.length || !business || !table) return;
     setSubmitting(true);
     try {
-      const loc = await getLocation();
       const r = await fetch("/api/customer/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(sessionToken && { "x-session-token": sessionToken }) },
-        body: JSON.stringify({ businessId: business.id, tableId: table.id, items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null })), note: orderNote || null, customerLat: loc?.lat, customerLng: loc?.lng }),
+        body: JSON.stringify({ businessId: business.id, tableId: table.id, items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null })), note: orderNote || null }),
       });
-      if (r.ok) { setCart([]); setOrderNote(""); setShowCartMobile(false); showToast("Siparişiniz alındı! 🎉"); }
+      if (r.ok) { setCart([]); setOrderNote(""); setShowCartMobile(false); showToast("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳"); }
       else { const d = await r.json(); showToast(d.error || "Sipariş gönderilemedi", "err"); }
     } catch { showToast("Bağlantı hatası", "err"); }
     finally { setSubmitting(false); }
@@ -171,12 +164,11 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
     }
 
     try {
-      const loc = await getLocation();
       const ep = type === "PAYMENT_REQUEST" ? "/api/customer/payment-requests" : "/api/customer/service-requests";
       const r = await fetch(ep, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(sessionToken && { "x-session-token": sessionToken }) },
-        body: JSON.stringify({ businessId: business.id, tableId: table.id, requestType: type, reason: reason || null, note: note || null, customerLat: loc?.lat, customerLng: loc?.lng }),
+        body: JSON.stringify({ businessId: business.id, tableId: table.id, requestType: type, reason: reason || null, note: note || null }),
       });
       if (r.ok) {
         const msgs: Record<string, string> = { CALL_WAITER: "Garson çağrıldı! 🙋", PAYMENT_REQUEST: "Ödeme talebi gönderildi! 💳", HELP_REQUEST: "Yardım talebi gönderildi! ℹ️" };

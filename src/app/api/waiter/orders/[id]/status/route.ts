@@ -74,12 +74,68 @@ export async function PUT(
       );
     }
 
+<<<<<<< HEAD
     // ✅ Zaten tamamlanmış veya iptal edilmiş sipariş tekrar değiştirilemez
     if (["SERVED", "CANCELLED", "REJECTED"].includes(order.status)) {
       return NextResponse.json(
         { error: `Bu sipariş zaten "${order.status}" durumunda. Değiştirilemez.` },
         { status: 409 }
       );
+=======
+    // ✅ PENDING -> ACCEPTED: TableSession ve Bill oluştur
+    if (order.status === "PENDING" && status === "ACCEPTED") {
+      // TableSession var mı kontrol et
+      let tableSession = await prisma.tableSession.findFirst({
+        where: { tableId: order.tableId, businessId, status: "ACTIVE" },
+        include: { bill: true },
+      });
+
+      if (!tableSession) {
+        // Yeni TableSession oluştur
+        tableSession = await prisma.tableSession.create({
+          data: { businessId, tableId: order.tableId, status: "ACTIVE" },
+          include: { bill: true },
+        });
+
+        // Yeni Bill oluştur
+        await prisma.bill.create({
+          data: {
+            businessId,
+            tableId: order.tableId,
+            tableSessionId: tableSession.id,
+            totalAmount: 0,
+            paidAmount: 0,
+            remainingAmount: 0,
+            paymentStatus: "UNPAID",
+            status: "OPEN",
+          },
+        });
+
+        // TableSession'ı bill ile birlikte tekrar al
+        tableSession = await prisma.tableSession.findFirst({
+          where: { id: tableSession.id },
+          include: { bill: true },
+        });
+      }
+
+      if (tableSession) {
+        // Siparişi TableSession'a bağla
+        await prisma.order.update({
+          where: { id: params.id },
+          data: { tableSessionId: tableSession.id },
+        });
+
+        // Bill toplamını güncelle
+        if (tableSession.bill) {
+          const newTotal = Number(tableSession.bill.totalAmount) + Number(order.totalPrice);
+          const remaining = Math.max(0, newTotal - Number(tableSession.bill.paidAmount));
+          await prisma.bill.update({
+            where: { id: tableSession.bill.id },
+            data: { totalAmount: newTotal, remainingAmount: remaining },
+          });
+        }
+      }
+>>>>>>> 06a6935 (Garson sipariş reddetme ve masa kapatma düzeltmeleri)
     }
 
     // ✅ Build update data
@@ -135,19 +191,25 @@ export async function PUT(
 
     let newTableStatus: TableStatus | null = null;
 
-    if (status === "PREPARING") {
+    if (status === "ACCEPTED") {
+      // Garson kabul etti - masa dolu yap
+      newTableStatus = TableStatus.HAS_ORDER;
+    } else if (status === "PREPARING") {
       newTableStatus = TableStatus.PREPARING;
     } else if (status === "SERVED") {
       if (otherActiveOrders === 0) {
         newTableStatus = TableStatus.SERVED;
       }
+<<<<<<< HEAD
     } else if (status === "CANCELLED" || status === "REJECTED") {
       // ✅ İptal/Red: başka aktif sipariş yoksa masa OCCUPIED'a dön
+=======
+    } else if (status === "CANCELLED") {
+      // Garson reddetti - masa dolu yapılmaz
+>>>>>>> 06a6935 (Garson sipariş reddetme ve masa kapatma düzeltmeleri)
       if (otherActiveOrders === 0) {
-        newTableStatus = TableStatus.OCCUPIED;
+        newTableStatus = TableStatus.EMPTY; // Başka sipariş yoksa masa boş kalır
       }
-    } else if (status === "ACCEPTED") {
-      newTableStatus = TableStatus.HAS_ORDER;
     }
 
     if (newTableStatus) {
