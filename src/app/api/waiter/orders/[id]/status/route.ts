@@ -38,8 +38,10 @@ export async function PUT(
     const rawBody = await request.json();
     const normalizedBody = {
       ...rawBody,
-      cancellationReason: rawBody.cancellationReason ?? rawBody.cancelReason ?? null,
+      cancellationReason:
+        rawBody.cancellationReason ?? rawBody.cancelReason ?? null,
     };
+
     const validation = validateBody(updateOrderStatusSchema, normalizedBody);
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
@@ -74,30 +76,33 @@ export async function PUT(
       );
     }
 
-<<<<<<< HEAD
     // ✅ Zaten tamamlanmış veya iptal edilmiş sipariş tekrar değiştirilemez
     if (["SERVED", "CANCELLED", "REJECTED"].includes(order.status)) {
       return NextResponse.json(
-        { error: `Bu sipariş zaten "${order.status}" durumunda. Değiştirilemez.` },
+        {
+          error: `Bu sipariş zaten "${order.status}" durumunda. Değiştirilemez.`,
+        },
         { status: 409 }
       );
-=======
+    }
+
     // ✅ PENDING -> ACCEPTED: TableSession ve Bill oluştur
     if (order.status === "PENDING" && status === "ACCEPTED") {
-      // TableSession var mı kontrol et
       let tableSession = await prisma.tableSession.findFirst({
         where: { tableId: order.tableId, businessId, status: "ACTIVE" },
         include: { bill: true },
       });
 
       if (!tableSession) {
-        // Yeni TableSession oluştur
         tableSession = await prisma.tableSession.create({
-          data: { businessId, tableId: order.tableId, status: "ACTIVE" },
+          data: {
+            businessId,
+            tableId: order.tableId,
+            status: "ACTIVE",
+          },
           include: { bill: true },
         });
 
-        // Yeni Bill oluştur
         await prisma.bill.create({
           data: {
             businessId,
@@ -111,7 +116,6 @@ export async function PUT(
           },
         });
 
-        // TableSession'ı bill ile birlikte tekrar al
         tableSession = await prisma.tableSession.findFirst({
           where: { id: tableSession.id },
           include: { bill: true },
@@ -119,23 +123,28 @@ export async function PUT(
       }
 
       if (tableSession) {
-        // Siparişi TableSession'a bağla
         await prisma.order.update({
           where: { id: params.id },
           data: { tableSessionId: tableSession.id },
         });
 
-        // Bill toplamını güncelle
         if (tableSession.bill) {
-          const newTotal = Number(tableSession.bill.totalAmount) + Number(order.totalPrice);
-          const remaining = Math.max(0, newTotal - Number(tableSession.bill.paidAmount));
+          const newTotal =
+            Number(tableSession.bill.totalAmount) + Number(order.totalPrice);
+          const remaining = Math.max(
+            0,
+            newTotal - Number(tableSession.bill.paidAmount)
+          );
+
           await prisma.bill.update({
             where: { id: tableSession.bill.id },
-            data: { totalAmount: newTotal, remainingAmount: remaining },
+            data: {
+              totalAmount: newTotal,
+              remainingAmount: remaining,
+            },
           });
         }
       }
->>>>>>> 06a6935 (Garson sipariş reddetme ve masa kapatma düzeltmeleri)
     }
 
     // ✅ Build update data
@@ -144,11 +153,14 @@ export async function PUT(
       waiterId: authResult.session.userId,
     };
 
-    // İptal veya red durumunda bilgileri kaydet
+    // ✅ İptal veya red durumunda bilgileri kaydet
     if (status === "CANCELLED" || status === "REJECTED") {
       updateData.cancelledAt = new Date();
-      updateData.cancelReason = cancellationReason
-        || (status === "REJECTED" ? "Garson tarafından reddedildi" : "Garson tarafından iptal edildi");
+      updateData.cancelReason =
+        cancellationReason ||
+        (status === "REJECTED"
+          ? "Garson tarafından reddedildi"
+          : "Garson tarafından iptal edildi");
     }
 
     // ✅ Update order
@@ -192,7 +204,7 @@ export async function PUT(
     let newTableStatus: TableStatus | null = null;
 
     if (status === "ACCEPTED") {
-      // Garson kabul etti - masa dolu yap
+      // Garson kabul etti - masa siparişli olur
       newTableStatus = TableStatus.HAS_ORDER;
     } else if (status === "PREPARING") {
       newTableStatus = TableStatus.PREPARING;
@@ -200,15 +212,10 @@ export async function PUT(
       if (otherActiveOrders === 0) {
         newTableStatus = TableStatus.SERVED;
       }
-<<<<<<< HEAD
     } else if (status === "CANCELLED" || status === "REJECTED") {
-      // ✅ İptal/Red: başka aktif sipariş yoksa masa OCCUPIED'a dön
-=======
-    } else if (status === "CANCELLED") {
-      // Garson reddetti - masa dolu yapılmaz
->>>>>>> 06a6935 (Garson sipariş reddetme ve masa kapatma düzeltmeleri)
+      // Garson iptal/reddetti - başka aktif sipariş yoksa masa boş kalır
       if (otherActiveOrders === 0) {
-        newTableStatus = TableStatus.EMPTY; // Başka sipariş yoksa masa boş kalır
+        newTableStatus = TableStatus.EMPTY;
       }
     }
 
@@ -220,22 +227,41 @@ export async function PUT(
     }
 
     // ✅ İptal veya Red: adisyon tutarını güncelle
-    if ((status === "CANCELLED" || status === "REJECTED") && order.tableSessionId) {
+    if (
+      (status === "CANCELLED" || status === "REJECTED") &&
+      order.tableSessionId
+    ) {
       const bill = await prisma.bill.findFirst({
         where: { tableSessionId: order.tableSessionId },
-        select: { id: true, totalAmount: true, paidAmount: true },
+        select: {
+          id: true,
+          totalAmount: true,
+          paidAmount: true,
+        },
       });
 
       if (bill) {
-        const newTotal = Math.max(0, Number(bill.totalAmount) - Number(order.totalPrice));
+        const newTotal = Math.max(
+          0,
+          Number(bill.totalAmount) - Number(order.totalPrice)
+        );
         const remaining = Math.max(0, newTotal - Number(bill.paidAmount));
+
         let paymentStatus: "UNPAID" | "PARTIALLY_PAID" | "PAID" = "UNPAID";
-        if (remaining === 0 && newTotal > 0) paymentStatus = "PAID";
-        else if (Number(bill.paidAmount) > 0) paymentStatus = "PARTIALLY_PAID";
+
+        if (remaining === 0 && newTotal > 0) {
+          paymentStatus = "PAID";
+        } else if (Number(bill.paidAmount) > 0) {
+          paymentStatus = "PARTIALLY_PAID";
+        }
 
         await prisma.bill.update({
           where: { id: bill.id },
-          data: { totalAmount: newTotal, remainingAmount: remaining, paymentStatus },
+          data: {
+            totalAmount: newTotal,
+            remainingAmount: remaining,
+            paymentStatus,
+          },
         });
       }
     }
@@ -248,7 +274,9 @@ export async function PUT(
         tableName: order.table.tableName,
         status,
         tableStatus: newTableStatus,
-        message: `${order.table.tableName || "Masa " + order.table.tableNumber} sipariş durumu: ${status}`,
+        message: `${
+          order.table.tableName || "Masa " + order.table.tableNumber
+        } sipariş durumu: ${status}`,
       });
     } catch (e) {
       console.log("Socket emit hatası:", e);
@@ -260,10 +288,10 @@ export async function PUT(
     });
   } catch (error) {
     console.error("Sipariş güncelleme hatası:", error);
+
     return NextResponse.json(
       { error: "Sipariş güncellenirken bir hata oluştu" },
       { status: 500 }
     );
   }
 }
-
