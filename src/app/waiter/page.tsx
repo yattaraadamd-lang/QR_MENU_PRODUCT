@@ -48,6 +48,8 @@ export default function WaiterOrdersPage() {
   // ✅ İptal modal state
   const [cancelModal, setCancelModal] = useState<{ id: string; tableName: string } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -76,30 +78,51 @@ export default function WaiterOrdersPage() {
     return () => { socket.off("new_order"); socket.off("order_status_update"); };
   }, [session, fetchOrders]);
 
-  const updateStatus = async (orderId: string, status: string, cancelReason?: string) => {
+  const updateStatus = async (orderId: string, status: string, cancelReason?: string): Promise<boolean> => {
+    setActionError(null);
+    setActionLoading(true);
     try {
       const res = await fetch(`/api/waiter/orders/${orderId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, cancelReason }),
       });
-      if (res.ok) fetchOrders();
-    } catch (e) { console.error(e); }
+      const data = await res.json();
+      if (res.ok) {
+        fetchOrders();
+        return true;
+      } else {
+        setActionError(data.error || "İşlem başarısız oldu.");
+        return false;
+      }
+    } catch (e) {
+      console.error(e);
+      setActionError("Bağlantı hatası. Lütfen tekrar deneyin.");
+      return false;
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleReject = async () => {
     if (!rejectModal) return;
-    await updateStatus(rejectModal.id, "REJECTED", rejectReason || "Garson tarafından reddedildi");
-    setRejectModal(null);
-    setRejectReason("");
+    const ok = await updateStatus(rejectModal.id, "REJECTED", rejectReason || "Garson tarafından reddedildi");
+    if (ok) {
+      setRejectModal(null);
+      setRejectReason("");
+      setActionError(null);
+    }
   };
 
   // ✅ Sipariş iptal
   const handleCancel = async () => {
     if (!cancelModal) return;
-    await updateStatus(cancelModal.id, "CANCELLED", cancelReason || "Garson tarafından iptal edildi");
-    setCancelModal(null);
-    setCancelReason("");
+    const ok = await updateStatus(cancelModal.id, "CANCELLED", cancelReason || "Garson tarafından iptal edildi");
+    if (ok) {
+      setCancelModal(null);
+      setCancelReason("");
+      setActionError(null);
+    }
   };
 
   const pendingCount = orders.filter(o => o.status === "PENDING").length;
@@ -123,9 +146,16 @@ export default function WaiterOrdersPage() {
                 }}>{rejectReason === r ? "✓ " : ""}{r}</button>
               ))}
             </div>
+            {actionError && (
+              <div style={{ marginBottom: 12, padding: "8px 12px", background: "rgba(239,68,68,0.12)", borderRadius: 8, fontSize: 13, color: "#fca5a5" }}>
+                ⚠️ {actionError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleReject} className="btn btn-danger" style={{ flex: 1 }}>Reddet</button>
-              <button onClick={() => setRejectModal(null)} className="btn btn-ghost">İptal</button>
+              <button onClick={handleReject} disabled={actionLoading} className="btn btn-danger" style={{ flex: 1, opacity: actionLoading ? 0.6 : 1 }}>
+                {actionLoading ? "İşleniyor..." : "Reddet"}
+              </button>
+              <button onClick={() => { setRejectModal(null); setActionError(null); }} className="btn btn-ghost">İptal</button>
             </div>
           </div>
         </div>

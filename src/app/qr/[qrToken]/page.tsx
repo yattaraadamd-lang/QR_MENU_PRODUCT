@@ -28,6 +28,26 @@ export default function QRTokenPage({ params }: { params: { qrToken: string } })
       sessionStorage.setItem("qr_table", JSON.stringify(data.table));
       sessionStorage.setItem("qr_token", params.qrToken);
 
+      // ✅ CustomerSession oluştur — qrToken ile (QR tarama kanıtı)
+      try {
+        const sessionRes = await fetch("/api/customer/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessId: data.business.id,
+            tableId: data.table.id,
+            qrToken: params.qrToken,
+          }),
+        });
+        const sessionData = await sessionRes.json();
+        if (sessionRes.ok && sessionData.sessionToken) {
+          sessionStorage.setItem("qr_session_token", sessionData.sessionToken);
+        }
+      } catch (e) {
+        // Session oluşturulamazsa yine menüye yönlendir (view-only)
+        console.log("Session oluşturma hatası:", e);
+      }
+
       // Menü sayfasına yönlendir
       router.replace(`/menu/${data.business.id}/${data.table.tableNumber}`);
     } catch (err) {
@@ -65,3 +85,4 @@ export default function QRTokenPage({ params }: { params: { qrToken: string } })
     </div>
   );
 }
+

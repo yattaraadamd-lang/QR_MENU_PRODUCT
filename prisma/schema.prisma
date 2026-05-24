@@ -198,6 +198,7 @@ enum OrderStatus {
   PREPARING
   SERVED
   CANCELLED
+  REJECTED
 }
 
 enum OrderPaymentStatus {

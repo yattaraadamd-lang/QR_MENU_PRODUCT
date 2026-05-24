@@ -63,16 +63,31 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
         setCategories(data.categories || []);
         if (initial && data.categories?.length > 0) setActiveCategory(data.categories[0].id);
         if (initial) {
-          try {
-            const sr = await fetch("/api/customer/session", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ businessId: params.businessId, tableId: data.table.id }),
-            });
-            const sd = await sr.json();
-            if (sr.ok) setSessionToken(sd.sessionToken);
-            else setSessionError(sd.error || "Oturum başlatılamadı.");
-          } catch { setSessionError("Bağlantı hatası."); }
+          // ✅ Session token'ı sessionStorage'dan oku (QR sayfası tarafından kaydedilir)
+          // Sayfa yenilemesi ile yeni session oluşturulamaz
+          const storedToken = sessionStorage.getItem("qr_session_token");
+          if (storedToken) {
+            setSessionToken(storedToken);
+          } else {
+            // Session token yoksa menüyü göster ama sipariş vermeye çalışınca hata alır
+            // qrToken ile yeni session oluşturmayı dene (kullanıcı QR akışından gelmişse)
+            const qrToken = sessionStorage.getItem("qr_token");
+            if (qrToken) {
+              try {
+                const sr = await fetch("/api/customer/session", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ businessId: params.businessId, tableId: data.table.id, qrToken }),
+                });
+                const sd = await sr.json();
+                if (sr.ok && sd.sessionToken) {
+                  setSessionToken(sd.sessionToken);
+                  sessionStorage.setItem("qr_session_token", sd.sessionToken);
+                }
+                // viewOnly veya hata durumunda menü görüntülenmeye devam eder
+              } catch { /* sessiz — menü görüntülenebilir */ }
+            }
+          }
         }
       } else {
         if (initial) setSessionError(data.error || "Menü yüklenemedi.");

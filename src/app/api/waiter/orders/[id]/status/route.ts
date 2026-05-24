@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, getBusinessIdFromSession, verifyResourceOwnership } from "@/lib/tenant";
+import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateBody, updateOrderStatusSchema, isValidCuid } from "@/lib/validation";
 import { OrderStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
@@ -34,8 +34,13 @@ export async function PUT(
     }
 
     // ✅ Validate request body
-    const body = await request.json();
-    const validation = validateBody(updateOrderStatusSchema, body);
+    // Frontend 'cancelReason' veya 'cancellationReason' gönderebilir — ikisini de destekle
+    const rawBody = await request.json();
+    const normalizedBody = {
+      ...rawBody,
+      cancellationReason: rawBody.cancellationReason ?? rawBody.cancelReason ?? null,
+    };
+    const validation = validateBody(updateOrderStatusSchema, normalizedBody);
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
@@ -69,16 +74,25 @@ export async function PUT(
       );
     }
 
+    // ✅ Zaten tamamlanmış veya iptal edilmiş sipariş tekrar değiştirilemez
+    if (["SERVED", "CANCELLED", "REJECTED"].includes(order.status)) {
+      return NextResponse.json(
+        { error: `Bu sipariş zaten "${order.status}" durumunda. Değiştirilemez.` },
+        { status: 409 }
+      );
+    }
+
     // ✅ Build update data
     const updateData: any = {
-    status,
-    waiterId: authResult.session.userId,
+      status,
+      waiterId: authResult.session.userId,
     };
 
-    // İptal durumunda bilgileri kaydet
-    if (status === "CANCELLED") {
+    // İptal veya red durumunda bilgileri kaydet
+    if (status === "CANCELLED" || status === "REJECTED") {
       updateData.cancelledAt = new Date();
-      updateData.cancelReason = cancellationReason || "Garson tarafından iptal edildi";
+      updateData.cancelReason = cancellationReason
+        || (status === "REJECTED" ? "Garson tarafından reddedildi" : "Garson tarafından iptal edildi");
     }
 
     // ✅ Update order
@@ -90,6 +104,7 @@ export async function PUT(
         totalPrice: true,
         status: true,
         note: true,
+        cancelReason: true,
         createdAt: true,
         items: {
           select: {
@@ -109,7 +124,7 @@ export async function PUT(
       },
     });
 
-    // ✅ Update table status based on order status
+    // ✅ Diğer aktif siparişleri kontrol et
     const otherActiveOrders = await prisma.order.count({
       where: {
         tableId: order.tableId,
@@ -126,7 +141,8 @@ export async function PUT(
       if (otherActiveOrders === 0) {
         newTableStatus = TableStatus.SERVED;
       }
-    } else if (status === "CANCELLED") {
+    } else if (status === "CANCELLED" || status === "REJECTED") {
+      // ✅ İptal/Red: başka aktif sipariş yoksa masa OCCUPIED'a dön
       if (otherActiveOrders === 0) {
         newTableStatus = TableStatus.OCCUPIED;
       }
@@ -141,8 +157,8 @@ export async function PUT(
       });
     }
 
-    // ✅ Update bill if order is cancelled
-    if (status === "CANCELLED" && order.tableSessionId) {
+    // ✅ İptal veya Red: adisyon tutarını güncelle
+    if ((status === "CANCELLED" || status === "REJECTED") && order.tableSessionId) {
       const bill = await prisma.bill.findFirst({
         where: { tableSessionId: order.tableSessionId },
         select: { id: true, totalAmount: true, paidAmount: true },
@@ -163,14 +179,18 @@ export async function PUT(
     }
 
     // ✅ Socket.IO notification
-    emitToBusinessRoom(businessId, "order_status_update", {
-      orderId: order.id,
-      tableNumber: order.table.tableNumber,
-      tableName: order.table.tableName,
-      status,
-      tableStatus: newTableStatus,
-      message: `${order.table.tableName || "Masa " + order.table.tableNumber} sipariş durumu: ${status}`,
-    });
+    try {
+      emitToBusinessRoom(businessId, "order_status_update", {
+        orderId: order.id,
+        tableNumber: order.table.tableNumber,
+        tableName: order.table.tableName,
+        status,
+        tableStatus: newTableStatus,
+        message: `${order.table.tableName || "Masa " + order.table.tableNumber} sipariş durumu: ${status}`,
+      });
+    } catch (e) {
+      console.log("Socket emit hatası:", e);
+    }
 
     return NextResponse.json({
       message: "Sipariş durumu güncellendi",
@@ -184,3 +204,4 @@ export async function PUT(
     );
   }
 }
+
