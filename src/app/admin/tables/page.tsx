@@ -141,15 +141,44 @@ export default function AdminTablesPage() {
     if (!selectedTable?.activeSession) return;
     setClosing(true); setCloseError(null);
     try {
-      const res = await fetch(`/api/table-sessions/${selectedTable.activeSession.id}/close`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ forceClose, closeReason: forceClose ? closeReason : undefined }),
-      });
-      const data = await res.json();
-      if (res.ok) { setCloseModal(false); setSelectedTable(null); setSessionDetail(null); fetchTables(); }
-      else { setCloseError(data.error); }
-    } catch (e) { console.error(e); }
-    finally { setClosing(false); }
+      // Admin zorla kapatma kullanıyorsa force-close endpoint'ini kullan
+      if (forceClose) {
+        const res = await fetch(`/api/admin/tables/${selectedTable.id}/force-close`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ closeReason }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setCloseModal(false);
+          setSelectedTable(null);
+          setSessionDetail(null);
+          fetchTables();
+          alert(data.message || "Masa zorla kapatıldı");
+        } else {
+          setCloseError(data.error);
+        }
+      } else {
+        // Normal kapatma
+        const res = await fetch(`/api/table-sessions/${selectedTable.activeSession.id}/close`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setCloseModal(false);
+          setSelectedTable(null);
+          setSessionDetail(null);
+          fetchTables();
+        } else {
+          setCloseError(data.error);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setClosing(false);
+    }
   };
 
   const fmt = (v: any) => Number(v || 0).toFixed(2);

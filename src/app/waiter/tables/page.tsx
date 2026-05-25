@@ -21,10 +21,6 @@ const PAYMENT_METHODS = [
   { value: "OTHER",    label: "🔄 Diğer" },
 ];
 
-const FORCE_CLOSE_REASONS = [
-  "İkram", "İptal", "Müşteri ayrıldı", "Hatalı sipariş", "Diğer"
-];
-
 export default function WaiterTablesPage() {
   const { data: session } = useSession();
   const [tables, setTables] = useState<any[]>([]);
@@ -43,9 +39,10 @@ export default function WaiterTablesPage() {
   // Masa kapatma modalı
   const [closeModal, setCloseModal] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
-  const [forceClose, setForceClose] = useState(false);
-  const [closeReason, setCloseReason] = useState("");
   const [closing, setClosing] = useState(false);
+
+  // ✅ Masa açma state'i
+  const [opening, setOpening] = useState(false);
 
   const fetchTables = useCallback(async () => {
     try {
@@ -69,8 +66,6 @@ export default function WaiterTablesPage() {
     setLoadingDetail(true);
     setSessionDetail(null);
     setCloseError(null);
-    setForceClose(false);
-    setCloseReason("");
     if (table.activeSession) {
       try {
         const res = await fetch(`/api/bills/${table.activeSession.id}`);
@@ -116,10 +111,10 @@ export default function WaiterTablesPage() {
     setClosing(true);
     setCloseError(null);
     try {
+      // Garson sadece normal kapatma yapabilir
       const res = await fetch(`/api/table-sessions/${selectedTable.activeSession.id}/close`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ forceClose, closeReason: forceClose ? closeReason : undefined }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -129,10 +124,37 @@ export default function WaiterTablesPage() {
         fetchTables();
       } else {
         setCloseError(data.error);
-        if (data.canForceClose) setForceClose(false); // admin gösterir
       }
-    } catch (e) { console.error(e); }
-    finally { setClosing(false); }
+    } catch (e) {
+      console.error(e);
+      setCloseError("Bağlantı hatası");
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  // ✅ Masa açma fonksiyonu
+  const handleOpenTable = async (tableId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Detay modalını açmasın
+    setOpening(true);
+    try {
+      const res = await fetch(`/api/admin/tables/${tableId}/open`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || "Masa açıldı");
+        fetchTables();
+      } else {
+        alert(data.error || "Masa açılamadı");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Bağlantı hatası");
+    } finally {
+      setOpening(false);
+    }
   };
 
   const fmt = (v: number | string) => Number(v).toFixed(2);
@@ -196,6 +218,24 @@ export default function WaiterTablesPage() {
                   <div style={{ marginTop: 6, fontSize: 10, color: "#fca5a5", fontWeight: 600 }}>
                     🔔 {table.serviceRequests.length} talep
                   </div>
+                )}
+
+                {/* ✅ Masa EMPTY veya CLEANING_NEEDED ise "Masayı Aç" butonu */}
+                {(table.status === "EMPTY" || table.status === "CLEANING_NEEDED") && (
+                  <button
+                    onClick={(e) => handleOpenTable(table.id, e)}
+                    disabled={opening}
+                    className="btn btn-sm btn-primary"
+                    style={{
+                      marginTop: 8,
+                      width: "100%",
+                      padding: "6px 10px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {opening ? "Açılıyor..." : "🔓 Masayı Aç"}
+                  </button>
                 )}
               </div>
             );
@@ -304,7 +344,7 @@ export default function WaiterTablesPage() {
                 <button onClick={() => { setPayModal(true); setPayAmount(sessionDetail ? fmt(sessionDetail.remainingAmount) : ""); }} className="btn btn-success btn-sm" style={{ flex: 1 }}>
                   💰 Ödeme Al
                 </button>
-                <button onClick={() => { setCloseModal(true); setCloseError(null); setForceClose(false); }} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
+                <button onClick={() => { setCloseModal(true); setCloseError(null); }} className="btn btn-ghost btn-sm" style={{ flex: 1 }}>
                   🔒 Masayı Kapat
                 </button>
               </div>
@@ -368,45 +408,20 @@ export default function WaiterTablesPage() {
             {closeError && (
               <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
                 ⚠️ {closeError}
-                {/* ✅ Sadece ADMIN zorla kapatabilir */}
-                {session?.user.role === "ADMIN" && !forceClose && (
-                  <button onClick={() => setForceClose(true)} style={{ display: "block", marginTop: 8, color: "#f59e0b", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                    Admin olarak zorla kapat →
-                  </button>
-                )}
-                {session?.user.role !== "ADMIN" && (
-                  <p style={{ marginTop: 8, fontSize: 11, color: "#7d8590" }}>
-                    Ödenmemiş hesap varken masayı kapatmak için admin yetkisi gereklidir.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {forceClose && (
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Kapatma Nedeni *</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {FORCE_CLOSE_REASONS.map(r => (
-                    <button key={r} onClick={() => setCloseReason(r)} style={{
-                      padding: "9px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
-                      border: `1.5px solid ${closeReason === r ? "var(--primary)" : "var(--border-color)"}`,
-                      background: closeReason === r ? "var(--primary-glow)" : "transparent",
-                      color: closeReason === r ? "var(--primary-light)" : "var(--text-secondary)",
-                      cursor: "pointer",
-                    }}>{closeReason === r ? "✓ " : ""}{r}</button>
-                  ))}
-                </div>
+                <p style={{ marginTop: 8, fontSize: 11, color: "#7d8590" }}>
+                  Masada aktif sipariş varken kapatmak için admin yetkisi gereklidir.
+                </p>
               </div>
             )}
 
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button
                 onClick={handleClose}
-                disabled={closing || (forceClose && !closeReason)}
-                className={`btn ${forceClose ? "btn-warning" : "btn-danger"}`}
+                disabled={closing}
+                className="btn btn-danger"
                 style={{ flex: 1 }}
               >
-                {closing ? "Kapatılıyor..." : forceClose ? "Zorla Kapat" : "Masayı Kapat"}
+                {closing ? "Kapatılıyor..." : "Masayı Kapat"}
               </button>
               <button onClick={() => setCloseModal(false)} className="btn btn-ghost">İptal</button>
             </div>

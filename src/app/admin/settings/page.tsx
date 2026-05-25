@@ -38,9 +38,6 @@ export default function AdminSettingsPage() {
           phone: business.phone,
           email: business.email,
           address: business.address,
-          latitude: business.latitude ? parseFloat(business.latitude) : null,
-          longitude: business.longitude ? parseFloat(business.longitude) : null,
-          allowedRadiusMeters: business.allowedRadiusMeters ? parseInt(business.allowedRadiusMeters) : 100,
         }),
       });
       if (res.ok) {
@@ -94,43 +91,6 @@ export default function AdminSettingsPage() {
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Adres</label>
             <textarea className="input" value={business?.address || ""} onChange={(e) => setBusiness({ ...business, address: e.target.value })} style={{ height: 60, resize: "none" }} />
-          </div>
-
-          <hr style={{ border: "0", borderTop: "1px solid var(--border-color)", margin: "16px 0" }} />
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>Konum Kısıtlaması (Sipariş/Talep)</h3>
-          
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Enlem (Latitude)</label>
-              <input type="number" step="any" className="input" value={business?.latitude || ""} onChange={(e) => setBusiness({ ...business, latitude: e.target.value })} placeholder="Örn: 41.0082" />
-            </div>
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Boylam (Longitude)</label>
-              <input type="number" step="any" className="input" value={business?.longitude || ""} onChange={(e) => setBusiness({ ...business, longitude: e.target.value })} placeholder="Örn: 28.9784" />
-            </div>
-          </div>
-          
-          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>İzin Verilen Yarıçap (Metre)</label>
-              <input type="number" className="input" value={business?.allowedRadiusMeters || 100} onChange={(e) => setBusiness({ ...business, allowedRadiusMeters: e.target.value })} />
-            </div>
-            <button
-              className="btn btn-ghost"
-              style={{ background: "rgba(99,102,241,0.1)", color: "var(--primary)" }}
-              onClick={() => {
-                if (navigator.geolocation) {
-                  navigator.geolocation.getCurrentPosition(
-                    (pos) => setBusiness({ ...business, latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-                    () => alert("Konum alınamadı. Lütfen izinleri kontrol edin.")
-                  );
-                } else {
-                  alert("Tarayıcınız konum özelliğini desteklemiyor.");
-                }
-              }}
-            >
-              📍 Konumumu Kullan
-            </button>
           </div>
 
           <button onClick={handleSave} className="btn btn-primary btn-lg" disabled={saving} style={{ marginTop: 8 }}>

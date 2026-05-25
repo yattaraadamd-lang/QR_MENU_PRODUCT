@@ -20,6 +20,31 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (!tableSession) return NextResponse.json({ error: "Aktif oturum bulunamadı" }, { status: 404 });
 
+    // ✅ Aktif sipariş kontrolü - Garson aktif sipariş varken kapatamaz
+    const activeOrders = await prisma.order.count({
+      where: {
+        tableSessionId: tableSession.id,
+        status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
+      },
+    });
+
+    if (activeOrders > 0 && session!.user.role !== "ADMIN") {
+      return NextResponse.json({
+        error: "Masada aktif sipariş var. Garson bu masayı kapatamaz. Lütfen admin tarafından zorla kapatın veya siparişleri tamamlayın.",
+        activeOrderCount: activeOrders,
+        canForceClose: false,
+      }, { status: 403 });
+    }
+
+    // Admin için aktif sipariş varsa zorla kapatma endpoint'ini kullanmasını öner
+    if (activeOrders > 0 && session!.user.role === "ADMIN" && !forceClose) {
+      return NextResponse.json({
+        error: "Masada aktif sipariş var. Zorla kapatmak için /api/admin/tables/[id]/force-close endpoint'ini kullanın.",
+        activeOrderCount: activeOrders,
+        canForceClose: true,
+      }, { status: 400 });
+    }
+
     // Ödenmemiş hesap kontrolü
     const bill = tableSession.bill;
     if (bill && Number(bill.remainingAmount) > 0 && !forceClose) {
