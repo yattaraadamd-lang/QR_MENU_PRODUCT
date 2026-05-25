@@ -32,6 +32,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ Masa durumu kontrolü - Sadece aktif müşteri durumlarında session oluşturulabilir
+    const allowedStatuses = ["OCCUPIED", "HAS_ORDER", "PREPARING", "SERVED", "WAITING_WAITER", "PAYMENT_REQUESTED"];
+    if (!allowedStatuses.includes(table.status)) {
+      return NextResponse.json({
+        sessionToken: null,
+        viewOnly: true,
+        tableStatus: table.status,
+        message: "Masa şu anda müşteri kabul etmiyor. Menüyü görüntüleyebilirsiniz ancak sipariş veremezsiniz. Lütfen personelden masayı açmasını isteyin.",
+      });
+    }
+
     // Aktif CustomerSession var mı kontrol et
     const existingSession = await prisma.customerSession.findFirst({
       where: {
