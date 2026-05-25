@@ -42,9 +42,12 @@ export default function QRTokenPage({ params }: { params: { qrToken: string } })
         const sessionData = await sessionRes.json();
         if (sessionRes.ok && sessionData.sessionToken) {
           sessionStorage.setItem("qr_session_token", sessionData.sessionToken);
+        } else if (sessionData.viewOnly && sessionData.message) {
+          sessionStorage.setItem("qr_order_blocked_msg", sessionData.message);
+        } else {
+          sessionStorage.removeItem("qr_order_blocked_msg");
         }
       } catch (e) {
-        // Session oluşturulamazsa yine menüye yönlendir (view-only)
         console.log("Session oluşturma hatası:", e);
       }
 

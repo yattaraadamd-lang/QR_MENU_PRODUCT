@@ -32,14 +32,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Masa durumu kontrolü - Sadece aktif müşteri durumlarında session oluşturulabilir
-    const allowedStatuses = ["OCCUPIED", "HAS_ORDER", "PREPARING", "SERVED", "WAITING_WAITER", "PAYMENT_REQUESTED"];
-    if (!allowedStatuses.includes(table.status)) {
+    // Temizlik modunda sipariş / talep kabul edilmez
+    if (table.status === "CLEANING_NEEDED") {
       return NextResponse.json({
         sessionToken: null,
         viewOnly: true,
         tableStatus: table.status,
-        message: "Masa şu anda müşteri kabul etmiyor. Menüyü görüntüleyebilirsiniz ancak sipariş veremezsiniz. Lütfen personelden masayı açmasını isteyin.",
+        message:
+          "Masa temizleniyor. Menüyü görüntüleyebilirsiniz ancak sipariş veremezsiniz. Lütfen personelden yardım isteyin.",
       });
     }
 

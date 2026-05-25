@@ -45,6 +45,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
   const [waiterNote, setWaiterNote] = useState("");
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [orderBlockedMsg, setOrderBlockedMsg] = useState<string | null>(null);
   const [activeRequests, setActiveRequests] = useState<Record<string, boolean>>({});
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -52,6 +53,44 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const ensureCustomerSession = useCallback(async (tableId: string): Promise<string | null> => {
+    const stored = sessionStorage.getItem("qr_session_token");
+    if (stored) {
+      setSessionToken(stored);
+      setOrderBlockedMsg(null);
+      return stored;
+    }
+    const qrToken = sessionStorage.getItem("qr_token");
+    if (!qrToken) {
+      setOrderBlockedMsg("Sipariş vermek için masadaki QR kodu okutmanız gerekir.");
+      return null;
+    }
+    try {
+      const sr = await fetch("/api/customer/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: params.businessId, tableId, qrToken }),
+      });
+      const sd = await sr.json();
+      if (sr.ok && sd.sessionToken) {
+        sessionStorage.setItem("qr_session_token", sd.sessionToken);
+        sessionStorage.removeItem("qr_order_blocked_msg");
+        setSessionToken(sd.sessionToken);
+        setOrderBlockedMsg(null);
+        return sd.sessionToken;
+      }
+      const msg =
+        sd.message ||
+        sd.error ||
+        "Sipariş vermek için masadaki QR kodu tekrar okutun.";
+      setOrderBlockedMsg(msg);
+      return null;
+    } catch {
+      setOrderBlockedMsg("Oturum oluşturulamadı. Lütfen QR kodu tekrar okutun.");
+      return null;
+    }
+  }, [params.businessId]);
 
   const fetchMenu = useCallback(async (initial = false) => {
     try {
@@ -63,30 +102,17 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
         setCategories(data.categories || []);
         if (initial && data.categories?.length > 0) setActiveCategory(data.categories[0].id);
         if (initial) {
+          const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
+          if (blockedHint) setOrderBlockedMsg(blockedHint);
           // ✅ Session token'ı sessionStorage'dan oku (QR sayfası tarafından kaydedilir)
           // Sayfa yenilemesi ile yeni session oluşturulamaz
           const storedToken = sessionStorage.getItem("qr_session_token");
           if (storedToken) {
             setSessionToken(storedToken);
+            setOrderBlockedMsg(null);
+            sessionStorage.removeItem("qr_order_blocked_msg");
           } else {
-            // Session token yoksa menüyü göster ama sipariş vermeye çalışınca hata alır
-            // qrToken ile yeni session oluşturmayı dene (kullanıcı QR akışından gelmişse)
-            const qrToken = sessionStorage.getItem("qr_token");
-            if (qrToken) {
-              try {
-                const sr = await fetch("/api/customer/session", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ businessId: params.businessId, tableId: data.table.id, qrToken }),
-                });
-                const sd = await sr.json();
-                if (sr.ok && sd.sessionToken) {
-                  setSessionToken(sd.sessionToken);
-                  sessionStorage.setItem("qr_session_token", sd.sessionToken);
-                }
-                // viewOnly veya hata durumunda menü görüntülenmeye devam eder
-              } catch { /* sessiz — menü görüntülenebilir */ }
-            }
+            await ensureCustomerSession(data.table.id);
           }
         }
       } else {
@@ -94,7 +120,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
       }
     } catch { if (initial) setSessionError("Bağlantı hatası."); }
     finally { if (initial) setLoading(false); }
-  }, [params.businessId, params.tableNumber]);
+  }, [params.businessId, params.tableNumber, ensureCustomerSession]);
 
   useEffect(() => { fetchMenu(true); }, [fetchMenu]);
   useEffect(() => { const iv = setInterval(() => fetchMenu(false), 5000); return () => clearInterval(iv); }, [fetchMenu]);
@@ -141,9 +167,14 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
     if (!cart.length || !business || !table) return;
     setSubmitting(true);
     try {
+      const token = sessionToken || (await ensureCustomerSession(table.id));
+      if (!token) {
+        showToast(orderBlockedMsg || "Sipariş vermek için masadaki QR kodu okutun.", "err");
+        return;
+      }
       const r = await fetch("/api/customer/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(sessionToken && { "x-session-token": sessionToken }) },
+        headers: { "Content-Type": "application/json", "x-session-token": token },
         body: JSON.stringify({ businessId: business.id, tableId: table.id, items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null })), note: orderNote || null }),
       });
       if (r.ok) { setCart([]); setOrderNote(""); setShowCartMobile(false); showToast("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳"); }
@@ -154,6 +185,11 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
 
   const sendRequest = async (type: string, reason?: string, note?: string) => {
     if (!business || !table) return;
+    const token = sessionToken || (await ensureCustomerSession(table.id));
+    if (!token) {
+      showToast(orderBlockedMsg || "Talep göndermek için masadaki QR kodu okutun.", "err");
+      return;
+    }
     const isBlocked =
       (type === "CALL_WAITER" && (activeRequests["CALL_WAITER"] || activeRequests["CALL_WAITER_BLOCKED"])) ||
       (type === "PAYMENT_REQUEST" && (activeRequests["PAYMENT_REQUEST"] || activeRequests["PAYMENT_REQUEST_BLOCKED"]));
@@ -167,7 +203,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
       const ep = type === "PAYMENT_REQUEST" ? "/api/customer/payment-requests" : "/api/customer/service-requests";
       const r = await fetch(ep, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(sessionToken && { "x-session-token": sessionToken }) },
+        headers: { "Content-Type": "application/json", "x-session-token": token },
         body: JSON.stringify({ businessId: business.id, tableId: table.id, requestType: type, reason: reason || null, note: note || null }),
       });
       if (r.ok) {
@@ -263,6 +299,19 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
         .service-btn:hover { background: var(--bg-hover) !important; }
         .cat-scroll::-webkit-scrollbar { display: none; }
       `}</style>
+
+      {orderBlockedMsg && !sessionToken && (
+        <div style={{
+          maxWidth: 1280, margin: "0 auto", padding: "12px 16px 0",
+        }}>
+          <div style={{
+            padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600,
+            background: "rgba(217,119,6,0.12)", color: "#92400e", border: "1px solid rgba(217,119,6,0.35)",
+          }}>
+            ⚠️ {orderBlockedMsg}
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (

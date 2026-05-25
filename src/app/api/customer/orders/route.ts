@@ -12,7 +12,10 @@ async function validateSessionToken(
 ): Promise<{ valid: boolean; error?: string }> {
   const sessionToken = request.headers.get("x-session-token");
   if (!sessionToken) {
-    return { valid: false, error: "Oturum token'ı gerekli. Lütfen QR kodu tekrar okutun." };
+    return {
+      valid: false,
+      error: "Sipariş vermek için masadaki QR kodu okutmanız gerekir.",
+    };
   }
 
   // ✅ CustomerSession tablosundan doğrula
