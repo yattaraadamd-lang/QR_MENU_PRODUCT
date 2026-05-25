@@ -9,6 +9,7 @@ export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [clearingLocation, setClearingLocation] = useState(false);
 
   useEffect(() => {
     fetchBusiness();
@@ -23,6 +24,33 @@ export default function AdminSettingsPage() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClearLocationLock = async () => {
+    setClearingLocation(true);
+    try {
+      const res = await fetch("/api/admin/business", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clearLocationLock: true }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBusiness(data.business);
+        setToast("Konum kilidi kapatıldı. Müşteriler konum izni olmadan sipariş verebilir. ✅");
+        setTimeout(() => setToast(null), 4000);
+      } else {
+        const data = await res.json();
+        setToast(data.error || "Konum kilidi kapatılamadı");
+        setTimeout(() => setToast(null), 4000);
+      }
+    } catch (e) {
+      console.error(e);
+      setToast("Bağlantı hatası");
+      setTimeout(() => setToast(null), 3000);
+    } finally {
+      setClearingLocation(false);
     }
   };
 
@@ -92,6 +120,21 @@ export default function AdminSettingsPage() {
             <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Adres</label>
             <textarea className="input" value={business?.address || ""} onChange={(e) => setBusiness({ ...business, address: e.target.value })} style={{ height: 60, resize: "none" }} />
           </div>
+
+          {(business?.latitude != null || business?.longitude != null) && (
+            <div style={{ padding: "12px 14px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 10, fontSize: 13, color: "#fcd34d" }}>
+              Bu işletmede kayıtlı konum koordinatı var. Eski sürümlerde müşteri siparişi konum kontrolüne takılabilir.
+              <button
+                type="button"
+                onClick={handleClearLocationLock}
+                disabled={clearingLocation}
+                className="btn btn-sm"
+                style={{ display: "block", marginTop: 10, background: "#d97706", color: "white" }}
+              >
+                {clearingLocation ? "Kapatılıyor..." : "Konum kilidini kapat"}
+              </button>
+            </div>
+          )}
 
           <button onClick={handleSave} className="btn btn-primary btn-lg" disabled={saving} style={{ marginTop: 8 }}>
             {saving ? "Kaydediliyor..." : "💾 Kaydet"}
