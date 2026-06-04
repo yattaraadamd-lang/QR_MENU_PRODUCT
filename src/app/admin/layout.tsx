@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 
 const adminMenuItems = [
   { href: "/admin",                  label: "Dashboard",       icon: "▦",  group: "main" },
@@ -31,6 +32,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { counts } = useBadgeCounts(8000);
+
+  // Nav item'ı → badge count eşlemesi
+  const badgeMap: Record<string, number> = {
+    "/admin/orders":           counts.orders,
+    "/admin/requests":         counts.requests,
+    "/admin/pending-payments": counts.payments,
+    "/admin/tables":           counts.payments,
+  };
 
   if (session?.user.role !== "ADMIN") {
     return (
@@ -118,6 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
                 {items.map((item) => {
                   const isActive = pathname === item.href;
+                  const badge = badgeMap[item.href] || 0;
                   return (
                     <Link
                       key={item.href}
@@ -135,7 +146,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       }}
                     >
                       <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
-                      {item.label}
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {badge > 0 && (
+                        <span style={{
+                          background: "#ef4444",
+                          color: "white",
+                          borderRadius: 99,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          padding: "1px 6px",
+                          minWidth: 18,
+                          textAlign: "center",
+                          lineHeight: "16px",
+                          flexShrink: 0,
+                          animation: badge > 0 ? "pulse-glow 2s infinite" : "none",
+                        }}>
+                          {badge > 99 ? "99+" : badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

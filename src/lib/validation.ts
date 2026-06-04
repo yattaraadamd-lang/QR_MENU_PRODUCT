@@ -11,7 +11,8 @@ import { OrderStatus, TableStatus, ServiceRequestType, RequestStatus, StockStatu
 // Common Schemas
 // ============================================================================
 
-export const cuidSchema = z.string().cuid();
+// ✅ Demo string ID'leri de kabul eder: prod-turk-kahvesi, cat-yiyecek, gerçek CUID'ler
+export const cuidSchema = z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/, "Geçersiz ID formatı");
 export const emailSchema = z.string().email();
 export const positiveIntSchema = z.number().int().positive();
 export const nonNegativeIntSchema = z.number().int().min(0);
@@ -42,27 +43,31 @@ export const createProductSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(1000).optional().nullable(),
   price: priceSchema,
-  categoryId: cuidSchema,
+  categoryId: z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/).optional().nullable(), // ✅ Demo ID + CUID + null desteklenir
   image: z.string().url().optional().nullable(),
   isAvailable: z.boolean().default(true),
   stockStatus: z.nativeEnum(StockStatus).default("IN_STOCK"),
-  allergens: z.string().max(500).optional().nullable(),
-  ingredients: z.string().max(1000).optional().nullable(),
+  allergens: z.string().max(500).optional().nullable().or(z.literal("")),
+  ingredients: z.string().max(1000).optional().nullable().or(z.literal("")),
   preparationTime: positiveIntSchema.optional().nullable(),
+  isPopular: z.boolean().optional().default(false), // ✅ Admin formdan geliyor
+  sortOrder: z.number().int().min(0).optional().default(0), // ✅ Admin formdan geliyor
 });
 
 export const updateProductSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).optional().nullable(),
   price: priceSchema.optional(),
-  categoryId: cuidSchema.optional(),
+  categoryId: z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/).optional().nullable(), // ✅ Demo ID + CUID + null desteklenir
   image: z.string().url().optional().nullable(),
   isAvailable: z.boolean().optional(),
   stockStatus: z.nativeEnum(StockStatus).optional(),
-  allergens: z.string().max(500).optional().nullable(),
-  ingredients: z.string().max(1000).optional().nullable(),
+  allergens: z.string().max(500).optional().nullable().or(z.literal("")),
+  ingredients: z.string().max(1000).optional().nullable().or(z.literal("")),
   preparationTime: positiveIntSchema.optional().nullable(),
   isDeleted: z.boolean().optional(),
+  isPopular: z.boolean().optional(), // ✅ Admin formdan geliyor
+  sortOrder: z.number().int().min(0).optional(), // ✅ Admin formdan geliyor
 });
 
 // ============================================================================
@@ -88,7 +93,8 @@ export const updateCategorySchema = z.object({
 // ============================================================================
 
 export const orderItemSchema = z.object({
-  productId: cuidSchema,
+  // ✅ CUID zorunluluğu kaldırıldı — DB'de slug-style ID'ler (prod-turk-kahvesi) olabilir
+  productId: z.string().min(1).max(200),
   quantity: z.number().int().min(1).max(99),
   customerNote: z.string().max(500).optional().nullable(),
 });

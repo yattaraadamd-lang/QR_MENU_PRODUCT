@@ -14,7 +14,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    const where: any = { businessId };
+    const where: any = {
+      businessId,
+      // ✅ Ödeme talepleri buraya düşmemeli — Ödemeler sekmesinde gösterilir
+      requestType: { not: "PAYMENT_REQUEST" },
+    };
+
     if (status === "active") {
       where.status = { in: ["PENDING", "SEEN", "IN_PROGRESS"] };
     } else if (status === "completed") {

@@ -41,8 +41,10 @@ export async function POST(
             include: {
               orders: {
                 where: {
+                  // ✅ Sadece gerçekten işlemde olan siparişler iptal edilir
+                  // SERVED = servis edildi, iptal edilmez
                   status: {
-                    in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"],
+                    in: ["PENDING", "ACCEPTED", "PREPARING"],
                   },
                 },
               },
@@ -61,13 +63,13 @@ export async function POST(
         throw new Error("Bu masada aktif oturum yok");
       }
 
-      // 2. Aktif siparişleri iptal et
+      // 2. Gerçekten işlemde olan siparişleri iptal et (SERVED dokunulmaz)
       if (activeSession.orders.length > 0) {
         await tx.order.updateMany({
           where: {
             tableSessionId: activeSession.id,
             status: {
-              in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"],
+              in: ["PENDING", "ACCEPTED", "PREPARING"],
             },
           },
           data: {

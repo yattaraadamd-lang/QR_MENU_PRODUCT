@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, getBusinessIdFromSession, verifyResourceOwnership } from "@/lib/tenant";
-import { validateBody, updateProductSchema, isValidCuid } from "@/lib/validation";
+import {
+  requireAdmin,
+  getBusinessIdFromSession,
+  verifyResourceOwnership,
+} from "@/lib/tenant";
+import { validateBody, updateProductSchema } from "@/lib/validation";
 
 // PUT /api/admin/products/[id] - Ürün güncelle
 export async function PUT(
@@ -16,7 +20,10 @@ export async function PUT(
     const businessId = getBusinessIdFromSession(authResult.session);
 
     // ✅ Validate product ID
-    if (!isValidCuid(params.id)) {
+    // Demo/string ID'leri de kabul eder: prod-turk-kahvesi
+    const isValidProductId = /^[a-zA-Z0-9_-]+$/.test(params.id);
+
+    if (!isValidProductId) {
       return NextResponse.json(
         { error: "Geçersiz ürün ID formatı" },
         { status: 400 }
@@ -26,14 +33,22 @@ export async function PUT(
     // ✅ Validate request body
     const body = await request.json();
     const validation = validateBody(updateProductSchema, body);
+
     if (!validation.success) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
     // ✅ Verify product ownership
     const existing = await prisma.product.findFirst({
-      where: { id: params.id, businessId, isDeleted: false },
-      select: { id: true, categoryId: true },
+      where: {
+        id: params.id,
+        businessId,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        categoryId: true,
+      },
     });
 
     if (!existing) {
@@ -44,7 +59,10 @@ export async function PUT(
     }
 
     // ✅ If categoryId is being changed, verify new category ownership
-    if (validation.data.categoryId && validation.data.categoryId !== existing.categoryId) {
+    if (
+      validation.data.categoryId &&
+      validation.data.categoryId !== existing.categoryId
+    ) {
       const categoryOwned = await verifyResourceOwnership(
         "category",
         validation.data.categoryId,
@@ -59,10 +77,18 @@ export async function PUT(
       }
     }
 
+    // ✅ Boş string alanları temizle (categoryId, allergens, ingredients "" → null)
+    const updateData: any = { ...validation.data };
+    if (updateData.categoryId === "") updateData.categoryId = null;
+    if (updateData.allergens === "") updateData.allergens = null;
+    if (updateData.ingredients === "") updateData.ingredients = null;
+
     // ✅ Update product with validated data
     const product = await prisma.product.update({
-      where: { id: params.id },
-      data: validation.data,
+      where: {
+        id: params.id,
+      },
+      data: updateData,
       select: {
         id: true,
         name: true,
@@ -70,7 +96,11 @@ export async function PUT(
         price: true,
         image: true,
         isAvailable: true,
+        isPopular: true,
+        sortOrder: true,
         stockStatus: true,
+        allergens: true,
+        ingredients: true,
         category: {
           select: {
             id: true,
@@ -80,9 +110,13 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json({ message: "Ürün güncellendi", product });
+    return NextResponse.json({
+      message: "Ürün güncellendi",
+      product,
+    });
   } catch (error) {
     console.error("Ürün güncelleme hatası:", error);
+
     return NextResponse.json(
       { error: "Ürün güncellenirken bir hata oluştu" },
       { status: 500 }
@@ -103,7 +137,10 @@ export async function DELETE(
     const businessId = getBusinessIdFromSession(authResult.session);
 
     // ✅ Validate product ID
-    if (!isValidCuid(params.id)) {
+    // Demo/string ID'leri de kabul eder: prod-turk-kahvesi
+    const isValidProductId = /^[a-zA-Z0-9_-]+$/.test(params.id);
+
+    if (!isValidProductId) {
       return NextResponse.json(
         { error: "Geçersiz ürün ID formatı" },
         { status: 400 }
@@ -112,27 +149,44 @@ export async function DELETE(
 
     // ✅ Verify product ownership
     const existing = await prisma.product.findFirst({
-      where: { id: params.id, businessId, isDeleted: false },
-      select: { id: true },
+      where: {
+        id: params.id,
+        businessId,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+      },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: "Ürün bulunamadı" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Ürün bulunamadı" },
+        { status: 404 }
+      );
     }
 
     // ✅ Soft-delete: fiziksel silme yerine işaretle
     await prisma.product.update({
-      where: { id: params.id },
+      where: {
+        id: params.id,
+      },
       data: {
         isDeleted: true,
         deletedAt: new Date(),
-        isAvailable: false, // Menüden de kaldır
+        isAvailable: false,
       },
     });
 
-    return NextResponse.json({ message: "Ürün silindi" });
+    return NextResponse.json({
+      message: "Ürün silindi",
+    });
   } catch (error) {
     console.error("Ürün silme hatası:", error);
-    return NextResponse.json({ error: "Ürün silinirken bir hata oluştu" }, { status: 500 });
+
+    return NextResponse.json(
+      { error: "Ürün silinirken bir hata oluştu" },
+      { status: 500 }
+    );
   }
 }

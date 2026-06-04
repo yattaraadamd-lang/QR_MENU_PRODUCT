@@ -129,8 +129,19 @@ export async function PUT(
         });
 
         if (tableSession.bill) {
-          const newTotal =
-            Number(tableSession.bill.totalAmount) + Number(order.totalPrice);
+          // ✅ Kümülatif toplama YOK — her zaman DB'den sıfırdan hesapla
+          // Bu sayede recalculate veya başka bir işlemle çift sayım engellenir
+          const sessionOrders = await prisma.order.findMany({
+            where: {
+              tableSessionId: tableSession.id,
+              status: { notIn: ["CANCELLED", "REJECTED"] },
+            },
+            select: { totalPrice: true },
+          });
+          const newTotal = sessionOrders.reduce(
+            (sum, o) => sum + Number(o.totalPrice),
+            0
+          );
           const remaining = Math.max(
             0,
             newTotal - Number(tableSession.bill.paidAmount)
@@ -145,6 +156,7 @@ export async function PUT(
           });
         }
       }
+
     }
 
     // ✅ Build update data

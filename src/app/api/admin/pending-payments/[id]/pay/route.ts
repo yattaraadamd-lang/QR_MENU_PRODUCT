@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 
 export const dynamic = "force-dynamic";
@@ -43,8 +42,9 @@ export async function POST(
     const newPaidAmount = Number(bill.paidAmount) + paymentAmount;
     const newRemainingAmount = Math.max(0, Number(bill.totalAmount) - newPaidAmount);
 
-    let paymentStatus: any = "PARTIALLY_PAID";
-    let billStatus: any = "OPEN";
+    let paymentStatus: "PARTIALLY_PAID" | "PAID" = "PARTIALLY_PAID";
+    let billStatus: "OPEN" | "CLOSED" = "OPEN";
+    const now = new Date();
 
     // Tamamı ödendiyse
     if (newRemainingAmount === 0) {
@@ -54,18 +54,19 @@ export async function POST(
 
     // İşlem (Transaction) - Ödemeyi kaydet ve faturayı güncelle
     const updatedBill = await prisma.$transaction(async (tx) => {
-      // Ödeme kaydı
-        await tx.payment.create({
-          data: {
-            businessId: session.user.businessId,
-            tableId: bill.tableId,
-            tableSessionId: bill.tableSessionId,
-            billId: bill.id,
-            amount: paymentAmount,
-            method: paymentMethod === "CREDIT_CARD" ? "CARD" : paymentMethod,
-            status: "PAID"
-          }
-        });
+      // ✅ Ödeme kaydı — paidAt zorunlu, dashboard bu alanla ciro hesaplıyor
+      await tx.payment.create({
+        data: {
+          businessId: session.user.businessId,
+          tableId: bill.tableId,
+          tableSessionId: bill.tableSessionId,
+          billId: bill.id,
+          amount: paymentAmount,
+          method: paymentMethod === "CREDIT_CARD" ? "CARD" : paymentMethod,
+          status: "PAID",
+          paidAt: now, // ✅ HATA DÜZELTİLDİ: paidAt eksikti, dashboard bunu kullanarak ciro hesaplıyor
+        }
+      });
 
       // Siparişleri güncelle (Eğer fatura kapanıyorsa siparişleri de ödendi işaretle)
       if (billStatus === "CLOSED") {
@@ -77,13 +78,23 @@ export async function POST(
         // Masa oturumunu kapat
         await tx.tableSession.update({
           where: { id: bill.tableSessionId },
-          data: { status: "CLOSED", endedAt: new Date() }
+          data: { status: "CLOSED", endedAt: now }
         });
 
-        // Masayı temizlik durumuna al
+        // ✅ HATA DÜZELTİLDİ: CLEANING_NEEDED yerine EMPTY — ödeme sonrası masa boş görünmeli
         await tx.table.update({
           where: { id: bill.tableId },
-          data: { status: TableStatus.CLEANING_NEEDED }
+          data: { status: "EMPTY" }
+        });
+
+        // ✅ Aktif CustomerSession'ları kapat — eski QR ile sipariş verilmesin
+        await tx.customerSession.updateMany({
+          where: {
+            tableId: bill.tableId,
+            businessId: session.user.businessId,
+            status: "ACTIVE",
+          },
+          data: { status: "CLOSED" },
         });
       }
 
@@ -94,18 +105,19 @@ export async function POST(
           paidAmount: newPaidAmount,
           remainingAmount: newRemainingAmount,
           paymentStatus: paymentStatus,
-          status: billStatus
+          status: billStatus,
+          ...(billStatus === "CLOSED" ? { closedAt: now } : {}),
         }
       });
     });
 
-    // Soket bildirimi - Eğer masa temizlik durumuna geçtiyse garsonlara bildir
+    // Soket bildirimi — masa boş oldu, panelleri güncelle
     if (billStatus === "CLOSED" && bill.table) {
       try {
         emitToBusinessRoom(session.user.businessId, "table_status_update", {
           tableId: bill.table.id,
-          status: "CLEANING_NEEDED",
-          message: `${bill.table.tableName || "Masa " + bill.table.tableNumber} hesabı ödendi, temizlik gerekiyor.`
+          status: "EMPTY",
+          message: `${bill.table.tableName || "Masa " + bill.table.tableNumber} hesabı ödendi ve masa boşaltıldı.`
         });
       } catch (e) {
         console.error("Soket emit hatası:", e);

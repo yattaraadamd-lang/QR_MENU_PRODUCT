@@ -91,7 +91,28 @@ export default function WaiterRequestsPage() {
           )}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setFilter("active")} className={`btn btn-sm ${filter === "active" ? "btn-primary" : "btn-ghost"}`}>Aktif</button>
+          <button
+            onClick={() => setFilter("active")}
+            className={`btn btn-sm ${filter === "active" ? "btn-primary" : "btn-ghost"}`}
+            style={{ display: "flex", alignItems: "center", gap: 6 }}
+          >
+            Aktif
+            {pendingCount > 0 && (
+              <span style={{
+                background: filter === "active" ? "rgba(255,255,255,0.25)" : "#ef4444",
+                color: "white",
+                borderRadius: 99,
+                fontSize: 10,
+                fontWeight: 800,
+                padding: "1px 6px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                {pendingCount}
+              </span>
+            )}
+          </button>
           <button onClick={() => setFilter("completed")} className={`btn btn-sm ${filter === "completed" ? "btn-primary" : "btn-ghost"}`}>Geçmiş</button>
         </div>
       </div>

@@ -58,6 +58,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: tokenValidation.error }, { status: 401 });
     }
 
+    // ✅ İkinci güvenlik katmanı: Bu masa için ACTIVE TableSession var mı?
+    // Masa kapatıldıysa eski CustomerSession token geçerli olsa bile sipariş verilemesin
+    const activeTableSession = await prisma.tableSession.findFirst({
+      where: { tableId, businessId, status: "ACTIVE" },
+      select: { id: true },
+    });
+
+    if (!activeTableSession) {
+      return NextResponse.json(
+        { error: "Bu masa şu anda aktif değil. Sipariş verilemez." },
+        { status: 403 }
+      );
+    }
+
     // Masa ve işletme kontrolü — silinen masa engellenir
     const table = await prisma.table.findFirst({
       where: { id: tableId, businessId, isActive: true, isDeleted: false },
@@ -119,13 +133,12 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Sipariş oluştur — PENDING durumunda (garson onayı bekliyor)
-    // ✅ TableSession ve Bill SADECE GARSON KABUL EDİNCE oluşturulur
-    // ✅ Masa durumu DEĞİŞMEZ (garson kabul edince değişir)
+    // ✅ Aktif TableSession'a bağla
     const order = await prisma.order.create({
       data: {
         businessId,
         tableId,
-        tableSessionId: null, // Garson kabul edince bağlanır
+        tableSessionId: activeTableSession.id,
         totalPrice,
         note: note || null,
         status: OrderStatus.PENDING, // Garson onayı bekliyor
@@ -177,4 +190,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });
   }
 }
-

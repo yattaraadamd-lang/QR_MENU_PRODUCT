@@ -18,7 +18,8 @@ export async function GET(request: NextRequest, { params }: { params: { sessionI
         tableSession: {
           include: {
             orders: {
-              where: { status: { not: "CANCELLED" } },
+              // ✅ Sadece ödenebilir durumdaki siparişler — REJECTED ve CANCELLED hariç
+              where: { status: { notIn: ["CANCELLED", "REJECTED"] } },
               include: { items: { include: { product: true } }, waiter: { select: { name: true } } },
               orderBy: { createdAt: "asc" },
             },
@@ -51,9 +52,13 @@ export async function POST(request: NextRequest, { params }: { params: { session
     });
     if (!bill) return NextResponse.json({ error: "Adisyon bulunamadı" }, { status: 404 });
 
-    // Tüm iptal edilmemiş siparişlerin toplamı
+    // ✅ Sadece ödenebilir durumdaki siparişlerin toplamı
+    // REJECTED ve CANCELLED siparişler toplama dahil edilmez
     const orders = await prisma.order.findMany({
-      where: { tableSessionId: params.sessionId, status: { not: "CANCELLED" } },
+      where: {
+        tableSessionId: params.sessionId,
+        status: { in: ["SERVED", "ACCEPTED", "PREPARING"] },
+      },
     });
     const totalAmount = orders.reduce((s, o) => s + Number(o.totalPrice), 0);
 

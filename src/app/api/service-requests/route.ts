@@ -138,7 +138,11 @@ export async function GET(request: NextRequest) {
     }
 
     const serviceRequests = await prisma.serviceRequest.findMany({
-      where: { businessId },
+      where: {
+        businessId,
+        // ✅ Ödeme talepleri Ödemeler sekmesinde gösterilir, Talepler sayfasına düşmemeli
+        requestType: { not: "PAYMENT_REQUEST" },
+      },
       include: {
         table: true,
       },

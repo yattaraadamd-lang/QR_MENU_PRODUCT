@@ -20,11 +20,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (!tableSession) return NextResponse.json({ error: "Aktif oturum bulunamadı" }, { status: 404 });
 
-    // ✅ Aktif sipariş kontrolü - Garson aktif sipariş varken kapatamaz
+    // ✅ Aktif sipariş kontrolü - SERVED dahil değil!
+    // SERVED = servis edildi, ödeme bekleniyor — masayı kapatmayı ENGELLEMEZ
+    // Sadece gerçekten işlemde olan siparişler engeller
     const activeOrders = await prisma.order.count({
       where: {
         tableSessionId: tableSession.id,
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
+        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
       },
     });
 

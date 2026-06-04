@@ -53,20 +53,36 @@ export async function POST(request: NextRequest) {
 
     const business = table.business;
 
-    // Bekleyen veya hazırlanıp servis edilmiş siparişlerin toplamını bul
-    const uncompletedOrders = await prisma.order.findMany({
+    // ✅ Aktif TableSession bul — sadece bu oturumun siparişleri hesaba katılacak
+    // tableId değil tableSessionId kullanarak eski oturumlar dahil edilmez
+    const activeTableSession = await prisma.tableSession.findFirst({
+      where: { tableId, businessId, status: "ACTIVE" },
+      select: { id: true },
+    });
+
+    if (!activeTableSession) {
+      return NextResponse.json({ error: "Bu masada aktif bir oturum bulunmamaktadır." }, { status: 400 });
+    }
+
+    // ✅ HATA DÜZELTİLDİ: tableId yerine tableSessionId ile filtrele
+    // Önceki oturumlardaki eski/ödenmiş/iptal siparişler toplama katılmaz
+    const payableOrders = await prisma.order.findMany({
       where: {
-        tableId,
-        businessId,
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
+        tableSessionId: activeTableSession.id,
+        status: { in: ["SERVED", "ACCEPTED", "PREPARING", "PENDING"] },
       },
     });
 
-    if (uncompletedOrders.length === 0) {
+    // Reddedilen/iptal edilen siparişleri filtrele (güvenlik için tekrar kontrol)
+    const filteredOrders = payableOrders.filter(
+      (o) => !["REJECTED", "CANCELLED"].includes(o.status)
+    );
+
+    if (filteredOrders.length === 0) {
       return NextResponse.json({ error: "Ödenecek aktif sipariş bulunmamaktadır." }, { status: 400 });
     }
 
-    const totalAmount = uncompletedOrders.reduce((sum, order) => sum + Number(order.totalPrice), 0);
+    const totalAmount = filteredOrders.reduce((sum, order) => sum + Number(order.totalPrice), 0);
 
     // Daha önce bekleyen bir ödeme talebi var mı kontrol et
     const existingPayment = await prisma.payment.findFirst({
@@ -82,6 +98,7 @@ export async function POST(request: NextRequest) {
       data: {
         businessId,
         tableId,
+        tableSessionId: activeTableSession.id,
         amount: totalAmount,
         status: PaymentStatus.PENDING,
         note: note || null,
@@ -139,4 +156,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Talep oluşturulurken hata oluştu" }, { status: 500 });
   }
 }
-

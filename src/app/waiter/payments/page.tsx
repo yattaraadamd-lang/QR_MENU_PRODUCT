@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 
 export default function WaiterPaymentsPage() {
@@ -12,15 +12,7 @@ export default function WaiterPaymentsPage() {
   const [paymentNote, setPaymentNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchPayments();
-      const interval = setInterval(fetchPayments, 8000);
-      return () => clearInterval(interval);
-    }
-  }, [session]);
-
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       const res = await fetch("/api/waiter/payments");
       const data = await res.json();
@@ -30,7 +22,25 @@ export default function WaiterPaymentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (session?.user.businessId) {
+      fetchPayments();
+      // ✅ 5 saniyede bir polling (8s'den indirildi)
+      const interval = setInterval(fetchPayments, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [session, fetchPayments]);
+
+  // ✅ Socket.IO: payment_request eventi gelince listeyi anında güncelle
+  useEffect(() => {
+    if (!session?.user.businessId) return;
+    const { connectToBusinessRoom } = require("@/lib/socket-client");
+    const socket = connectToBusinessRoom(session.user.businessId);
+    socket.on("payment_request", fetchPayments);
+    return () => { socket.off("payment_request", fetchPayments); };
+  }, [session, fetchPayments]);
 
   const handleComplete = async () => {
     if (!selectedPayment) return;

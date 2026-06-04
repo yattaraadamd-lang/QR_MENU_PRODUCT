@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { NotificationSoundProvider, useNotificationSound } from "@/contexts/NotificationSoundContext";
+import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 
 const NAV = [
   { href: "/waiter",          label: "Siparişler", icon: "🧾" },
@@ -42,6 +43,18 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { soundEnabled, enableSound, newNotification, notifications, clearNotification, clearAll } = useNotificationSound();
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const { counts, refresh: refreshBadges } = useBadgeCounts(8000);
+
+  // Nav item'ı → badge count eşlemesi
+  const badgeMap: Record<string, number> = {
+    "/waiter":          counts.orders,
+    "/waiter/requests": counts.requests,
+    "/waiter/payments": counts.payments,
+    "/waiter/tables":   counts.payments,
+  };
+
+  // Socket.IO: badge’ları anlık yenile
+  // useNotificationSound zaten socket dinliyor, biz sadece badge refresh ekliyoruz
 
   const unreadCount = notifications.length;
 
@@ -200,6 +213,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
       }}>
         {NAV.map(item => {
           const active = pathname === item.href;
+          const badge = badgeMap[item.href] || 0;
           return (
             <Link key={item.href} href={item.href} style={{
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
@@ -214,7 +228,28 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
                   height: 2, background: "var(--primary)", borderRadius: "0 0 4px 4px",
                 }} />
               )}
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
+              {/* İkon + badge wrapper */}
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                <span style={{ fontSize: 22 }}>{item.icon}</span>
+                {badge > 0 && (
+                  <span style={{
+                    position: "absolute",
+                    top: -4, right: -6,
+                    background: "#ef4444",
+                    color: "white",
+                    borderRadius: 99,
+                    fontSize: 9,
+                    fontWeight: 800,
+                    padding: "1px 4px",
+                    minWidth: 15,
+                    textAlign: "center",
+                    lineHeight: "13px",
+                    animation: "pulse-glow 2s infinite",
+                  }}>
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
+              </span>
               {item.label}
             </Link>
           );

@@ -54,7 +54,28 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingSession) {
-      // Mevcut aktif session'ı döndür — QR tarama gerekmez
+      // ✅ Güvenlik: Mevcut CustomerSession döndürmeden önce ACTIVE TableSession var mı kontrol et
+      // Masa kapatıldıysa (TableSession CLOSED) → CustomerSession'ı kapat, sipariş session'ı verme
+      const activeTableSession = await prisma.tableSession.findFirst({
+        where: { tableId, businessId, status: "ACTIVE" },
+        select: { id: true },
+      });
+
+      if (!activeTableSession) {
+        // Masa kapatılmış — CustomerSession'ı da kapat
+        await prisma.customerSession.update({
+          where: { id: existingSession.id },
+          data: { status: "CLOSED" },
+        });
+        return NextResponse.json({
+          sessionToken: null,
+          viewOnly: true,
+          tableStatus: table.status,
+          message: "Bu masa şu anda aktif değil. Menüyü görüntüleyebilirsiniz ancak sipariş veremezsiniz. Lütfen garsondan yardım isteyin.",
+        });
+      }
+
+      // ACTIVE TableSession mevcut — mevcut aktif CustomerSession'ı döndür
       return NextResponse.json({
         sessionToken: existingSession.sessionToken,
         expiresAt: existingSession.expiresAt.toISOString(),
@@ -70,6 +91,22 @@ export async function POST(request: NextRequest) {
         sessionToken: null,
         viewOnly: true,
         message: "Menü görüntülenebilir. Sipariş vermek için QR kodu tekrar okutun.",
+      });
+    }
+
+    // ✅ Yeni session oluşturmadan önce ACTIVE TableSession var mı kontrol et
+    const activeTableSessionForNew = await prisma.tableSession.findFirst({
+      where: { tableId, businessId, status: "ACTIVE" },
+      select: { id: true },
+    });
+
+    if (!activeTableSessionForNew) {
+      // Masa henüz açılmamış veya kapatılmış
+      return NextResponse.json({
+        sessionToken: null,
+        viewOnly: true,
+        tableStatus: table.status,
+        message: "Bu masa şu anda aktif değil. Menüyü görüntüleyebilirsiniz ancak sipariş veremezsiniz. Lütfen garsondan yardım isteyin.",
       });
     }
 
@@ -145,5 +182,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
-

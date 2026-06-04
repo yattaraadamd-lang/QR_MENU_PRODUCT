@@ -37,6 +37,12 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
+
+  const showToast = (msg: string, type: "ok" | "err" = "ok") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => { fetchData(); }, [session]);
 
@@ -73,11 +79,52 @@ export default function AdminProductsPage() {
 
   const toggleStock = async (p: Product) => {
     const next = p.stockStatus === "IN_STOCK" ? "OUT_OF_STOCK" : "IN_STOCK";
-    await fetch(`/api/admin/products/${p.id}`, {
-      method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stockStatus: next, isAvailable: next === "IN_STOCK" }),
-    });
-    fetchData();
+
+    // Optimistik UI: hemen güncelle, hata olursa geri al
+    setProducts(prev =>
+      prev.map(prod =>
+        prod.id === p.id
+          ? { ...prod, stockStatus: next, isAvailable: next === "IN_STOCK" }
+          : prod
+      )
+    );
+
+    try {
+      const res = await fetch(`/api/admin/products/${p.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stockStatus: next,
+          isAvailable: next === "IN_STOCK",
+        }),
+      });
+
+      if (res.ok) {
+        showToast(
+          next === "IN_STOCK" ? `✅ ${p.name} stoğa alındı` : `🔴 ${p.name} stoktan çıkarıldı`
+        );
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || "Stok güncellenemedi", "err");
+        // Hata varsa orijinal duruma geri al
+        setProducts(prev =>
+          prev.map(prod =>
+            prod.id === p.id
+              ? { ...prod, stockStatus: p.stockStatus, isAvailable: p.isAvailable }
+              : prod
+          )
+        );
+      }
+    } catch {
+      showToast("Bağlantı hatası", "err");
+      setProducts(prev =>
+        prev.map(prod =>
+          prod.id === p.id
+            ? { ...prod, stockStatus: p.stockStatus, isAvailable: p.isAvailable }
+            : prod
+        )
+      );
+    }
   };
 
   const startEdit = (p: Product) => {
@@ -96,6 +143,18 @@ export default function AdminProductsPage() {
 
   return (
     <div>
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)",
+          zIndex: 9999, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600,
+          background: toast.type === "err" ? "#ef4444" : "#10b981",
+          color: "white", boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+          whiteSpace: "nowrap", maxWidth: "90vw", textAlign: "center",
+        }}>
+          {toast.msg}
+        </div>
+      )}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>

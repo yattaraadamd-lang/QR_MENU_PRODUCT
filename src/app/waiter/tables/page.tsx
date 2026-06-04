@@ -182,11 +182,40 @@ export default function WaiterTablesPage() {
             const sm = STATUS_META[table.status] || STATUS_META.EMPTY;
             const bill = table.bill;
             const hasUnpaid = bill && Number(bill.remainingAmount) > 0;
+
+            const pendingOrders = table.orders?.filter((o: any) => o.status === "PENDING").length || 0;
+            const pendingRequests = table.serviceRequests?.filter((r: any) => r.status === "PENDING").length || 0;
+            const isPaymentRequested = table.status === "PAYMENT_REQUESTED";
+            const totalBadges = pendingOrders + pendingRequests + (isPaymentRequested ? 1 : 0);
+
             return (
               <div key={table.id} className="card" onClick={() => openDetail(table)} style={{
-                padding: 14, cursor: "pointer", position: "relative", overflow: "hidden",
+                padding: 14, cursor: "pointer", position: "relative", overflow: "visible",
                 borderLeft: `3px solid ${sm.color}`,
               }}>
+                {totalBadges > 0 && (
+                  <span style={{
+                    position: "absolute",
+                    top: -6,
+                    right: -6,
+                    background: "#ef4444",
+                    color: "white",
+                    borderRadius: 99,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    minWidth: 20,
+                    height: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0 5px",
+                    boxShadow: "0 2px 8px rgba(239,68,68,0.4), 0 0 0 2px var(--bg-card)",
+                    zIndex: 10,
+                    animation: "pulse-glow 2s infinite",
+                  }}>
+                    {totalBadges}
+                  </span>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                   <p style={{ fontWeight: 700, fontSize: 14 }}>{table.tableName || `Masa ${table.tableNumber}`}</p>
                   <span style={{ fontSize: 16 }}>{sm.icon}</span>

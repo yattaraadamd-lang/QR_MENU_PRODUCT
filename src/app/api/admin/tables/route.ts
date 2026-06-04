@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
             createdAt: true,
           },
           orderBy: { createdAt: "desc" },
-          take: 1,
         },
         serviceRequests: {
           where: { status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] } },

@@ -67,11 +67,18 @@ export async function GET(
       orderBy: { sortOrder: "asc" },
     });
 
+    // ✅ Aktif masa oturumu var mı? Frontend sipariş butonunu buna göre yönetir
+    const activeTableSession = await prisma.tableSession.findFirst({
+      where: { tableId: table.id, businessId, status: "ACTIVE" },
+      select: { id: true },
+    });
+
     return NextResponse.json({
       business,
       table,
       categories,
       popularProducts,
+      tableSessionActive: !!activeTableSession, // ✅ Masa oturumu aktif mi?
     });
   } catch (error) {
     console.error("Menü yükleme hatası:", error);
