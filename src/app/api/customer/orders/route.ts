@@ -59,15 +59,32 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ İkinci güvenlik katmanı: Bu masa için ACTIVE TableSession var mı?
-    // Masa kapatıldıysa eski CustomerSession token geçerli olsa bile sipariş verilemesin
+    // ✅ Aynı zamanda 90 dakika süre kontrolü
+    const SESSION_DURATION_MS = 90 * 60 * 1000;
+
     const activeTableSession = await prisma.tableSession.findFirst({
       where: { tableId, businessId, status: "ACTIVE" },
-      select: { id: true },
+      select: { id: true, startedAt: true },
     });
 
     if (!activeTableSession) {
       return NextResponse.json(
         { error: "Bu masa şu anda aktif değil. Sipariş verilemez." },
+        { status: 403 }
+      );
+    }
+
+    const sessionExpired =
+      Date.now() - activeTableSession.startedAt.getTime() > SESSION_DURATION_MS;
+
+    if (sessionExpired) {
+      // Oturumu kapat
+      await prisma.tableSession.update({
+        where: { id: activeTableSession.id },
+        data: { status: "CLOSED", endedAt: new Date() },
+      });
+      return NextResponse.json(
+        { error: "Masa oturumunun süresi doldu. Lütfen QR kodu tekrar okutun." },
         { status: 403 }
       );
     }

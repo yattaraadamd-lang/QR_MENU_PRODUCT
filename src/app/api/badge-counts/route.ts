@@ -23,11 +23,12 @@ export async function GET() {
           status: "PENDING",
         },
       }),
-      // Aktif hizmet talepleri (garson çağırma, yardım vs.)
+      // Aktif hizmet talepleri — PAYMENT_REQUEST hariç (Ödemeler sekmesinde gösterilir)
       prisma.serviceRequest.count({
         where: {
           businessId,
           status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] },
+          requestType: { not: "PAYMENT_REQUEST" },
         },
       }),
       // Bekleyen ödeme talepleri

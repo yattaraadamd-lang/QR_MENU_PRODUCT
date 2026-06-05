@@ -41,8 +41,6 @@ export default function WaiterTablesPage() {
   const [closeError, setCloseError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
 
-  // ✅ Masa açma state'i
-  const [opening, setOpening] = useState(false);
 
   const fetchTables = useCallback(async () => {
     try {
@@ -133,29 +131,6 @@ export default function WaiterTablesPage() {
     }
   };
 
-  // ✅ Masa açma fonksiyonu
-  const handleOpenTable = async (tableId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Detay modalını açmasın
-    setOpening(true);
-    try {
-      const res = await fetch(`/api/admin/tables/${tableId}/open`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert(data.message || "Masa açıldı");
-        fetchTables();
-      } else {
-        alert(data.error || "Masa açılamadı");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Bağlantı hatası");
-    } finally {
-      setOpening(false);
-    }
-  };
 
   const fmt = (v: number | string) => Number(v).toFixed(2);
 
@@ -249,23 +224,6 @@ export default function WaiterTablesPage() {
                   </div>
                 )}
 
-                {/* ✅ Masa EMPTY veya CLEANING_NEEDED ise "Masayı Aç" butonu */}
-                {(table.status === "EMPTY" || table.status === "CLEANING_NEEDED") && (
-                  <button
-                    onClick={(e) => handleOpenTable(table.id, e)}
-                    disabled={opening}
-                    className="btn btn-sm btn-primary"
-                    style={{
-                      marginTop: 8,
-                      width: "100%",
-                      padding: "6px 10px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {opening ? "Açılıyor..." : "🔓 Masayı Aç"}
-                  </button>
-                )}
               </div>
             );
           })}
