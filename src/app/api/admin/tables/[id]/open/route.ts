@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
 import { TableStatus } from "@prisma/client";
 
-// POST /api/admin/tables/[id]/open - Masayı aç (müşteri kabul etmeye hazır)
+// POST /api/admin/tables/[id]/open - Masayı aç (TableSession + Bill oluştur)
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -35,38 +35,80 @@ export async function POST(
       );
     }
 
-    // ✅ Masa zaten açıksa hata verme
-    const allowedStatuses: TableStatus[] = ["OCCUPIED", "HAS_ORDER", "PREPARING", "SERVED", "WAITING_WAITER", "PAYMENT_REQUESTED"];
-    if (allowedStatuses.includes(table.status)) {
+    // ✅ Zaten aktif TableSession var mı kontrol et
+    const existingSession = await prisma.tableSession.findFirst({
+      where: { tableId: params.id, businessId, status: "ACTIVE" },
+      select: { id: true },
+    });
+
+    if (existingSession) {
+      // Session zaten var — masa zaten açık, sadece status güncelle
+      await prisma.table.update({
+        where: { id: params.id },
+        data: { status: TableStatus.OCCUPIED },
+      });
       return NextResponse.json(
-        { 
+        {
           message: "Masa zaten açık",
           table: {
             id: table.id,
             tableNumber: table.tableNumber,
             tableName: table.tableName,
-            status: table.status,
-          }
+            status: "OCCUPIED",
+          },
         },
         { status: 200 }
       );
     }
 
-    // ✅ Masayı OCCUPIED yap
-    const updatedTable = await prisma.table.update({
-      where: { id: params.id },
-      data: { status: TableStatus.OCCUPIED },
-      select: {
-        id: true,
-        tableNumber: true,
-        tableName: true,
-        status: true,
-      },
+    // ✅ Transaction: TableSession + Bill + Table.status güncelle
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. TableSession oluştur
+      const tableSession = await tx.tableSession.create({
+        data: {
+          businessId,
+          tableId: params.id,
+          status: "ACTIVE",
+        },
+      });
+
+      // 2. Bill (adisyon) oluştur
+      await tx.bill.create({
+        data: {
+          businessId,
+          tableId: params.id,
+          tableSessionId: tableSession.id,
+          totalAmount: 0,
+          paidAmount: 0,
+          remainingAmount: 0,
+          paymentStatus: "UNPAID",
+          status: "OPEN",
+        },
+      });
+
+      // 3. Table durumunu OCCUPIED yap
+      const updatedTable = await tx.table.update({
+        where: { id: params.id },
+        data: { status: TableStatus.OCCUPIED },
+        select: {
+          id: true,
+          tableNumber: true,
+          tableName: true,
+          status: true,
+        },
+      });
+
+      return { tableSession, updatedTable };
     });
+
+    console.log(
+      `[OPEN TABLE] tableId=${params.id} sessionId=${result.tableSession.id} businessId=${businessId}`
+    );
 
     return NextResponse.json({
       message: "Masa başarıyla açıldı",
-      table: updatedTable,
+      table: result.updatedTable,
+      tableSessionId: result.tableSession.id,
     });
   } catch (error) {
     console.error("Masa açma hatası:", error);
