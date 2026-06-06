@@ -29,6 +29,9 @@ export default function WaiterTablesPage() {
   const [sessionDetail, setSessionDetail] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // ✅ Masa bazlı loading state — global yerine
+  const [tableLoadingMap, setTableLoadingMap] = useState<Record<string, boolean>>({});
+
   // Ödeme modalı
   const [payModal, setPayModal] = useState(false);
   const [payAmount, setPayAmount] = useState("");
@@ -58,6 +61,30 @@ export default function WaiterTablesPage() {
       return () => clearInterval(iv);
     }
   }, [session, fetchTables]);
+
+  // ✅ Masayı Aç — masa bazlı loading, diğer masalar etkilenmez
+  const handleOpenTable = async (tableId: string, businessId: string) => {
+    setTableLoadingMap(prev => ({ ...prev, [tableId]: true }));
+    try {
+      const res = await fetch(`/api/tables/${tableId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "OCCUPIED", businessId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // ✅ API sonrası tabloyu tekrar fetch et (optimistik güncelleme yok)
+        await fetchTables();
+      } else {
+        alert(data.error || "Masa açılırken hata oluştu");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Bağlantı hatası");
+    } finally {
+      setTableLoadingMap(prev => ({ ...prev, [tableId]: false }));
+    }
+  };
 
   const openDetail = async (table: any) => {
     setSelectedTable(table);
@@ -92,11 +119,11 @@ export default function WaiterTablesPage() {
       if (res.ok) {
         setPayModal(false);
         setPayAmount(""); setPayNote(""); setPayMethod("CASH");
-        // Detayı yenile
+        // ✅ Detayı yenile — API'den güncel veri al
         const r2 = await fetch(`/api/bills/${selectedTable.activeSession.id}`);
         const d2 = await r2.json();
         if (r2.ok) setSessionDetail(d2.bill);
-        fetchTables();
+        await fetchTables();
       } else {
         alert(data.error || "Ödeme alınamadı");
       }
@@ -119,7 +146,8 @@ export default function WaiterTablesPage() {
         setCloseModal(false);
         setSelectedTable(null);
         setSessionDetail(null);
-        fetchTables();
+        // ✅ Tüm masaları yenile
+        await fetchTables();
       } else {
         setCloseError(data.error);
       }
@@ -157,6 +185,8 @@ export default function WaiterTablesPage() {
             const sm = STATUS_META[table.status] || STATUS_META.EMPTY;
             const bill = table.bill;
             const hasUnpaid = bill && Number(bill.remainingAmount) > 0;
+            const isThisTableLoading = tableLoadingMap[table.id] || false;
+            const isEmpty = table.status === "EMPTY";
 
             const pendingOrders = table.orders?.filter((o: any) => o.status === "PENDING").length || 0;
             const pendingRequests = table.serviceRequests?.filter((r: any) => r.status === "PENDING").length || 0;
@@ -164,8 +194,8 @@ export default function WaiterTablesPage() {
             const totalBadges = pendingOrders + pendingRequests + (isPaymentRequested ? 1 : 0);
 
             return (
-              <div key={table.id} className="card" onClick={() => openDetail(table)} style={{
-                padding: 14, cursor: "pointer", position: "relative", overflow: "visible",
+              <div key={table.id} className="card" onClick={() => !isEmpty && openDetail(table)} style={{
+                padding: 14, cursor: isEmpty ? "default" : "pointer", position: "relative", overflow: "visible",
                 borderLeft: `3px solid ${sm.color}`,
               }}>
                 {totalBadges > 0 && (
@@ -222,6 +252,26 @@ export default function WaiterTablesPage() {
                   <div style={{ marginTop: 6, fontSize: 10, color: "#fca5a5", fontWeight: 600 }}>
                     🔔 {table.serviceRequests.length} talep
                   </div>
+                )}
+
+                {/* ✅ Masayı Aç butonu — sadece EMPTY masalara, masa bazlı loading */}
+                {isEmpty && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenTable(table.id, table.businessId);
+                    }}
+                    disabled={isThisTableLoading}
+                    className="btn btn-sm btn-primary"
+                    style={{
+                      marginTop: 10,
+                      width: "100%",
+                      fontSize: 12,
+                      opacity: isThisTableLoading ? 0.6 : 1,
+                    }}
+                  >
+                    {isThisTableLoading ? "Açılıyor..." : "🔓 Masayı Aç"}
+                  </button>
                 )}
 
               </div>

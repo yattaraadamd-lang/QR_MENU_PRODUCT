@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ServiceRequestType, RequestStatus, TableStatus, PaymentStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { requestPayment } from "@/lib/services/table-flow.service";
 
 export const dynamic = "force-dynamic";
 
@@ -41,118 +41,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Oturum süresi doldu." }, { status: 401 });
     }
 
-    // ✅ Masa kontrolü — Table.qrToken'a dokunulmuyor
-    const table = await prisma.table.findFirst({
-      where: { id: tableId, businessId, isActive: true, isDeleted: false },
-      include: { business: true },
-    });
+    // ✅ Merkezi table-flow.service kullanarak transaction ile ödeme talebi oluştur
+    // Payment + ServiceRequest + Notification + Table.status hepsi atomik
+    const result = await requestPayment(tableId, businessId, note || null);
 
-    if (!table || !table.business) {
-      return NextResponse.json({ error: "Masa bulunamadı veya aktif değil." }, { status: 404 });
-    }
-
-    const business = table.business;
-
-    // ✅ Aktif TableSession bul — sadece bu oturumun siparişleri hesaba katılacak
-    // tableId değil tableSessionId kullanarak eski oturumlar dahil edilmez
-    const activeTableSession = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-      select: { id: true },
-    });
-
-    if (!activeTableSession) {
-      return NextResponse.json({ error: "Bu masada aktif bir oturum bulunmamaktadır." }, { status: 400 });
-    }
-
-    // ✅ HATA DÜZELTİLDİ: tableId yerine tableSessionId ile filtrele
-    // Önceki oturumlardaki eski/ödenmiş/iptal siparişler toplama katılmaz
-    const payableOrders = await prisma.order.findMany({
-      where: {
-        tableSessionId: activeTableSession.id,
-        status: { in: ["SERVED", "ACCEPTED", "PREPARING", "PENDING"] },
-      },
-    });
-
-    // Reddedilen/iptal edilen siparişleri filtrele (güvenlik için tekrar kontrol)
-    const filteredOrders = payableOrders.filter(
-      (o) => !["REJECTED", "CANCELLED"].includes(o.status)
-    );
-
-    if (filteredOrders.length === 0) {
-      return NextResponse.json({ error: "Ödenecek aktif sipariş bulunmamaktadır." }, { status: 400 });
-    }
-
-    const totalAmount = filteredOrders.reduce((sum, order) => sum + Number(order.totalPrice), 0);
-
-    // Daha önce bekleyen bir ödeme talebi var mı kontrol et
-    const existingPayment = await prisma.payment.findFirst({
-      where: { tableId, businessId, status: "PENDING" },
-    });
-
-    if (existingPayment) {
-      return NextResponse.json({ error: "Zaten bekleyen bir ödeme talebiniz var." }, { status: 400 });
-    }
-
-    // Payment kaydını oluştur
-    const payment = await prisma.payment.create({
-      data: {
-        businessId,
-        tableId,
-        tableSessionId: activeTableSession.id,
-        amount: totalAmount,
-        status: PaymentStatus.PENDING,
-        note: note || null,
-      },
-    });
-
-    // Ayrıca bir servis talebi oluştur (personel kolay görsün diye)
-    const serviceRequest = await prisma.serviceRequest.create({
-      data: {
-        businessId,
-        tableId,
-        requestType: "PAYMENT_REQUEST" as ServiceRequestType,
-        note: note || null,
-        status: RequestStatus.PENDING,
-      },
-    });
-
-    // ✅ Masa durumunu güncelle — SADECE masa zaten dolu ise
-    // Masa EMPTY iken ödeme isteği masayı dolu YAPMAZ
-    if (table.status !== TableStatus.EMPTY) {
-      await prisma.table.update({
-        where: { id: tableId },
-        data: { status: TableStatus.PAYMENT_REQUESTED },
+    // Socket.IO bildirimi (transaction dışında)
+    try {
+      emitToBusinessRoom(businessId, "payment_request", {
+        requestId: result.serviceRequest.id,
+        paymentId: result.payment.id,
+        tableNumber: result.table.tableNumber,
+        tableName: result.table.tableName,
+        message: result.message,
+        soundType: "payment",
+        amount: result.totalAmount,
+        createdAt: result.serviceRequest.createdAt,
       });
+    } catch { /* socket opsiyonel */ }
+
+    return NextResponse.json({ message: "Ödeme talebi oluşturuldu", payment: result.payment }, { status: 201 });
+  } catch (error: any) {
+    console.error("Ödeme talebi hatası:", error);
+
+    // Kullanıcı dostu hata mesajları
+    if (error.message && (
+      error.message.includes("bulunamadı") ||
+      error.message.includes("aktif") ||
+      error.message.includes("Boş masadan") ||
+      error.message.includes("sipariş") ||
+      error.message.includes("bekleyen")
+    )) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    const title = "Ödeme Talebi";
-    const message = `${table.tableName || "Masa " + table.tableNumber} ödeme istiyor (₺${totalAmount.toFixed(2)})`;
-
-    await prisma.notification.create({
-      data: {
-        businessId,
-        tableId,
-        type: "PAYMENT_REQUEST",
-        title,
-        message,
-        soundType: "PAYMENT",
-      },
-    });
-
-    emitToBusinessRoom(businessId, "payment_request", {
-      requestId: serviceRequest.id,
-      paymentId: payment.id,
-      tableNumber: table.tableNumber,
-      tableName: table.tableName,
-      message,
-      soundType: "payment",
-      amount: totalAmount,
-      createdAt: serviceRequest.createdAt,
-    });
-
-    return NextResponse.json({ message: "Ödeme talebi oluşturuldu", payment }, { status: 201 });
-  } catch (error) {
-    console.error("Ödeme talebi hatası:", error);
     return NextResponse.json({ error: "Talep oluşturulurken hata oluştu" }, { status: 500 });
   }
 }

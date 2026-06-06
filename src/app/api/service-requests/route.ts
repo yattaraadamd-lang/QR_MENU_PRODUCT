@@ -30,73 +30,109 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hizmet talebi oluştur
-    const serviceRequest = await prisma.serviceRequest.create({
-      data: {
-        businessId,
-        tableId,
-        requestType,
-        note: note || null,
-        status: RequestStatus.PENDING,
-      },
-      include: {
-        table: true,
-      },
-    });
+    // ✅ Transaction ile hizmet talebi + masa durumu + bildirim atomik güncelle
+    const result = await prisma.$transaction(async (tx) => {
+      // Masa kontrolü
+      const table = await tx.table.findFirst({
+        where: { id: tableId, businessId, isActive: true, isDeleted: false },
+      });
 
-    // Masa durumunu güncelle
-      let tableStatus: TableStatus = TableStatus.OCCUPIED;
+      if (!table) {
+        throw new Error("Masa bulunamadı veya aktif değil");
+      }
 
-    if (requestType === ServiceRequestType.CALL_WAITER) {
-      tableStatus = TableStatus.WAITING_WAITER;
-    } else if (requestType === ServiceRequestType.PAYMENT_REQUEST) {
-      tableStatus = TableStatus.PAYMENT_REQUESTED;
-    }
+      // ✅ Aktif session kontrolü — EMPTY masadan garson çağrılmamalı
+      const activeSession = await tx.tableSession.findFirst({
+        where: { tableId, businessId, status: "ACTIVE" },
+        select: { id: true },
+      });
 
-    await prisma.table.update({
-      where: { id: tableId },
-      data: { status: tableStatus },
-    });
+      if (!activeSession && table.status === "EMPTY") {
+        throw new Error("Bu masada aktif oturum yok. Garson çağırmak için masanın açık olması gerekir.");
+      }
 
-    // Bildirim türünü belirle
-    let notificationType: any = "SERVICE_REQUEST";
-    let soundType: any = "DEFAULT";
-    let title = "Hizmet Talebi";
-    let message = `Masa ${serviceRequest.table.tableNumber} hizmet talep etti`;
+      // Hizmet talebi oluştur
+      const serviceRequest = await tx.serviceRequest.create({
+        data: {
+          businessId,
+          tableId,
+          requestType,
+          note: note || null,
+          status: RequestStatus.PENDING,
+        },
+        include: {
+          table: true,
+        },
+      });
 
-    if (requestType === ServiceRequestType.CALL_WAITER) {
-      notificationType = "CALL_WAITER";
-      soundType = "WAITER_CALL";
-      title = "Garson Çağrısı";
-      message = `Masa ${serviceRequest.table.tableNumber} garson çağırdı`;
-    } else if (requestType === ServiceRequestType.PAYMENT_REQUEST) {
-      notificationType = "PAYMENT_REQUEST";
-      soundType = "PAYMENT";
-      title = "Ödeme Talebi";
-      message = `Masa ${serviceRequest.table.tableNumber} ödeme istiyor`;
-    }
+      // ✅ Masa durumunu güncelle — geçiş kontrolü ile
+      let tableStatus: TableStatus = table.status;
 
-    // Bildirim oluştur
-    await prisma.notification.create({
-      data: {
-        businessId,
-        tableId,
-        type: notificationType,
-        title,
-        message,
-        soundType,
-      },
+      if (requestType === ServiceRequestType.CALL_WAITER) {
+        // Garson çağırma sadece aktif masadan yapılabilir
+        if (table.status !== "EMPTY") {
+          tableStatus = TableStatus.WAITING_WAITER;
+        }
+      } else if (requestType === ServiceRequestType.PAYMENT_REQUEST) {
+        if (table.status !== "EMPTY") {
+          tableStatus = TableStatus.PAYMENT_REQUESTED;
+        }
+      }
+
+      if (tableStatus !== table.status) {
+        await tx.table.update({
+          where: { id: tableId },
+          data: { status: tableStatus },
+        });
+      }
+
+      // Bildirim türünü belirle
+      let notificationType: any = "SERVICE_REQUEST";
+      let soundType: any = "DEFAULT";
+      let title = "Hizmet Talebi";
+      let message = `Masa ${serviceRequest.table.tableNumber} hizmet talep etti`;
+
+      if (requestType === ServiceRequestType.CALL_WAITER) {
+        notificationType = "CALL_WAITER";
+        soundType = "WAITER_CALL";
+        title = "Garson Çağrısı";
+        message = `Masa ${serviceRequest.table.tableNumber} garson çağırdı`;
+      } else if (requestType === ServiceRequestType.PAYMENT_REQUEST) {
+        notificationType = "PAYMENT_REQUEST";
+        soundType = "PAYMENT";
+        title = "Ödeme Talebi";
+        message = `Masa ${serviceRequest.table.tableNumber} ödeme istiyor`;
+      }
+
+      // Bildirim oluştur
+      await tx.notification.create({
+        data: {
+          businessId,
+          tableId,
+          type: notificationType,
+          title,
+          message,
+          soundType,
+        },
+      });
+
+      return serviceRequest;
     });
 
     return NextResponse.json(
       {
         message: "Talep başarıyla oluşturuldu",
-        serviceRequest,
+        serviceRequest: result,
       },
       { status: 201 }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Hizmet talebi oluşturma hatası:", error);
+
+    if (error.message?.includes("bulunamadı") || error.message?.includes("aktif oturum")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     return NextResponse.json(
       { error: "Talep oluşturulurken bir hata oluştu" },
       { status: 500 }

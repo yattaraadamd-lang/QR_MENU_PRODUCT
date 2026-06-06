@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { rateLimit, getClientIp, RateLimitPresets, createRateLimitResponse } from "@/lib/rate-limit";
 import { verifyQRSession } from "@/lib/tenant";
 import { validateBody, createOrderSchema } from "@/lib/validation";
+import { updateBillAfterOrder } from "@/lib/services/table-flow.service";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
           tableNumber: true,
           tableName: true,
           isActive: true,
+          status: true,
           qrToken: true,
           qrTokenExpiresAt: true,
         },
@@ -79,6 +81,12 @@ export async function POST(request: NextRequest) {
       if (tableCheck.qrTokenExpiresAt && new Date() > tableCheck.qrTokenExpiresAt) {
         throw new Error("Oturum süresi doldu");
       }
+
+      // ✅ 1.5 Aktif TableSession bul — sipariş buna bağlanacak
+      const activeSession = await tx.tableSession.findFirst({
+        where: { tableId, businessId, status: "ACTIVE" },
+        select: { id: true },
+      });
 
       // 2. Ürünleri doğrula ve fiyatları hesapla
       let totalPrice = 0;
@@ -122,11 +130,12 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 3. Sipariş oluştur
+      // 3. ✅ Sipariş oluştur — aktif session'a bağla
       const order = await tx.order.create({
         data: {
           businessId,
           tableId,
+          tableSessionId: activeSession?.id || null,
           totalPrice,
           note: note || null,
           status: OrderStatus.PENDING,
@@ -153,13 +162,20 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 4. Masa durumunu güncelle
-      await tx.table.update({
-        where: { id: tableId },
-        data: { status: TableStatus.HAS_ORDER },
-      });
+      // 4. ✅ Bill güncelle (session varsa)
+      if (activeSession) {
+        await updateBillAfterOrder(tx, activeSession.id);
+      }
 
-      // 5. Bildirim oluştur
+      // 5. ✅ Masa durumunu güncelle (sadece uygun durumlardan)
+      if (["OCCUPIED", "SERVED", "HAS_ORDER"].includes(tableCheck.status)) {
+        await tx.table.update({
+          where: { id: tableId },
+          data: { status: TableStatus.HAS_ORDER },
+        });
+      }
+
+      // 6. Bildirim oluştur
       await tx.notification.create({
         data: {
           businessId,

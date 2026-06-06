@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { collectPayment } from "@/lib/services/table-flow.service";
 
 export const dynamic = "force-dynamic";
 
@@ -18,64 +18,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "tableSessionId, amount ve method gerekli" }, { status: 400 });
     }
 
-    // Oturum ve adisyon kontrolü
-    const tableSession = await prisma.tableSession.findFirst({
-      where: { id: tableSessionId, businessId, status: "ACTIVE" },
-      include: { bill: true, table: true },
-    });
-    if (!tableSession) return NextResponse.json({ error: "Aktif oturum bulunamadı" }, { status: 404 });
+    if (typeof amount !== "number" || amount <= 0) {
+      return NextResponse.json({ error: "Geçersiz tutar" }, { status: 400 });
+    }
 
-    const bill = tableSession.bill;
-    if (!bill) return NextResponse.json({ error: "Adisyon bulunamadı" }, { status: 404 });
+    // ✅ Merkezi table-flow.service kullanarak transaction ile ödeme al
+    // bill.totalAmount server-side hesaplanır, client'a güvenilmez
+    const result = await collectPayment(
+      tableSessionId,
+      businessId,
+      amount,
+      method,
+      session!.user.id,
+      session!.user.name,
+      note || null
+    );
 
-    // Ödeme kaydı oluştur
-    const payment = await prisma.payment.create({
-      data: {
-        businessId,
-        tableId: tableSession.tableId,
-        tableSessionId,
-        billId: bill.id,
-        amount,
-        method,
-        note: note || null,
-        status: "PAID",
-        paidAt: new Date(),
-        handledById: session!.user.id,
-        handledByWaiterName: session!.user.name,
-      },
-    });
-
-    // Adisyonu yeniden hesapla
-    const allPayments = await prisma.payment.findMany({
-      where: { billId: bill.id, status: "PAID" },
-    });
-    const paidAmount = allPayments.reduce((s, p) => s + Number(p.amount), 0);
-    const remainingAmount = Math.max(0, Number(bill.totalAmount) - paidAmount);
-
-    let paymentStatus: "UNPAID" | "PARTIALLY_PAID" | "PAID" = "UNPAID";
-    if (remainingAmount === 0 && Number(bill.totalAmount) > 0) paymentStatus = "PAID";
-    else if (paidAmount > 0) paymentStatus = "PARTIALLY_PAID";
-
-    const updatedBill = await prisma.bill.update({
-      where: { id: bill.id },
-      data: { paidAmount, remainingAmount, paymentStatus },
-    });
-
-    // Socket.IO bildirimi — static import
+    // Socket.IO bildirimi — transaction dışında
     try {
       emitToBusinessRoom(businessId, "payment_collected", {
-        tableNumber: tableSession.table.tableNumber,
-        tableName: tableSession.table.tableName,
+        tableNumber: result.table.tableNumber,
+        tableName: result.table.tableName,
         amount,
         method,
-        remainingAmount,
-        paymentStatus,
+        remainingAmount: Number(result.bill.remainingAmount),
+        paymentStatus: result.bill.paymentStatus,
       });
     } catch { /* socket opsiyonel */ }
 
-    return NextResponse.json({ payment, bill: updatedBill }, { status: 201 });
-  } catch (e) {
-    console.error(e);
+    return NextResponse.json({ payment: result.payment, bill: result.bill }, { status: 201 });
+  } catch (e: any) {
+    console.error("Ödeme alma hatası:", e);
+
+    if (e.message?.includes("bulunamadı")) {
+      return NextResponse.json({ error: e.message }, { status: 404 });
+    }
+
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

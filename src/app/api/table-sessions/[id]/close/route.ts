@@ -1,63 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { closeTable } from "@/lib/services/table-flow.service";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/table-sessions/[id]/close — Admin veya garson masa oturumunu kapat
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  let userRole = "WAITER";
   try {
     const { error, response, session } = await requireWaiterOrAdmin();
     if (error) return response!;
     const businessId = getBusinessId(session);
+    userRole = session!.user.role || "WAITER";
     const body = await request.json().catch(() => ({}));
     const { forceClose, closeReason } = body;
 
-    const tableSession = await prisma.tableSession.findFirst({
-      where: { id: params.id, businessId, status: "ACTIVE" },
-      include: { bill: true },
-    });
-
-    if (!tableSession) return NextResponse.json({ error: "Aktif oturum bulunamadı" }, { status: 404 });
-
-    // ✅ Aktif sipariş kontrolü - SERVED dahil değil!
-    // SERVED = servis edildi, ödeme bekleniyor — masayı kapatmayı ENGELLEMEZ
-    // Sadece gerçekten işlemde olan siparişler engeller
-    const activeOrders = await prisma.order.count({
-      where: {
-        tableSessionId: tableSession.id,
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
-      },
-    });
-
-    if (activeOrders > 0 && session!.user.role !== "ADMIN") {
-      return NextResponse.json({
-        error: "Masada aktif sipariş var. Garson bu masayı kapatamaz. Lütfen admin tarafından zorla kapatın veya siparişleri tamamlayın.",
-        activeOrderCount: activeOrders,
-        canForceClose: false,
-      }, { status: 403 });
-    }
-
-    // Admin için aktif sipariş varsa zorla kapatma endpoint'ini kullanmasını öner
-    if (activeOrders > 0 && session!.user.role === "ADMIN" && !forceClose) {
-      return NextResponse.json({
-        error: "Masada aktif sipariş var. Zorla kapatmak için /api/admin/tables/[id]/force-close endpoint'ini kullanın.",
-        activeOrderCount: activeOrders,
-        canForceClose: true,
-      }, { status: 400 });
-    }
-
-    // Ödenmemiş hesap kontrolü
-    const bill = tableSession.bill;
-    if (bill && Number(bill.remainingAmount) > 0 && !forceClose) {
-      return NextResponse.json({
-        error: "Bu masa kapatılamaz. Ödenmemiş hesap var.",
-        remainingAmount: Number(bill.remainingAmount),
-        canForceClose: session!.user.role === "ADMIN",
-      }, { status: 400 });
-    }
-
-    // ✅ Zorla kapatma sadece ADMIN yapabilir
+    // ✅ Garson forceClose yapamaz
     if (forceClose && session!.user.role !== "ADMIN") {
       return NextResponse.json({
         error: "Ödenmemiş hesap varken masayı kapatmak için admin yetkisi gereklidir.",
@@ -65,57 +23,40 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       }, { status: 403 });
     }
 
-    // Oturumu kapat
-    await prisma.tableSession.update({
-      where: { id: params.id },
-      data: {
-        status: "CLOSED",
-        endedAt: new Date(),
-        closedById: session!.user.id,
-        closeReason: forceClose ? (closeReason || "Admin tarafından kapatıldı") : null,
-      },
-    });
-
-    // Adisyonu kapat
-    if (bill) {
-      await prisma.bill.update({
-        where: { id: bill.id },
-        data: {
-          status: "CLOSED",
-          closedAt: new Date(),
-          paymentStatus: Number(bill.remainingAmount) <= 0 ? "PAID" : (forceClose ? "CANCELLED" : "UNPAID"),
-        },
-      });
-    }
-
-    // ✅ Masa durumunu EMPTY yap — qrToken SİLİNMEZ (kalıcı QR kimliği)
-    await prisma.table.update({
-      where: { id: tableSession.tableId },
-      data: { status: "EMPTY" },
-      // ✅ qrToken ve qrTokenExpiresAt dokunulmadı
-    });
-
-    // ✅ Aktif CustomerSession kayıtlarını kapat
-    await prisma.customerSession.updateMany({
-      where: {
-        tableId: tableSession.tableId,
-        businessId,
-        status: "ACTIVE",
-      },
-      data: {
-        status: "CLOSED",
-      },
-    });
-
-    // Aktif hizmet taleplerini tamamla
-    await prisma.serviceRequest.updateMany({
-      where: { tableId: tableSession.tableId, status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] } },
-      data: { status: "COMPLETED", completedAt: new Date() },
+    // ✅ Merkezi table-flow.service kullanarak transaction ile kapat
+    const result = await closeTable(params.id, businessId, session!.user.id, {
+      forceClose: forceClose || false,
+      closeReason,
     });
 
     return NextResponse.json({ success: true, message: "Masa başarıyla kapatıldı" });
-  } catch (e) {
-    console.error(e);
+  } catch (e: any) {
+    console.error("Masa kapatma hatası:", e);
+
+    // Aktif sipariş hatası
+    if (e.message?.includes("aktif sipariş")) {
+      const match = e.message.match(/(\d+) aktif sipariş/);
+      const count = match ? parseInt(match[1]) : 0;
+      return NextResponse.json({
+        error: e.message,
+        activeOrderCount: count,
+        canForceClose: userRole === "ADMIN",
+      }, { status: userRole === "ADMIN" ? 400 : 403 });
+    }
+
+    // Ödenmemiş hesap hatası
+    if (e.message?.includes("Ödenmemiş")) {
+      return NextResponse.json({
+        error: e.message,
+        canForceClose: userRole === "ADMIN",
+      }, { status: 400 });
+    }
+
+    // Oturum bulunamadı
+    if (e.message?.includes("bulunamadı")) {
+      return NextResponse.json({ error: e.message }, { status: 404 });
+    }
+
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

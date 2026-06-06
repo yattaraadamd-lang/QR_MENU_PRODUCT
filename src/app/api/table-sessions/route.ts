@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { openTable, getActiveTableSession } from "@/lib/services/table-flow.service";
 
 export const dynamic = "force-dynamic";
 
@@ -34,57 +35,25 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/table-sessions — Yeni oturum başlat (müşteri QR okutunca)
+// POST /api/table-sessions — Yeni oturum başlat (garson veya müşteri QR okutunca)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { businessId, tableId } = body;
     if (!businessId || !tableId) return NextResponse.json({ error: "businessId ve tableId gerekli" }, { status: 400 });
 
-    // Masa var mı ve aktif mi?
-    const table = await prisma.table.findFirst({
-      where: { id: tableId, businessId, isActive: true, isDeleted: false },
-    });
-    if (!table) return NextResponse.json({ error: "Masa bulunamadı" }, { status: 404 });
+    // ✅ Merkezi table-flow.service kullanarak transaction ile masa aç
+    const result = await openTable(tableId, businessId);
 
-    // Zaten aktif oturum var mı?
-    const existing = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-      include: { bill: true },
-    });
-    if (existing) return NextResponse.json({ tableSession: existing, isNew: false });
-
-    // Yeni oturum + adisyon oluştur
-    const tableSession = await prisma.tableSession.create({
-      data: {
-        businessId,
-        tableId,
-        status: "ACTIVE",
-      },
-    });
-
-    const bill = await prisma.bill.create({
-      data: {
-        businessId,
-        tableId,
-        tableSessionId: tableSession.id,
-        totalAmount: 0,
-        paidAmount: 0,
-        remainingAmount: 0,
-        paymentStatus: "UNPAID",
-        status: "OPEN",
-      },
-    });
-
-    // Masa durumunu OCCUPIED yap
-    await prisma.table.update({
-      where: { id: tableId },
-      data: { status: "OCCUPIED" },
-    });
-
-    return NextResponse.json({ tableSession: { ...tableSession, bill }, isNew: true }, { status: 201 });
-  } catch (e) {
-    console.error(e);
+    return NextResponse.json(
+      { tableSession: result.tableSession, bill: result.bill, isNew: result.isNew },
+      { status: result.isNew ? 201 : 200 }
+    );
+  } catch (e: any) {
+    console.error("Masa açma hatası:", e);
+    if (e.message?.includes("bulunamadı") || e.message?.includes("aktif değil")) {
+      return NextResponse.json({ error: e.message }, { status: 404 });
+    }
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }
