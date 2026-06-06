@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { updateBillAfterOrder } from "@/lib/services/table-flow.service";
 
 export const dynamic = "force-dynamic";
 
@@ -59,89 +58,101 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: tokenValidation.error }, { status: 401 });
     }
 
-    // ✅ Transaction içinde tüm işlemleri yap
-    const result = await prisma.$transaction(async (tx) => {
-      // ✅ Aktif TableSession kontrolü + 90 dakika süre kontrolü
-      const SESSION_DURATION_MS = 90 * 60 * 1000;
+    // ✅ İkinci güvenlik katmanı: Bu masa için ACTIVE TableSession var mı?
+    // ✅ Aynı zamanda 90 dakika süre kontrolü
+    const SESSION_DURATION_MS = 90 * 60 * 1000;
 
-      const activeTableSession = await tx.tableSession.findFirst({
-        where: { tableId, businessId, status: "ACTIVE" },
-        select: { id: true, startedAt: true },
+    const activeTableSession = await prisma.tableSession.findFirst({
+      where: { tableId, businessId, status: "ACTIVE" },
+      select: { id: true, startedAt: true },
+    });
+
+    if (!activeTableSession) {
+      return NextResponse.json(
+        { error: "Bu masa şu anda aktif değil. Sipariş verilemez." },
+        { status: 403 }
+      );
+    }
+
+    const sessionExpired =
+      Date.now() - activeTableSession.startedAt.getTime() > SESSION_DURATION_MS;
+
+    if (sessionExpired) {
+      // Oturumu kapat
+      await prisma.tableSession.update({
+        where: { id: activeTableSession.id },
+        data: { status: "CLOSED", endedAt: new Date() },
+      });
+      return NextResponse.json(
+        { error: "Masa oturumunun süresi doldu. Lütfen QR kodu tekrar okutun." },
+        { status: 403 }
+      );
+    }
+
+    // Masa ve işletme kontrolü — silinen masa engellenir
+    const table = await prisma.table.findFirst({
+      where: { id: tableId, businessId, isActive: true, isDeleted: false },
+      include: { business: true },
+    });
+
+    if (!table || !table.business) {
+      return NextResponse.json(
+        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
+        { status: 404 }
+      );
+    }
+
+    const business = table.business;
+
+    // İşletme aktif mi?
+    if (!business.isActive) {
+      return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
+    }
+
+    // Ürün kontrolleri
+    let totalPrice = 0;
+    const orderItems: any[] = [];
+
+    for (const item of items) {
+      const product = await prisma.product.findFirst({
+        where: {
+          id: item.productId,
+          businessId,
+          isDeleted: false, // ✅ Silinen ürün engellenir
+        },
       });
 
-      if (!activeTableSession) {
-        throw new Error("Bu masa şu anda aktif değil. Sipariş verilemez.");
+      if (!product) {
+        return NextResponse.json({ error: `Ürün bulunamadı: ${item.productId}` }, { status: 404 });
       }
 
-      const sessionExpired =
-        Date.now() - activeTableSession.startedAt.getTime() > SESSION_DURATION_MS;
-
-      if (sessionExpired) {
-        // Oturumu kapat
-        await tx.tableSession.update({
-          where: { id: activeTableSession.id },
-          data: { status: "CLOSED", endedAt: new Date() },
-        });
-        throw new Error("Masa oturumunun süresi doldu. Lütfen QR kodu tekrar okutun.");
+      // ✅ isAvailable kontrolü
+      if (!product.isAvailable) {
+        return NextResponse.json({ error: `"${product.name}" şu anda mevcut değil.` }, { status: 400 });
       }
 
-      // Masa ve işletme kontrolü — silinen masa engellenir
-      const table = await tx.table.findFirst({
-        where: { id: tableId, businessId, isActive: true, isDeleted: false },
-        include: { business: true },
+      // ✅ stockStatus kontrolü
+      if (product.stockStatus !== "IN_STOCK") {
+        return NextResponse.json({ error: `"${product.name}" şu anda stokta yok.` }, { status: 400 });
+      }
+
+      const itemTotal = Number(product.price) * item.quantity;
+      totalPrice += itemTotal;
+
+      orderItems.push({
+        productId: item.productId,
+        productName: product.name,
+        quantity: item.quantity,
+        unitPrice: product.price,
+        totalPrice: itemTotal,
+        customerNote: item.customerNote || null,
       });
+    }
 
-      if (!table || !table.business) {
-        throw new Error("Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin.");
-      }
-
-      const business = table.business;
-
-      // İşletme aktif mi?
-      if (!business.isActive) {
-        throw new Error("İşletme şu anda hizmet vermiyor.");
-      }
-
-      // Ürün kontrolleri — fiyat server-side hesaplanıyor
-      let totalPrice = 0;
-      const orderItems = [];
-
-      for (const item of items) {
-        const product = await tx.product.findFirst({
-          where: {
-            id: item.productId,
-            businessId,
-            isDeleted: false,
-          },
-        });
-
-        if (!product) {
-          throw new Error(`Ürün bulunamadı: ${item.productId}`);
-        }
-
-        if (!product.isAvailable) {
-          throw new Error(`"${product.name}" şu anda mevcut değil.`);
-        }
-
-        if (product.stockStatus !== "IN_STOCK") {
-          throw new Error(`"${product.name}" şu anda stokta yok.`);
-        }
-
-        const itemTotal = Number(product.price) * item.quantity;
-        totalPrice += itemTotal;
-
-        orderItems.push({
-          productId: item.productId,
-          productName: product.name,
-          quantity: item.quantity,
-          unitPrice: product.price,
-          totalPrice: itemTotal,
-          customerNote: item.customerNote || null,
-        });
-      }
-
-      // ✅ Sipariş oluştur — aktif TableSession'a bağla
-      const order = await tx.order.create({
+    // ✅ Transaction: Sipariş oluştur + Bill güncelle + Masa durumu güncelle
+    const order = await prisma.$transaction(async (tx) => {
+      // Sipariş oluştur — aktif TableSession'a bağla
+      const createdOrder = await tx.order.create({
         data: {
           businessId,
           tableId,
@@ -158,14 +169,43 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // ✅ Bill totalAmount güncelle (server-side)
-      await updateBillAfterOrder(tx, activeTableSession.id);
+      // ✅ Bill totalAmount güncelle (server-side, inline)
+      try {
+        const bill = await tx.bill.findFirst({
+          where: { tableSessionId: activeTableSession.id, status: "OPEN" },
+        });
 
-      // ✅ Masa durumunu HAS_ORDER yap (eğer uygunsa)
-      if (table.status === "OCCUPIED" || table.status === "SERVED") {
+        if (bill) {
+          // Tüm aktif siparişlerin toplamını hesapla
+          const allOrders = await tx.order.findMany({
+            where: {
+              tableSessionId: activeTableSession.id,
+              status: { notIn: ["CANCELLED", "REJECTED"] },
+            },
+          });
+
+          const newTotalAmount = allOrders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+          const remainingAmount = Math.max(0, newTotalAmount - Number(bill.paidAmount));
+
+          await tx.bill.update({
+            where: { id: bill.id },
+            data: {
+              totalAmount: newTotalAmount,
+              remainingAmount,
+            },
+          });
+        }
+      } catch (billErr) {
+        // Bill güncelleme hatası siparişi engellemez
+        console.log("Bill güncelleme uyarısı:", billErr);
+      }
+
+      // ✅ Masa durumunu HAS_ORDER yap (uygun durumlardan)
+      const currentTable = await tx.table.findUnique({ where: { id: tableId }, select: { status: true } });
+      if (currentTable && ["OCCUPIED", "SERVED", "HAS_ORDER"].includes(currentTable.status)) {
         await tx.table.update({
           where: { id: tableId },
-          data: { status: TableStatus.HAS_ORDER },
+          data: { status: "HAS_ORDER" },
         });
       }
 
@@ -181,21 +221,21 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return { order, table };
+      return createdOrder;
     });
 
-    // Socket.IO bildirimi (transaction dışında)
+    // Socket.IO bildirimi
     try {
-      emitToBusinessRoom(result.table.businessId, "new_order", {
-        orderId: result.order.id,
-        tableNumber: result.table.tableNumber,
-        tableName: result.table.tableName,
-        message: `${result.table.tableName || "Masa " + result.table.tableNumber} sipariş verdi - Onay bekleniyor`,
+      emitToBusinessRoom(businessId, "new_order", {
+        orderId: order.id,
+        tableNumber: table.tableNumber,
+        tableName: table.tableName,
+        message: `${table.tableName || "Masa " + table.tableNumber} sipariş verdi - Onay bekleniyor`,
         soundType: "new_order",
-        totalPrice: Number(result.order.totalPrice),
-        itemCount: result.order.items.length,
+        totalPrice: Number(order.totalPrice),
+        itemCount: order.items.length,
         status: "PENDING",
-        createdAt: result.order.createdAt,
+        createdAt: order.createdAt,
       });
     } catch (e) {
       console.log("Socket emit hatası:", e);
@@ -203,25 +243,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       message: "Sipariş gönderildi. Garson onayı bekleniyor.", 
-      order: result.order,
+      order,
       status: "PENDING"
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Sipariş oluşturma hatası:", error);
-    
-    // Transaction error'larını kullanıcıya ilet
-    if (error.message && (
-      error.message.includes("aktif değil") ||
-      error.message.includes("Ürün") ||
-      error.message.includes("stokta") ||
-      error.message.includes("süresi doldu") ||
-      error.message.includes("QR kod") ||
-      error.message.includes("hizmet vermiyor") ||
-      error.message.includes("mevcut değil")
-    )) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });
   }
 }
