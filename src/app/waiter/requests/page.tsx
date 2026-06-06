@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { connectToBusinessRoom } from "@/lib/socket-client";
 
 const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
   CALL_WAITER:         { label: "Garson Çağrısı",  icon: "🙋", color: "#ef4444" },
@@ -51,16 +52,14 @@ export default function WaiterRequestsPage() {
     }
   }, [session, fetchRequests]);
 
-  // Socket.IO
+  // ✅ Socket.IO — static import, reconnect sonrası fetchRequests tetiklenir
   useEffect(() => {
     if (!session?.user.businessId) return;
-    const { connectToBusinessRoom } = require("@/lib/socket-client");
-    const socket = connectToBusinessRoom(session.user.businessId);
-    ["call_waiter", "payment_request", "help_request", "service_request"].forEach(ev => {
-      socket.on(ev, fetchRequests);
-    });
+    const socket = connectToBusinessRoom(session.user.businessId, fetchRequests);
+    const events = ["call_waiter", "payment_request", "help_request", "service_request"];
+    events.forEach((ev) => socket.on(ev, fetchRequests));
     return () => {
-      ["call_waiter", "payment_request", "help_request", "service_request"].forEach(ev => socket.off(ev));
+      events.forEach((ev) => socket.off(ev, fetchRequests));
     };
   }, [session, fetchRequests]);
 

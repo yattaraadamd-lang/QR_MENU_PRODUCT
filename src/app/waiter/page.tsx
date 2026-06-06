@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { connectToBusinessRoom } from "@/lib/socket-client";
 
 type Order = {
   id: string;
@@ -68,14 +69,17 @@ export default function WaiterOrdersPage() {
     }
   }, [session, fetchOrders]);
 
-  // Socket.IO real-time
+  // ✅ Socket.IO real-time — static import, reconnect sonrası fetchOrders tetiklenir
   useEffect(() => {
     if (!session?.user.businessId) return;
-    const { connectToBusinessRoom } = require("@/lib/socket-client");
-    const socket = connectToBusinessRoom(session.user.businessId);
+    // onReconnect: bağlantı koptuktan sonra tekrar kurulunca API'den senkronize et
+    const socket = connectToBusinessRoom(session.user.businessId, fetchOrders);
     socket.on("new_order", fetchOrders);
     socket.on("order_status_update", fetchOrders);
-    return () => { socket.off("new_order"); socket.off("order_status_update"); };
+    return () => {
+      socket.off("new_order", fetchOrders);
+      socket.off("order_status_update", fetchOrders);
+    };
   }, [session, fetchOrders]);
 
   const updateStatus = async (orderId: string, status: string, cancelReason?: string): Promise<boolean> => {

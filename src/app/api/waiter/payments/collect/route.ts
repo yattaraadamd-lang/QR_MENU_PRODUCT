@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { emitToBusinessRoom } from "@/lib/socket-server";
 
 export const dynamic = "force-dynamic";
 
@@ -60,10 +61,9 @@ export async function POST(request: NextRequest) {
       data: { paidAmount, remainingAmount, paymentStatus },
     });
 
-    // Socket.IO bildirimi
+    // Socket.IO bildirimi — static import
     try {
-      const { emitToBusinessRoom } = require("@/lib/socket-server");
-      emitToBusinessRoom(businessId, "payment_received", {
+      emitToBusinessRoom(businessId, "payment_collected", {
         tableNumber: tableSession.table.tableNumber,
         tableName: tableSession.table.tableName,
         amount,
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         remainingAmount,
         paymentStatus,
       });
-    } catch (e) { /* socket opsiyonel */ }
+    } catch { /* socket opsiyonel */ }
 
     return NextResponse.json({ payment, bill: updatedBill }, { status: 201 });
   } catch (e) {

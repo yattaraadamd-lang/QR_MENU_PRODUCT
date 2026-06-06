@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { connectToBusinessRoom } from "@/lib/socket-client";
 
 export default function WaiterPaymentsPage() {
   const { data: session } = useSession();
@@ -33,13 +34,16 @@ export default function WaiterPaymentsPage() {
     }
   }, [session, fetchPayments]);
 
-  // ✅ Socket.IO: payment_request eventi gelince listeyi anında güncelle
+  // ✅ Socket.IO — static import, reconnect sonrası fetchPayments tetiklenir
   useEffect(() => {
     if (!session?.user.businessId) return;
-    const { connectToBusinessRoom } = require("@/lib/socket-client");
-    const socket = connectToBusinessRoom(session.user.businessId);
+    const socket = connectToBusinessRoom(session.user.businessId, fetchPayments);
     socket.on("payment_request", fetchPayments);
-    return () => { socket.off("payment_request", fetchPayments); };
+    socket.on("payment_collected", fetchPayments);
+    return () => {
+      socket.off("payment_request", fetchPayments);
+      socket.off("payment_collected", fetchPayments);
+    };
   }, [session, fetchPayments]);
 
   const handleComplete = async () => {
