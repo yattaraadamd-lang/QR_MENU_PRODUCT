@@ -4,21 +4,22 @@ import { v4 as uuidv4 } from "uuid";
 
 export const dynamic = "force-dynamic";
 
-// ✅ Oturum süresi: 90 dakika
-const SESSION_DURATION_MS = 90 * 60 * 1000;
-
 /**
  * POST /api/customer/session
  *
- * QR okutulduğunda çağrılır. Yeni akış:
- * 1. Masa ve işletme doğrulanır.
- * 2. ACTIVE TableSession var mı kontrol edilir.
- *    - Var ve 90 dk geçmemiş → mevcut session kullanılır.
- *    - Var ama 90 dk geçmiş    → CLOSED yapılır, yeni oluşturulur.
- *    - Hiç yok                 → yeni TableSession + Bill oluşturulur.
- * 3. CustomerSession oluşturulur (token verilir).
- *
- * ✅ "Masayı Aç" garson butonu kaldırıldı — TableSession burada otomatik kurulur.
+ * ✅ DÜZELTME: QR okutulduğunda SADECE görüntüleme token'ı verilir.
+ * 
+ * YANLIŞTI:
+ * - QR okutulunca TableSession + Bill oluşturuluyordu
+ * - Masa OCCUPIED yapılıyordu
+ * - Müşteri menüye bakıp çıksa bile masa dolu kalıyordu
+ * 
+ * DOĞRU AKIŞ:
+ * 1. Masa ve işletme doğrulanır
+ * 2. CustomerSession oluşturulur (sadece görüntüleme için)
+ * 3. TableSession VE Bill OLUŞTURULMAZ
+ * 4. Masa durumu DEĞİŞTİRİLMEZ
+ * 5. İlk sipariş verildiğinde TableSession + Bill oluşturulur (/api/customer/orders)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -53,33 +54,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingCustomerSession) {
-      // Bu customer session'ın bağlı olduğu TableSession hâlâ aktif mi?
-      const ts = await prisma.tableSession.findFirst({
-        where: { tableId, businessId, status: "ACTIVE" },
-        select: { id: true, startedAt: true },
-      });
-
-      if (ts) {
-        const isExpired = Date.now() - ts.startedAt.getTime() > SESSION_DURATION_MS;
-        if (!isExpired) {
-          // ✅ Her iki session da geçerli — mevcut token döndür
-          return NextResponse.json({
-            sessionToken: existingCustomerSession.sessionToken,
-            expiresAt: existingCustomerSession.expiresAt.toISOString(),
-            message: "Mevcut oturum kullanılıyor",
-          });
-        }
-        // TableSession süresi geçmiş — kapat, yeni oluşturulacak
-        await prisma.tableSession.update({
-          where: { id: ts.id },
-          data: { status: "CLOSED", endedAt: new Date() },
-        });
-      }
-
-      // CustomerSession'ı da kapat
-      await prisma.customerSession.update({
-        where: { id: existingCustomerSession.id },
-        data: { status: "CLOSED" },
+      // ✅ Mevcut token döndür — masa durumu değiştirilmez
+      return NextResponse.json({
+        sessionToken: existingCustomerSession.sessionToken,
+        expiresAt: existingCustomerSession.expiresAt.toISOString(),
+        message: "Mevcut oturum kullanılıyor",
       });
     }
 
@@ -93,60 +72,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ─── Aktif TableSession bul ya da oluştur ─────────────────────────
-    let tableSessionId: string;
-
-    const activeTs = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-      select: { id: true, startedAt: true },
-    });
-
-    if (activeTs && Date.now() - activeTs.startedAt.getTime() <= SESSION_DURATION_MS) {
-      // ✅ Geçerli oturum var — kullan (madde 11)
-      tableSessionId = activeTs.id;
-    } else {
-      // Süresi geçmiş varsa kapat
-      if (activeTs) {
-        await prisma.tableSession.update({
-          where: { id: activeTs.id },
-          data: { status: "CLOSED", endedAt: new Date() },
-        });
-        // İlgili CustomerSession'ları da kapat
-        await prisma.customerSession.updateMany({
-          where: { tableId, businessId, status: "ACTIVE" },
-          data: { status: "CLOSED" },
-        });
-      }
-
-      // ✅ Yeni TableSession + Bill oluştur (transaction)
-      const result = await prisma.$transaction(async (tx) => {
-        const newTs = await tx.tableSession.create({
-          data: { businessId, tableId, status: "ACTIVE" },
-        });
-        await tx.bill.create({
-          data: {
-            businessId,
-            tableId,
-            tableSessionId: newTs.id,
-            totalAmount: 0,
-            paidAmount: 0,
-            remainingAmount: 0,
-            paymentStatus: "UNPAID",
-            status: "OPEN",
-          },
-        });
-        // Masa durumunu OCCUPIED yap
-        await tx.table.update({
-          where: { id: tableId },
-          data: { status: "OCCUPIED" },
-        });
-        return newTs;
-      });
-
-      tableSessionId = result.id;
-    }
-
     // ─── CustomerSession oluştur (2 saatlik) ──────────────────────────
+    // ✅ SADECE görüntüleme token'ı oluştur — TableSession/Bill oluşturma
     const sessionToken = `cs_${uuidv4()}`;
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 saat
 
@@ -160,12 +87,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`[SESSION] New session created tableId=${tableId} tsId=${tableSessionId}`);
+    console.log(`[SESSION] View-only session created tableId=${tableId} — NO TableSession/Bill created`);
 
+    // ✅ Masa durumu DEĞİŞTİRİLMEZ — sadece token döndür
     return NextResponse.json({
       sessionToken,
       expiresAt: expiresAt.toISOString(),
-      message: "Oturum oluşturuldu",
+      message: "Menü görüntüleme oturumu oluşturuldu",
     });
   } catch (error) {
     console.error("Oturum oluşturma hatası:", error);

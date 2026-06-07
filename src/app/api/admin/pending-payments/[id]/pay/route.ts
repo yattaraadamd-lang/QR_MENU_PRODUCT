@@ -38,9 +38,50 @@ export async function POST(
       return NextResponse.json({ error: "Bu adisyon zaten kapatılmış" }, { status: 400 });
     }
 
+    // ✅ ÇIFT CİRO ÖNLEMİ: Aynı Bill için zaten PAID Payment var mı?
+    const existingPaidPayment = await prisma.payment.findFirst({
+      where: {
+        billId: bill.id,
+        status: "PAID",
+      },
+    });
+
+    if (existingPaidPayment) {
+      return NextResponse.json(
+        {
+          error: "Bu adisyon için zaten ödeme alınmış. Çift ödeme kabul edilemez.",
+          existingPayment: {
+            id: existingPaidPayment.id,
+            amount: existingPaidPayment.amount,
+            paidAt: existingPaidPayment.paidAt,
+            method: existingPaidPayment.method,
+          },
+        },
+        { status: 409 } // Conflict
+      );
+    }
+
+    // ✅ Bill'in güncel durumunu server-side hesapla
+    const orders = await prisma.order.findMany({
+      where: {
+        tableSessionId: bill.tableSessionId,
+        status: { notIn: ["CANCELLED", "REJECTED"] },
+      },
+    });
+    const serverTotalAmount = orders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+
+    // Ödeme tutarı kontrolü
+    const paymentAmount = Number(amount);
+    if (paymentAmount > serverTotalAmount) {
+      return NextResponse.json(
+        { error: `Ödeme tutarı toplam hesaptan fazla olamaz (Max: ₺${serverTotalAmount.toFixed(2)})` },
+        { status: 400 }
+      );
+    }
+
     const paymentAmount = Number(amount);
     const newPaidAmount = Number(bill.paidAmount) + paymentAmount;
-    const newRemainingAmount = Math.max(0, Number(bill.totalAmount) - newPaidAmount);
+    const newRemainingAmount = Math.max(0, serverTotalAmount - newPaidAmount);
 
     let paymentStatus: "PARTIALLY_PAID" | "PAID" = "PARTIALLY_PAID";
     let billStatus: "OPEN" | "CLOSED" = "OPEN";
@@ -54,7 +95,15 @@ export async function POST(
 
     // İşlem (Transaction) - Ödemeyi kaydet ve faturayı güncelle
     const updatedBill = await prisma.$transaction(async (tx) => {
-      // ✅ Ödeme kaydı — paidAt zorunlu, dashboard bu alanla ciro hesaplıyor
+      // ✅ ÇIFT CİRO ÖNLEMİ: Transaction içinde tekrar kontrol
+      const doubleCheck = await tx.payment.findFirst({
+        where: { billId: bill.id, status: "PAID" },
+      });
+      if (doubleCheck) {
+        throw new Error("Bu adisyon için zaten ödeme alınmış");
+      }
+
+      // ✅ Ödeme kaydı oluştur
       await tx.payment.create({
         data: {
           businessId: session.user.businessId,
@@ -64,7 +113,9 @@ export async function POST(
           amount: paymentAmount,
           method: paymentMethod === "CREDIT_CARD" ? "CARD" : paymentMethod,
           status: "PAID",
-          paidAt: now, // ✅ HATA DÜZELTİLDİ: paidAt eksikti, dashboard bunu kullanarak ciro hesaplıyor
+          paidAt: now,
+          handledById: session.user.id,
+          handledByWaiterName: session.user.name || "Admin",
         }
       });
 
@@ -98,10 +149,11 @@ export async function POST(
         });
       }
 
-      // Faturayı güncelle
+      // Faturayı güncelle — server-side hesaplanan totalAmount kullan
       return await tx.bill.update({
         where: { id: bill.id },
         data: {
+          totalAmount: serverTotalAmount, // ✅ Server-side hesaplanan değer
           paidAmount: newPaidAmount,
           remainingAmount: newRemainingAmount,
           paymentStatus: paymentStatus,

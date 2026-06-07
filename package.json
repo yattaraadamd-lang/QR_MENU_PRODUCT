@@ -14,6 +14,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:super-admin": "tsx prisma/seed-super-admin.ts",
     "db:studio": "prisma studio",
+    "db:cleanup": "tsx scripts/cleanup-after-fix.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

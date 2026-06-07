@@ -52,41 +52,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz sipariş bilgileri" }, { status: 400 });
     }
 
-    // Session token kontrolü
+    // ✅ Session token kontrolü
     const tokenValidation = await validateSessionToken(request, tableId);
     if (!tokenValidation.valid) {
       return NextResponse.json({ error: tokenValidation.error }, { status: 401 });
     }
 
-    // ✅ İkinci güvenlik katmanı: Bu masa için ACTIVE TableSession var mı?
-    // ✅ Aynı zamanda 90 dakika süre kontrolü
-    const SESSION_DURATION_MS = 90 * 60 * 1000;
-
-    const activeTableSession = await prisma.tableSession.findFirst({
+    // ✅ DÜZELTME: Aktif TableSession kontrolü + gerekirse oluştur
+    // İlk sipariş verildiğinde TableSession + Bill otomatik oluşturulur
+    let activeTableSession = await prisma.tableSession.findFirst({
       where: { tableId, businessId, status: "ACTIVE" },
       select: { id: true, startedAt: true },
     });
 
+    // Aktif TableSession yoksa oluştur (ilk sipariş)
     if (!activeTableSession) {
-      return NextResponse.json(
-        { error: "Bu masa şu anda aktif değil. Sipariş verilemez." },
-        { status: 403 }
-      );
-    }
-
-    const sessionExpired =
-      Date.now() - activeTableSession.startedAt.getTime() > SESSION_DURATION_MS;
-
-    if (sessionExpired) {
-      // Oturumu kapat
-      await prisma.tableSession.update({
-        where: { id: activeTableSession.id },
-        data: { status: "CLOSED", endedAt: new Date() },
+      console.log(`[ORDER] Creating TableSession on first order for tableId=${tableId}`);
+      const result = await prisma.$transaction(async (tx) => {
+        const newTs = await tx.tableSession.create({
+          data: { businessId, tableId, status: "ACTIVE" },
+        });
+        await tx.bill.create({
+          data: {
+            businessId,
+            tableId,
+            tableSessionId: newTs.id,
+            totalAmount: 0,
+            paidAmount: 0,
+            remainingAmount: 0,
+            paymentStatus: "UNPAID",
+            status: "OPEN",
+          },
+        });
+        // Masa durumunu OCCUPIED yap
+        await tx.table.update({
+          where: { id: tableId },
+          data: { status: "OCCUPIED" },
+        });
+        return newTs;
       });
-      return NextResponse.json(
-        { error: "Masa oturumunun süresi doldu. Lütfen QR kodu tekrar okutun." },
-        { status: 403 }
-      );
+      activeTableSession = { id: result.id, startedAt: result.startedAt };
     }
 
     // Masa ve işletme kontrolü — silinen masa engellenir
