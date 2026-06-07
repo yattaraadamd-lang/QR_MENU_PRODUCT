@@ -79,7 +79,7 @@ export async function POST(
       );
     }
 
-    const paymentAmount = Number(amount);
+    // Ödeme hesaplamaları
     const newPaidAmount = Number(bill.paidAmount) + paymentAmount;
     const newRemainingAmount = Math.max(0, serverTotalAmount - newPaidAmount);
 
