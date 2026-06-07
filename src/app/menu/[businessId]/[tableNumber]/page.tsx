@@ -47,7 +47,6 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [orderBlockedMsg, setOrderBlockedMsg] = useState<string | null>(null);
   const [activeRequests, setActiveRequests] = useState<Record<string, boolean>>({});
-  const [tableSessionActive, setTableSessionActive] = useState<boolean>(true); // ✅ Masa oturumu aktif mi?
 
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -102,7 +101,6 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
         setBusiness(data.business);
         setTable(data.table);
         setCategories(data.categories || []);
-        setTableSessionActive(data.tableSessionActive !== false); // ✅ undefined ise true (güvenli fallback)
         if (initial && data.categories?.length > 0) setActiveCategory(data.categories[0].id);
         if (initial) {
           const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
@@ -265,14 +263,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
             <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Toplam</span>
             <span style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)" }}>{cartTotal.toFixed(2)} ₺</span>
           </div>
-          {/* ✅ Masa oturumu kapalıysa sipariş engeli */}
-          {!tableSessionActive && (
-            <div style={{ background: "#fef2f2", border: "1.5px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>🔒</span>
-              <p style={{ fontSize: 13, color: "#991b1b", fontWeight: 600, margin: 0 }}>Bu masa şu anda aktif değil. Lütfen garsondan yardım isteyin.</p>
-            </div>
-          )}
-          <button onClick={submitOrder} disabled={submitting || !tableSessionActive} className="btn btn-primary" style={{ width: "100%", padding: "15px 0", borderRadius: 14, fontSize: 16, opacity: tableSessionActive ? 1 : 0.45, cursor: tableSessionActive ? "pointer" : "not-allowed" }}>
+          <button onClick={submitOrder} disabled={submitting} className="btn btn-primary" style={{ width: "100%", padding: "15px 0", borderRadius: 14, fontSize: 16, opacity: submitting ? 0.6 : 1 }}>
             {submitting ? "Gönderiliyor..." : "Siparişi Gönder 🚀"}
           </button>
         </>
