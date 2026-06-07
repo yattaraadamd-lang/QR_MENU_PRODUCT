@@ -396,6 +396,17 @@ export async function collectPayment(
         where: { id: tableSession.tableId },
         data: { status: "SERVED" },
       });
+      
+      // ✅ GÜVENLİK: Tam ödeme alındığında tüm CustomerSession'ları kapat
+      // Bu sayede müşteri QR fotoğrafını kullanarak restoran dışından sipariş veremez
+      await tx.customerSession.updateMany({
+        where: {
+          tableId: tableSession.tableId,
+          businessId,
+          status: "ACTIVE",
+        },
+        data: { status: "CLOSED" },
+      });
     }
 
     return { payment, bill: updatedBill, table: tableSession.table };

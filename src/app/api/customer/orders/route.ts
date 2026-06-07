@@ -58,6 +58,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: tokenValidation.error }, { status: 401 });
     }
 
+    // ✅ GÜVENLİK: Masa kontrolü - masa kapatıldıysa sipariş alınmasın
+    // Müşteri eski QR fotoğrafıyla sipariş vermeye çalışabilir
+    const table = await prisma.table.findFirst({
+      where: { id: tableId, businessId, isActive: true, isDeleted: false },
+      include: { business: true },
+    });
+
+    if (!table || !table.business) {
+      return NextResponse.json(
+        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
+        { status: 404 }
+      );
+    }
+
+    // ✅ EMPTY masadan sipariş alınmasın (eski QR fotoğrafı senaryosu)
+    if (table.status === "EMPTY") {
+      return NextResponse.json(
+        { error: "Bu masa şu anda aktif değil. Sipariş verebilmek için masada olmanız ve QR kodu okutmanız gerekir." },
+        { status: 403 }
+      );
+    }
+
+    // İşletme aktif mi?
+    if (!table.business.isActive) {
+      return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
+    }
+
     // ✅ DÜZELTME: Aktif TableSession kontrolü + gerekirse oluştur
     // İlk sipariş verildiğinde TableSession + Bill otomatik oluşturulur
     let activeTableSession = await prisma.tableSession.findFirst({
@@ -94,25 +121,7 @@ export async function POST(request: NextRequest) {
       activeTableSession = { id: result.id, startedAt: result.startedAt };
     }
 
-    // Masa ve işletme kontrolü — silinen masa engellenir
-    const table = await prisma.table.findFirst({
-      where: { id: tableId, businessId, isActive: true, isDeleted: false },
-      include: { business: true },
-    });
-
-    if (!table || !table.business) {
-      return NextResponse.json(
-        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
-        { status: 404 }
-      );
-    }
-
     const business = table.business;
-
-    // İşletme aktif mi?
-    if (!business.isActive) {
-      return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
-    }
 
     // Ürün kontrolleri
     let totalPrice = 0;
