@@ -49,6 +49,8 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
   const [activeRequests, setActiveRequests] = useState<Record<string, boolean>>({});
 
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const categoryTabsRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const showToast = (msg: string, type: "ok" | "err" = "ok") => {
     setToast({ msg, type });
@@ -105,8 +107,6 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
         if (initial) {
           const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
           if (blockedHint) setOrderBlockedMsg(blockedHint);
-          // ✅ Session token'ı sessionStorage'dan oku (QR sayfası tarafından kaydedilir)
-          // Sayfa yenilemesi ile yeni session oluşturulamaz
           const storedToken = sessionStorage.getItem("qr_session_token");
           if (storedToken) {
             setSessionToken(storedToken);
@@ -144,6 +144,45 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
       return () => clearInterval(iv);
     }
   }, [table?.id, business?.id, checkActiveRequests]);
+
+  // ✅ IntersectionObserver ile otomatik aktif kategori değiştirme
+  useEffect(() => {
+    if (categories.length === 0) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const catId = entry.target.getAttribute("data-category-id");
+            if (catId) {
+              setActiveCategory(catId);
+              // Aktif kategoriyi yatay scroll'da ortala
+              const activeTab = document.querySelector(`[data-tab-id="${catId}"]`);
+              if (activeTab && categoryTabsRef.current) {
+                const container = categoryTabsRef.current;
+                const tab = activeTab as HTMLElement;
+                const scrollLeft = tab.offsetLeft - container.offsetWidth / 2 + tab.offsetWidth / 2;
+                container.scrollTo({ left: scrollLeft, behavior: "smooth" });
+              }
+            }
+          }
+        });
+      },
+      {
+        rootMargin: "-20% 0px -70% 0px", // Viewport ortasına yakın olanı aktif yap
+        threshold: 0,
+      }
+    );
+
+    categories.forEach((cat) => {
+      const el = categoryRefs.current[cat.id];
+      if (el) observerRef.current?.observe(el);
+    });
+
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, [categories]);
 
   const orderable = (p: Product) => p.isAvailable && p.stockStatus === "IN_STOCK";
 
@@ -217,11 +256,9 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
   };
 
   const scrollTo = (catId: string) => {
-    setActiveCategory(catId);
-    // IntersectionObserver'ın aktifliği bozmasını engellemek için offset
     const el = categoryRefs.current[catId];
     if (el) {
-      const y = el.getBoundingClientRect().top + window.scrollY - 100;
+      const y = el.getBoundingClientRect().top + window.scrollY - 140; // Header + tabs offset
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
@@ -294,7 +331,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
   );
 
   return (
-    <div className="customer-theme" style={{ minHeight: "100vh", paddingBottom: 88 }}>
+    <div className="customer-theme" style={{ minHeight: "100vh", paddingBottom: 0 }}>
       <style>{`
         .prod-card:active { transform: scale(0.98); }
         .service-btn:hover { background: var(--bg-hover) !important; }
@@ -328,17 +365,43 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
         </div>
       )}
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div style={{ background: `linear-gradient(160deg, ${BRAND} 0%, ${BRAND_DARK} 100%)`, padding: "20px 16px 36px", color: "white" }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0, backdropFilter: "blur(8px)" }}>
-              {business.logo ? <img src={business.logo} alt="" style={{ width: 56, height: 56, borderRadius: 14, objectFit: "cover" }} /> : "🏪"}
+      {/* ── Header (Sticky + Modern) ───────────────────────────────────────── */}
+      <div style={{
+        background: `linear-gradient(160deg, ${BRAND} 0%, ${BRAND_DARK} 100%)`,
+        padding: "16px 16px 24px",
+        color: "white",
+        position: "sticky",
+        top: 0,
+        zIndex: 40,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 12,
+              background: "rgba(255,255,255,0.15)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 24, flexShrink: 0,
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(255,255,255,0.1)",
+            }}>
+              {business.logo ? (
+                <img src={business.logo} alt="" style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover" }} />
+              ) : "🏪"}
             </div>
-            <div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>{business.name}</h1>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {business.name}
+              </h1>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                <span style={{ fontSize: 13, background: "rgba(255,255,255,0.2)", padding: "3px 12px", borderRadius: 99, fontWeight: 600 }}>
+                <span style={{
+                  fontSize: 12,
+                  background: "rgba(255,255,255,0.2)",
+                  padding: "2px 10px",
+                  borderRadius: 99,
+                  fontWeight: 600,
+                  backdropFilter: "blur(4px)",
+                }}>
                   🪑 {table?.tableName || `Masa ${table?.tableNumber}`}
                 </span>
               </div>
@@ -346,64 +409,220 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
           </div>
           {/* Desktop Service Menu Button */}
           <div className="hidden lg:block">
-             <button onClick={() => setShowServiceMenu(true)} className="btn btn-ghost" style={{ background: "rgba(255,255,255,0.1)", color: "white", borderColor: "rgba(255,255,255,0.2)", borderRadius: 99 }}>
-               🔔 Garson / Hizmet
+             <button
+               onClick={() => setShowServiceMenu(true)}
+               className="btn btn-ghost"
+               style={{
+                 background: "rgba(255,255,255,0.15)",
+                 color: "white",
+                 borderColor: "rgba(255,255,255,0.25)",
+                 borderRadius: 99,
+                 backdropFilter: "blur(8px)",
+                 fontSize: 13,
+                 padding: "8px 16px",
+               }}
+             >
+               🔔 Hizmet
              </button>
           </div>
         </div>
       </div>
 
       {/* ── Main Layout (3-Column on Desktop) ────────────────────────────── */}
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 16px" }} className="-mt-8">
-        <div className="flex flex-col lg:flex-row gap-6">
+      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 16px" }}>
+        <div className="flex flex-col lg:flex-row gap-6" style={{ paddingTop: 16 }}>
 
-          {/* Kolon 1: Kategori Menüsü (Desktop: Sol dikey, Mobil: Yatay kaydırma) */}
+          {/* Kolon 1: Kategori Menüsü (Desktop: Sol dikey, Mobil: Sticky yatay tabs) */}
           <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-white rounded-xl shadow-sm border border-[var(--border-color)] p-2 lg:sticky lg:top-6 flex lg:flex-col gap-2 overflow-x-auto cat-scroll" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
-              {categories.map(cat => (
-                <button key={cat.id} onClick={() => scrollTo(cat.id)} style={{
-                  padding: "10px 16px", borderRadius: 10, fontSize: 14, fontWeight: 600,
-                  whiteSpace: "nowrap", border: "none", cursor: "pointer", transition: "all 0.15s", textAlign: "left",
-                  background: activeCategory === cat.id ? "var(--primary)" : "transparent",
-                  color: activeCategory === cat.id ? "white" : "var(--text-secondary)",
-                }}>
-                  {cat.icon && <span style={{ marginRight: 8 }}>{cat.icon}</span>}{cat.name}
-                </button>
-              ))}
+            {/* Desktop: Vertical Sidebar */}
+            <div className="hidden lg:block">
+              <div
+                ref={categoryTabsRef}
+                className="bg-white rounded-xl shadow-sm border p-2 sticky flex-col gap-2"
+                style={{
+                  background: "var(--bg-card)",
+                  borderColor: "var(--border-color)",
+                  top: 96, // Below sticky header
+                }}
+              >
+                {categories.map(cat => (
+                  <button
+                    key={cat.id}
+                    data-tab-id={cat.id}
+                    onClick={() => scrollTo(cat.id)}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: 10,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      textAlign: "left",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: activeCategory === cat.id ? "var(--primary)" : "transparent",
+                      color: activeCategory === cat.id ? "white" : "var(--text-secondary)",
+                      transform: activeCategory === cat.id ? "translateX(4px)" : "translateX(0)",
+                      boxShadow: activeCategory === cat.id ? "0 4px 12px rgba(185,28,28,0.3)" : "none",
+                    }}
+                  >
+                    {cat.icon && <span style={{ fontSize: 18 }}>{cat.icon}</span>}
+                    <span style={{ flex: 1 }}>{cat.name}</span>
+                    {activeCategory === cat.id && <span style={{ fontSize: 12 }}>→</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile: Horizontal Sticky Tabs */}
+            <div className="lg:hidden sticky bg-[var(--bg-primary)]" style={{ top: 80, zIndex: 30, marginLeft: -16, marginRight: -16, padding: "12px 0" }}>
+              <div
+                ref={categoryTabsRef}
+                className="flex gap-2 overflow-x-auto cat-scroll px-4"
+                style={{ scrollPaddingLeft: 16 }}
+              >
+                {categories.map(cat => (
+                  <button
+                    key={cat.id}
+                    data-tab-id={cat.id}
+                    onClick={() => scrollTo(cat.id)}
+                    style={{
+                      padding: "10px 18px",
+                      borderRadius: 99,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      border: activeCategory === cat.id ? "2px solid var(--primary)" : "2px solid var(--border-color)",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      background: activeCategory === cat.id ? "var(--primary)" : "var(--bg-card)",
+                      color: activeCategory === cat.id ? "white" : "var(--text-secondary)",
+                      boxShadow: activeCategory === cat.id ? "0 4px 12px rgba(185,28,28,0.25)" : "0 1px 3px rgba(0,0,0,0.05)",
+                      transform: activeCategory === cat.id ? "scale(1.05)" : "scale(1)",
+                    }}
+                  >
+                    {cat.icon && <span style={{ marginRight: 6 }}>{cat.icon}</span>}
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Kolon 2: Ürünler */}
-          <div className="flex-1 pb-20 lg:pb-8 pt-4 lg:pt-0">
+          {/* Kolon 2: Ürünler (Modern Cards) */}
+          <div className="flex-1 pb-24 lg:pb-8 pt-0">
             {categories.map(cat => (
-              <div key={cat.id} ref={el => { categoryRefs.current[cat.id] = el; }} style={{ marginBottom: 32 }}>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-                  {cat.icon && <span>{cat.icon}</span>}{cat.name}
-                  <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>({cat.products.length})</span>
+              <div
+                key={cat.id}
+                ref={el => { categoryRefs.current[cat.id] = el; }}
+                data-category-id={cat.id}
+                style={{ marginBottom: 40, scrollMarginTop: 160 }}
+              >
+                <h2 style={{
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: "var(--text-primary)",
+                  marginBottom: 18,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  paddingBottom: 12,
+                  borderBottom: "2px solid var(--border-subtle)",
+                }}>
+                  {cat.icon && <span style={{ fontSize: 24 }}>{cat.icon}</span>}
+                  <span style={{ flex: 1 }}>{cat.name}</span>
+                  <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>
+                    {cat.products.length} ürün
+                  </span>
                 </h2>
-                {/* Responsive Grid */}
+
+                {/* Product Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {cat.products.map(p => {
                     const sl = stockLabel(p);
                     const ok = orderable(p);
                     return (
-                      <div key={p.id} className="prod-card card" onClick={() => ok && setSelectedProduct(p)} style={{
-                        padding: 16, display: "flex", gap: 12, cursor: ok ? "pointer" : "default",
-                        opacity: ok ? 1 : 0.65, 
-                      }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-                            <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)", lineHeight: 1.3 }}>{p.name}</span>
-                            {p.isPopular && <span className="badge badge-accent">⭐ Popüler</span>}
-                            {sl && <span className="badge" style={{ background: `${sl.color}15`, color: sl.color }}>{sl.text}</span>}
+                      <div
+                        key={p.id}
+                        className="prod-card card"
+                        onClick={() => ok && setSelectedProduct(p)}
+                        style={{
+                          padding: 0,
+                          display: "flex",
+                          flexDirection: "column",
+                          cursor: ok ? "pointer" : "default",
+                          opacity: ok ? 1 : 0.65,
+                          overflow: "hidden",
+                          position: "relative",
+                          transition: "transform 0.2s, box-shadow 0.2s",
+                        }}
+                      >
+                        {/* Product Image */}
+                        {p.image && (
+                          <div style={{
+                            width: "100%",
+                            height: 140,
+                            background: `url(${p.image}) center/cover`,
+                            position: "relative",
+                          }}>
+                            {/* Badges overlay on image */}
+                            <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {p.isPopular && <span className="badge badge-accent" style={{ backdropFilter: "blur(4px)" }}>⭐ Popüler</span>}
+                              {sl && <span className="badge" style={{ background: `${sl.color}`, color: "white", backdropFilter: "blur(4px)" }}>{sl.text}</span>}
+                            </div>
                           </div>
-                          {p.description && <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 12 }}>{p.description}</p>}
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                            <span style={{ fontSize: 18, fontWeight: 800, color: "var(--primary)" }}>{Number(p.price).toFixed(2)} ₺</span>
-                            <button onClick={e => { e.stopPropagation(); addToCart(p); }} disabled={!ok} className="btn btn-sm" style={{
-                              background: ok ? `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})` : "var(--bg-hover)",
-                              color: ok ? "white" : "var(--text-muted)",
+                        )}
+
+                        {/* Product Info */}
+                        <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)", lineHeight: 1.3, flex: 1 }}>
+                              {p.name}
+                            </span>
+                            {!p.image && (
+                              <>
+                                {p.isPopular && <span className="badge badge-accent">⭐</span>}
+                                {sl && <span className="badge" style={{ background: `${sl.color}15`, color: sl.color }}>{sl.text}</span>}
+                              </>
+                            )}
+                          </div>
+
+                          {p.description && (
+                            <p style={{
+                              fontSize: 13,
+                              color: "var(--text-secondary)",
+                              lineHeight: 1.5,
+                              marginBottom: 12,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
                             }}>
+                              {p.description}
+                            </p>
+                          )}
+
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: "auto" }}>
+                            <span style={{ fontSize: 19, fontWeight: 800, color: "var(--primary)" }}>
+                              {Number(p.price).toFixed(2)} ₺
+                            </span>
+                            <button
+                              onClick={e => { e.stopPropagation(); addToCart(p); }}
+                              disabled={!ok}
+                              className="btn btn-sm"
+                              style={{
+                                background: ok ? `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})` : "var(--bg-hover)",
+                                color: ok ? "white" : "var(--text-muted)",
+                                borderRadius: 10,
+                                padding: "8px 16px",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                boxShadow: ok ? "0 2px 8px rgba(185,28,28,0.25)" : "none",
+                              }}
+                            >
                               {ok ? "+ Ekle" : "Yok"}
                             </button>
                           </div>
@@ -416,11 +635,49 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
             ))}
           </div>
 
-          {/* Kolon 3: Sepet (Sadece Desktop) */}
+          {/* Kolon 3: Sepet (Sadece Desktop, Sticky) */}
           <div className="hidden lg:block lg:w-80 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-sm border border-[var(--border-color)] p-5 sticky top-6" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-subtle)" }}>🛒 Sepetim</h2>
-              {renderCartContent()}
+            <div
+              className="bg-white rounded-2xl shadow-md border p-5 sticky"
+              style={{
+                background: "var(--bg-card)",
+                borderColor: "var(--border-color)",
+                top: 96, // Below sticky header
+                maxHeight: "calc(100vh - 120px)",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <h2 style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "var(--text-primary)",
+                marginBottom: 16,
+                paddingBottom: 12,
+                borderBottom: "2px solid var(--border-subtle)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}>
+                🛒 Sepetim
+                {cartCount > 0 && (
+                  <span style={{
+                    background: "var(--primary)",
+                    color: "white",
+                    borderRadius: 99,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    minWidth: 24,
+                    textAlign: "center",
+                  }}>
+                    {cartCount}
+                  </span>
+                )}
+              </h2>
+              <div style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>
+                {renderCartContent()}
+              </div>
             </div>
           </div>
         </div>

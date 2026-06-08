@@ -46,11 +46,11 @@ export default function WaiterOrdersPage() {
   const [filter, setFilter] = useState("active");
   const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  // ✅ İptal modal state
   const [cancelModal, setCancelModal] = useState<{ id: string; tableName: string } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  // ✅ Per-order loading state instead of global
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -84,7 +84,7 @@ export default function WaiterOrdersPage() {
 
   const updateStatus = async (orderId: string, status: string, cancelReason?: string): Promise<boolean> => {
     setActionError(null);
-    setActionLoading(true);
+    setActionLoadingId(orderId);
     try {
       const res = await fetch(`/api/waiter/orders/${orderId}/status`, {
         method: "PUT",
@@ -104,7 +104,7 @@ export default function WaiterOrdersPage() {
       setActionError("Bağlantı hatası. Lütfen tekrar deneyin.");
       return false;
     } finally {
-      setActionLoading(false);
+      setActionLoadingId(null);
     }
   };
 
@@ -156,8 +156,8 @@ export default function WaiterOrdersPage() {
               </div>
             )}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleReject} disabled={actionLoading} className="btn btn-danger" style={{ flex: 1, opacity: actionLoading ? 0.6 : 1 }}>
-                {actionLoading ? "İşleniyor..." : "Reddet"}
+              <button onClick={handleReject} disabled={actionLoadingId === rejectModal.id} className="btn btn-danger" style={{ flex: 1, opacity: actionLoadingId === rejectModal.id ? 0.6 : 1 }}>
+                {actionLoadingId === rejectModal.id ? "İşleniyor..." : "Reddet"}
               </button>
               <button onClick={() => { setRejectModal(null); setActionError(null); }} className="btn btn-ghost">İptal</button>
             </div>
@@ -185,8 +185,8 @@ export default function WaiterOrdersPage() {
               ))}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleCancel} disabled={!cancelReason} className="btn btn-danger" style={{ flex: 1, opacity: !cancelReason ? 0.5 : 1 }}>
-                Siparişi İptal Et
+              <button onClick={handleCancel} disabled={!cancelReason || actionLoadingId === cancelModal?.id} className="btn btn-danger" style={{ flex: 1, opacity: (!cancelReason || actionLoadingId === cancelModal?.id) ? 0.5 : 1 }}>
+                {actionLoadingId === cancelModal?.id ? "İşleniyor..." : "Siparişi İptal Et"}
               </button>
               <button onClick={() => { setCancelModal(null); setCancelReason(""); }} className="btn btn-ghost">Vazgeç</button>
             </div>
@@ -250,10 +250,13 @@ export default function WaiterOrdersPage() {
           {orders.map(order => {
             const sm = STATUS_META[order.status] || STATUS_META.PENDING;
             const isPending = order.status === "PENDING";
+            const isLoading = actionLoadingId === order.id;
             return (
               <div key={order.id} className="card animate-fade-in" style={{
                 padding: 0, overflow: "hidden",
                 borderLeft: isPending ? `3px solid ${sm.color}` : "1px solid var(--border-color)",
+                opacity: isLoading ? 0.7 : 1,
+                transition: "all 0.2s",
               }}>
                 {/* Card header */}
                 <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--border-subtle)" }}>
@@ -307,24 +310,24 @@ export default function WaiterOrdersPage() {
                   <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border-subtle)", display: "flex", gap: 8 }}>
                     {order.status === "PENDING" && (
                       <>
-                        <button onClick={() => updateStatus(order.id, "ACCEPTED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
-                          ✓ Kabul Et
+                        <button onClick={() => updateStatus(order.id, "ACCEPTED")} disabled={isLoading} className="btn btn-sm btn-success" style={{ flex: 1, opacity: isLoading ? 0.6 : 1 }}>
+                          {isLoading ? "⏳" : "✓ Kabul Et"}
                         </button>
-                        <button onClick={() => setRejectModal({ id: order.id })} className="btn btn-sm btn-danger" style={{ flex: 1 }}>
+                        <button onClick={() => setRejectModal({ id: order.id })} disabled={isLoading} className="btn btn-sm btn-danger" style={{ flex: 1, opacity: isLoading ? 0.6 : 1 }}>
                           ✕ Reddet
                         </button>
                       </>
                     )}
                     {order.status === "ACCEPTED" && (
                       <>
-                        <button onClick={() => updateStatus(order.id, "PREPARING")} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
-                          👨‍🍳 Hazırlanıyor
+                        <button onClick={() => updateStatus(order.id, "PREPARING")} disabled={isLoading} className="btn btn-sm btn-primary" style={{ flex: 1, opacity: isLoading ? 0.6 : 1 }}>
+                          {isLoading ? "⏳" : "👨‍🍳 Hazırlanıyor"}
                         </button>
-                        {/* ✅ İptal butonu — ACCEPTED durumunda */}
                         <button
                           onClick={() => setCancelModal({ id: order.id, tableName: order.table?.tableName || `Masa ${order.table?.tableNumber}` })}
+                          disabled={isLoading}
                           className="btn btn-sm btn-ghost"
-                          style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}
+                          style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
                         >
                           ✕
                         </button>
@@ -332,14 +335,14 @@ export default function WaiterOrdersPage() {
                     )}
                     {order.status === "PREPARING" && (
                       <>
-                        <button onClick={() => updateStatus(order.id, "SERVED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
-                          🍽️ Servis Edildi
+                        <button onClick={() => updateStatus(order.id, "SERVED")} disabled={isLoading} className="btn btn-sm btn-success" style={{ flex: 1, opacity: isLoading ? 0.6 : 1 }}>
+                          {isLoading ? "⏳" : "🍽️ Servis Edildi"}
                         </button>
-                        {/* ✅ İptal butonu — PREPARING durumunda */}
                         <button
                           onClick={() => setCancelModal({ id: order.id, tableName: order.table?.tableName || `Masa ${order.table?.tableNumber}` })}
+                          disabled={isLoading}
                           className="btn btn-sm btn-ghost"
-                          style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}
+                          style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
                         >
                           ✕
                         </button>
