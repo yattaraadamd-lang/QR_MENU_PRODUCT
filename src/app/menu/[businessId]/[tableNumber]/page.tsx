@@ -25,7 +25,6 @@ const WAITER_REASONS = [
 
 const BRAND = "#B91C1C"; // Bordo
 const BRAND_DARK = "#991B1B";
-const ACCENT = "#D97706"; // Altın sarısı
 
 export default function CustomerMenuPage({ params }: { params: { businessId: string; tableNumber: string } }) {
   const [business, setBusiness] = useState<Business | null>(null);
