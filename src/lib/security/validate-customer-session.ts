@@ -31,6 +31,12 @@ export type CustomerSessionValidationResult =
 /**
  * Validates customer session for protected actions (order, service request, payment)
  * Returns session data if valid, error object if invalid
+ * 
+ * NOTE: This does NOT check if table.status === "EMPTY"
+ * That check is context-specific:
+ * - For ORDERS: EMPTY is OK (first order will activate table)
+ * - For SERVICE_REQUESTS: EMPTY might be OK (depends on request type)
+ * - For PAYMENT_REQUESTS: EMPTY is NOT OK (must have active session with orders)
  */
 export async function validateCustomerActionSession(
   req: Request
@@ -91,11 +97,18 @@ export async function validateCustomerActionSession(
     };
   }
 
-  if (customerSession.table.status === "EMPTY") {
+  // ✅ REMOVED: Table EMPTY check
+  // This is handled per-endpoint based on context:
+  // - Orders: EMPTY is OK (first order activates table)
+  // - Service requests: Depends on type
+  // - Payment requests: EMPTY is not OK
+
+  // Validate table is not deleted/inactive
+  if (customerSession.table.isDeleted || !customerSession.table.isActive) {
     return {
       ok: false,
       status: 403,
-      error: "Bu masa şu anda aktif değil. Lütfen garsondan masayı açmasını isteyin.",
+      error: "Bu masa aktif değil veya silinmiş.",
     };
   }
 

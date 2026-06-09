@@ -43,6 +43,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const table = customerSession.table;
+
+    // ✅ Payment requests require an active session with orders
+    // EMPTY table means no orders exist yet - reject payment request
+    if (table.status === "EMPTY") {
+      return NextResponse.json(
+        { error: "Ödeme talebi göndermek için önce sipariş vermeniz gerekir." },
+        { status: 400 }
+      );
+    }
+
     // ✅ Merkezi table-flow.service kullanarak transaction ile ödeme talebi oluştur
     const result = await requestPayment(tableId, businessId, note || null);
 
