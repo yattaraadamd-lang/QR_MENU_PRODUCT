@@ -32,6 +32,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ GÜVENLIK: Note validasyonu
+    if (note && note.length > 500) {
+      return NextResponse.json(
+        { error: "Not alanı maksimum 500 karakter olabilir." },
+        { status: 400 }
+      );
+    }
+
     // ✅ RATE LIMIT: 60 saniyede 1 payment request
     const sessionToken = request.headers.get("x-session-token")!;
     const rateLimit = await checkRateLimit(`payment:${sessionToken}`, RATE_LIMITS.PAYMENT_REQUEST);

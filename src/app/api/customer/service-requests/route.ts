@@ -33,6 +33,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ GÜVENLIK: Note ve reason validasyonu
+    if (note && note.length > 500) {
+      return NextResponse.json(
+        { error: "Not alanı maksimum 500 karakter olabilir." },
+        { status: 400 }
+      );
+    }
+    if (reason && reason.length > 200) {
+      return NextResponse.json(
+        { error: "Sebep alanı maksimum 200 karakter olabilir." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ GÜVENLIK: RequestType validasyonu
+    const validRequestTypes = [
+      "CALL_WAITER",
+      "PAYMENT_REQUEST",
+      "HELP_REQUEST",
+      "CLEANING_REQUEST",
+      "ORDER_REQUEST",
+      "PRODUCT_INFO",
+      "COMPLAINT_SUGGESTION",
+    ];
+    if (!validRequestTypes.includes(requestType)) {
+      return NextResponse.json(
+        { error: "Geçersiz talep türü." },
+        { status: 400 }
+      );
+    }
+
     // ✅ RATE LIMIT: 60 saniyede 1 service request
     const sessionToken = request.headers.get("x-session-token")!;
     const rateLimit = await checkRateLimit(`service:${sessionToken}`, RATE_LIMITS.SERVICE_REQUEST);

@@ -17,6 +17,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz sipariş bilgileri" }, { status: 400 });
     }
 
+    // ✅ GÜVENLIK: Note validasyonu
+    if (note && note.length > 500) {
+      return NextResponse.json(
+        { error: "Sipariş notu maksimum 500 karakter olabilir." },
+        { status: 400 }
+      );
+    }
+
     // ✅ GÜVENLIK: CustomerSession doğrulama
     const sessionCheck = await validateCustomerActionSession(request);
     if (!sessionCheck.ok) {
@@ -87,11 +95,41 @@ export async function POST(request: NextRequest) {
       activeTableSession = { id: result.id, startedAt: result.startedAt };
     }
 
-    // Ürün kontrolleri
+    // ✅ GÜVENLIK: Maksimum ürün çeşidi kontrolü (spam önleme)
+    if (items.length > 50) {
+      return NextResponse.json(
+        { error: "Bir siparişte maksimum 50 farklı ürün olabilir." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ GÜVENLIK: Ürün kontrolleri ve validasyonlar
     let totalPrice = 0;
     const orderItems: any[] = [];
 
     for (const item of items) {
+      // ✅ Quantity validasyonu
+      const quantity = Number(item.quantity);
+      if (!quantity || quantity < 1 || quantity > 100 || !Number.isInteger(quantity)) {
+        return NextResponse.json(
+          { error: "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır." },
+          { status: 400 }
+        );
+      }
+
+      // ✅ ProductId validasyonu
+      if (!item.productId || typeof item.productId !== "string") {
+        return NextResponse.json({ error: "Geçersiz ürün ID'si." }, { status: 400 });
+      }
+
+      // ✅ CustomerNote validasyonu
+      if (item.customerNote && item.customerNote.length > 200) {
+        return NextResponse.json(
+          { error: "Ürün notu maksimum 200 karakter olabilir." },
+          { status: 400 }
+        );
+      }
+
       const product = await prisma.product.findFirst({
         where: {
           id: item.productId,
@@ -104,6 +142,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Ürün bulunamadı: ${item.productId}` }, { status: 404 });
       }
 
+      // ✅ Ürün bu işletmeye ait mi?
+      if (product.businessId !== businessId) {
+        return NextResponse.json(
+          { error: "Bu ürün bu işletmeye ait değil." },
+          { status: 403 }
+        );
+      }
+
       if (!product.isAvailable) {
         return NextResponse.json({ error: `"${product.name}" şu anda mevcut değil.` }, { status: 400 });
       }
@@ -112,17 +158,34 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `"${product.name}" şu anda stokta yok.` }, { status: 400 });
       }
 
-      const itemTotal = Number(product.price) * item.quantity;
+      // ✅ GÜVENLIK: Fiyat manipülasyonu koruması - backend DB'den fiyat al
+      const backendPrice = Number(product.price);
+      if (backendPrice < 0 || !Number.isFinite(backendPrice)) {
+        return NextResponse.json(
+          { error: `"${product.name}" için geçersiz fiyat bilgisi.` },
+          { status: 500 }
+        );
+      }
+
+      const itemTotal = backendPrice * quantity;
       totalPrice += itemTotal;
 
       orderItems.push({
         productId: item.productId,
         productName: product.name,
-        quantity: item.quantity,
-        unitPrice: product.price,
+        quantity: quantity,
+        unitPrice: backendPrice, // ✅ Backend'den alınan fiyat
         totalPrice: itemTotal,
         customerNote: item.customerNote || null,
       });
+    }
+
+    // ✅ GÜVENLIK: Toplam fiyat kontrolü
+    if (totalPrice > 1000000) {
+      return NextResponse.json(
+        { error: "Sipariş tutarı çok yüksek. Lütfen iletişime geçin." },
+        { status: 400 }
+      );
     }
 
     // ✅ Transaction: Sipariş oluştur + Bill güncelle + Masa durumu güncelle
