@@ -225,9 +225,43 @@ export async function PUT(
         newTableStatus = TableStatus.SERVED;
       }
     } else if (status === "CANCELLED" || status === "REJECTED") {
-      // Garson iptal/reddetti - başka aktif sipariş yoksa masa boş kalır
+      // ✅ İptal/red sonrası masa durumu kontrolü
+      // Sadece aktif siparişlere değil, ödenmemiş servis edilmiş siparişlere de bak
       if (otherActiveOrders === 0) {
-        newTableStatus = TableStatus.EMPTY;
+        // Başka bekleyen sipariş yok - ama ödenmemiş servis edilmiş sipariş var mı?
+        const unPaidServedOrders = await prisma.order.count({
+          where: {
+            tableId: order.tableId,
+            id: { not: params.id },
+            status: "SERVED",
+          },
+        });
+
+        // Ödenmemiş servis edilmiş sipariş varsa masa SERVED kalmalı
+        if (unPaidServedOrders > 0) {
+          newTableStatus = TableStatus.SERVED;
+        } else {
+          // Hiçbir ödenecek sipariş yoksa masa boşalabilir
+          // Ama önce açık adisyon kontrolü yap
+          if (order.tableSessionId) {
+            const bill = await prisma.bill.findFirst({
+              where: { 
+                tableSessionId: order.tableSessionId,
+                status: "OPEN"
+              },
+              select: { remainingAmount: true },
+            });
+
+            // Açık adisyon varsa ve ödenmemiş tutar varsa masa boş yapılmamalı
+            if (bill && Number(bill.remainingAmount) > 0) {
+              newTableStatus = TableStatus.SERVED;
+            } else {
+              newTableStatus = TableStatus.EMPTY;
+            }
+          } else {
+            newTableStatus = TableStatus.EMPTY;
+          }
+        }
       }
     }
 

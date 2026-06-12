@@ -59,11 +59,24 @@ export async function PUT(
       },
     });
 
+    // ✅ Ödenmemiş servis edilmiş siparişleri de kontrol et
+    const unPaidServedOrders = await prisma.order.count({
+      where: {
+        tableId: order.tableId,
+        id: { not: params.orderId },
+        status: "SERVED",
+      },
+    });
+
     // Başka aktif sipariş yoksa masa durumunu güncelle
+    let newTableStatus: TableStatus;
     if (otherActiveOrders === 0) {
+      // Ödenmemiş servis edilmiş sipariş varsa SERVED, yoksa OCCUPIED
+      newTableStatus = unPaidServedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
+      
       await prisma.table.update({
         where: { id: order.tableId },
-        data: { status: TableStatus.OCCUPIED },
+        data: { status: newTableStatus },
       });
     }
 

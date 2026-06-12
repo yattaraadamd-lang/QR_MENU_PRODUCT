@@ -60,7 +60,15 @@ export async function PATCH(
         tableStatus = TableStatus.SERVED;
         break;
       case OrderStatus.CANCELLED:
-        tableStatus = TableStatus.OCCUPIED;
+        // ✅ İptal durumunda başka SERVED sipariş var mı kontrol et
+        const servedOrders = await prisma.order.count({
+          where: {
+            tableId: order.tableId,
+            id: { not: orderId },
+            status: "SERVED",
+          },
+        });
+        tableStatus = servedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
         break;
     }
 
@@ -129,10 +137,21 @@ export async function DELETE(
       },
     });
 
+    // ✅ İptal sonrası masa durumunu kontrol et
+    const servedOrders = await prisma.order.count({
+      where: {
+        tableId: order.tableId,
+        id: { not: orderId },
+        status: "SERVED",
+      },
+    });
+
     // Masa durumunu güncelle
+    const newTableStatus = servedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
+    
     await prisma.table.update({
       where: { id: order.tableId },
-      data: { status: TableStatus.OCCUPIED },
+      data: { status: newTableStatus },
     });
 
     // Bildirim oluştur
