@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.businessId || session.user.role !== "ADMIN") {
+    // ✅ Garson ve admin erişebilir
+    if (!session?.user?.businessId || !["ADMIN", "WAITER", "SUPER_ADMIN"].includes(session.user.role)) {
       return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
     }
 
