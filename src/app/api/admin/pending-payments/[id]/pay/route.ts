@@ -70,17 +70,28 @@ export async function POST(
     });
     const serverTotalAmount = orders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
 
-    // Ödeme tutarı kontrolü
-    const paymentAmount = Number(amount);
-    if (paymentAmount > serverTotalAmount) {
+    // ✅ Şimdiye kadar ödenen tutarı hesapla
+    const existingPayments = await prisma.payment.findMany({
+      where: { billId: bill.id, status: "PAID" },
+    });
+    const alreadyPaidAmount = existingPayments.reduce((s, p) => s + Number(p.amount), 0);
+    
+    // ✅ Kalan borç
+    const remainingDue = Math.max(0, serverTotalAmount - alreadyPaidAmount);
+
+    // ✅ CİROYA EKLENECEK TUTAR: En fazla kalan borç kadar olabilir
+    const actualPaymentAmount = Math.min(Number(amount), remainingDue);
+
+    // ✅ Validasyon
+    if (actualPaymentAmount <= 0) {
       return NextResponse.json(
-        { error: `Ödeme tutarı toplam hesaptan fazla olamaz (Max: ₺${serverTotalAmount.toFixed(2)})` },
+        { error: `Ödeme tutarı geçersiz. Kalan borç: ₺${remainingDue.toFixed(2)}` },
         { status: 400 }
       );
     }
 
     // Ödeme hesaplamaları
-    const newPaidAmount = Number(bill.paidAmount) + paymentAmount;
+    const newPaidAmount = alreadyPaidAmount + actualPaymentAmount;
     const newRemainingAmount = Math.max(0, serverTotalAmount - newPaidAmount);
 
     let paymentStatus: "PARTIALLY_PAID" | "PAID" = "PARTIALLY_PAID";
@@ -103,14 +114,14 @@ export async function POST(
         throw new Error("Bu adisyon için zaten ödeme alınmış");
       }
 
-      // ✅ Ödeme kaydı oluştur
+      // ✅ Ödeme kaydı oluştur (actualPaymentAmount kullan!)
       await tx.payment.create({
         data: {
           businessId: session.user.businessId,
           tableId: bill.tableId,
           tableSessionId: bill.tableSessionId,
           billId: bill.id,
-          amount: paymentAmount,
+          amount: actualPaymentAmount, // ✅ Ciroya bu tutar eklenir
           method: paymentMethod === "CREDIT_CARD" ? "CARD" : paymentMethod,
           status: "PAID",
           paidAt: now,
