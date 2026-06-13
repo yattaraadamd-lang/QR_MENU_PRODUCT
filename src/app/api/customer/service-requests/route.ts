@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { validateCustomerActionSession } from "@/lib/security/validate-customer-session";
+import { validateCustomerActionSessionWithLocation } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -11,14 +11,19 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, requestType, note, reason } = body;
+    const { businessId, tableId, requestType, note, reason, latitude, longitude } = body;
 
     if (!businessId || !tableId || !requestType) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
     }
 
-    // ✅ GÜVENLIK: CustomerSession doğrulama
-    const sessionCheck = await validateCustomerActionSession(request);
+    // ✅ GÜVENLIK: CustomerSession doğrulama + Konum kontrolü
+    const sessionCheck = await validateCustomerActionSessionWithLocation(
+      request,
+      latitude,
+      longitude,
+      { requireLocation: true }
+    );
     if (!sessionCheck.ok) {
       return NextResponse.json({ error: sessionCheck.error }, { status: sessionCheck.status });
     }
@@ -209,7 +214,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: "Talep başarıyla oluşturuldu", serviceRequest },
+      {
+        message:
+          requestType === "ORDER_REQUEST"
+            ? "Sipariş talebiniz garsona iletildi. Masa açılınca siparişinizi gönderebilirsiniz."
+            : "Talep başarıyla oluşturuldu",
+        serviceRequest,
+        requiresStaffToOpenTable: requestType === "ORDER_REQUEST",
+      },
       { status: 201 }
     );
   } catch (error) {

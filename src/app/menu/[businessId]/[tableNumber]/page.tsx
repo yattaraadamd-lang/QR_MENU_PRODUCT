@@ -47,6 +47,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [orderBlockedMsg, setOrderBlockedMsg] = useState<string | null>(null);
   const [activeRequests, setActiveRequests] = useState<Record<string, boolean>>({});
+  const [tableSessionActive, setTableSessionActive] = useState(false);
 
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const categoryTabsRef = useRef<HTMLDivElement>(null);
@@ -95,6 +96,21 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     }
   }, [resolvedParams.businessId]);
 
+  // ✅ Konum helper — sipariş ve hizmet talepleri için
+  const getCustomerLocation = useCallback((): Promise<{ latitude: number; longitude: number }> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation desteklenmiyor"));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    });
+  }, []);
+
   const fetchMenu = useCallback(async (initial = false) => {
     try {
       const res = await fetch(`/api/menu/${resolvedParams.businessId}/${resolvedParams.tableNumber}`);
@@ -103,6 +119,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         setBusiness(data.business);
         setTable(data.table);
         setCategories(data.categories || []);
+        // ✅ tableSessionActive state güncelle (polling ile 5s'de bir)
+        setTableSessionActive(!!data.tableSessionActive);
         if (initial && data.categories?.length > 0) setActiveCategory(data.categories[0].id);
         if (initial) {
           const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
@@ -216,13 +234,46 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         showToast(orderBlockedMsg || "Sipariş vermek için masadaki QR kodu okutun.", "err");
         return;
       }
+
+      // ✅ Konum al
+      let location: { latitude: number; longitude: number } | null = null;
+      try {
+        location = await getCustomerLocation();
+      } catch {
+        showToast("Sipariş verebilmek için konum izni vermeniz gerekir.", "err");
+        return;
+      }
+
+      // ✅ Aktif TableSession yoksa ORDER_REQUEST gönder, sepeti koru
+      if (!tableSessionActive) {
+        await sendRequest("ORDER_REQUEST", "Sipariş vermek istiyorum");
+        showToast("Garson çağrıldı. Masa açıldıktan sonra siparişinizi gönderebilirsiniz.", "err");
+        return;
+      }
+
       const r = await fetch("/api/customer/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-session-token": token },
-        body: JSON.stringify({ businessId: business.id, tableId: table.id, items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null })), note: orderNote || null }),
+        body: JSON.stringify({
+          businessId: business.id,
+          tableId: table.id,
+          items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null })),
+          note: orderNote || null,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        }),
       });
       if (r.ok) { setCart([]); setOrderNote(""); setShowCartMobile(false); showToast("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳"); }
-      else { const d = await r.json(); showToast(d.error || "Sipariş gönderilemedi", "err"); }
+      else {
+        const d = await r.json();
+        // ✅ NO_ACTIVE_SESSION durumunda sepeti temizleme
+        if (d.errorCode === "NO_ACTIVE_SESSION") {
+          showToast(d.error || "Masa henüz açılmadı. Garson çağrıldı.", "err");
+          setTableSessionActive(false);
+        } else {
+          showToast(d.error || "Sipariş gönderilemedi", "err");
+        }
+      }
     } catch { showToast("Bağlantı hatası", "err"); }
     finally { setSubmitting(false); }
   };
@@ -236,10 +287,20 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     }
     const isBlocked =
       (type === "CALL_WAITER" && (activeRequests["CALL_WAITER"] || activeRequests["CALL_WAITER_BLOCKED"])) ||
-      (type === "PAYMENT_REQUEST" && (activeRequests["PAYMENT_REQUEST"] || activeRequests["PAYMENT_REQUEST_BLOCKED"]));
+      (type === "PAYMENT_REQUEST" && (activeRequests["PAYMENT_REQUEST"] || activeRequests["PAYMENT_REQUEST_BLOCKED"])) ||
+      (type === "ORDER_REQUEST" && activeRequests["ORDER_REQUEST"]);
 
     if (isBlocked) {
       showToast("Devam eden bir talebiniz var. Lütfen bekleyin.", "err");
+      return;
+    }
+
+    // ✅ Konum al
+    let location: { latitude: number; longitude: number } | null = null;
+    try {
+      location = await getCustomerLocation();
+    } catch {
+      showToast("Talep göndermek için konum izni vermeniz gerekir.", "err");
       return;
     }
 
@@ -248,10 +309,23 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       const r = await fetch(ep, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-session-token": token },
-        body: JSON.stringify({ businessId: business.id, tableId: table.id, requestType: type, reason: reason || null, note: note || null }),
+        body: JSON.stringify({
+          businessId: business.id,
+          tableId: table.id,
+          requestType: type,
+          reason: reason || null,
+          note: note || null,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        }),
       });
       if (r.ok) {
-        const msgs: Record<string, string> = { CALL_WAITER: "Garson çağrıldı! 🙋", PAYMENT_REQUEST: "Ödeme talebi gönderildi! 💳", HELP_REQUEST: "Yardım talebi gönderildi! ℹ️" };
+        const msgs: Record<string, string> = {
+          CALL_WAITER: "Garson çağrıldı! 🙋",
+          PAYMENT_REQUEST: "Ödeme talebi gönderildi! 💳",
+          HELP_REQUEST: "Yardım talebi gönderildi! ℹ️",
+          ORDER_REQUEST: "Sipariş talebi garsona iletildi. Masa açılınca siparişinizi gönderebilirsiniz. 📋",
+        };
         showToast(msgs[type] || "Talep gönderildi");
         setShowServiceMenu(false); setShowWaiterModal(false); setWaiterReason(""); setWaiterNote("");
         checkActiveRequests();
@@ -305,7 +379,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             <span style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)" }}>{cartTotal.toFixed(2)} ₺</span>
           </div>
           <button onClick={submitOrder} disabled={submitting} className="btn btn-primary" style={{ width: "100%", padding: "15px 0", borderRadius: 14, fontSize: 16, opacity: submitting ? 0.6 : 1 }}>
-            {submitting ? "Gönderiliyor..." : "Siparişi Gönder 🚀"}
+            {submitting
+              ? "Gönderiliyor..."
+              : tableSessionActive
+                ? "Siparişi Gönder 🚀"
+                : "Garson Çağır ve Masayı Açtır 🙋"}
           </button>
         </>
       )}

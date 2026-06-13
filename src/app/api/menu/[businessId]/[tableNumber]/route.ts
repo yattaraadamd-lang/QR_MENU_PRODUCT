@@ -80,6 +80,7 @@ export async function GET(
       categories,
       popularProducts,
       tableSessionActive: !!activeTableSession, // ✅ Masa oturumu aktif mi?
+      activeTableSessionId: activeTableSession?.id ?? null, // ✅ Aktif oturum ID (Faz 2 hazırlık)
     });
   } catch (error) {
     console.error("Menü yükleme hatası:", error);

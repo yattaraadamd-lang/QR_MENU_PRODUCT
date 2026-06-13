@@ -129,12 +129,15 @@ export async function validateCustomerActionSession(
 }
 
 /**
- * Validates customer session with optional geolocation check
+ * Validates customer session with geolocation check.
+ * When options.requireLocation is true AND the business has lat/lng configured,
+ * the customer MUST provide valid coordinates within the allowed radius.
  */
 export async function validateCustomerActionSessionWithLocation(
   req: Request,
   latitude?: number,
-  longitude?: number
+  longitude?: number,
+  options: { requireLocation?: boolean } = {}
 ) {
   const sessionCheck = await validateCustomerActionSession(req);
 
@@ -143,14 +146,20 @@ export async function validateCustomerActionSessionWithLocation(
   }
 
   const { customerSession } = sessionCheck;
+  const businessHasLocation =
+    customerSession.business.latitude && customerSession.business.longitude;
 
-  // If geolocation provided and business has location configured
-  if (
-    latitude &&
-    longitude &&
-    customerSession.business.latitude &&
-    customerSession.business.longitude
-  ) {
+  // If location is required but customer didn't provide it
+  if (options.requireLocation && businessHasLocation && (!latitude || !longitude)) {
+    return {
+      ok: false as const,
+      status: 403,
+      error: "Sipariş verebilmek için restoran içinde olduğunuzu konum ile doğrulamanız gerekir.",
+    };
+  }
+
+  // If both customer and business have coordinates, check distance
+  if (latitude && longitude && businessHasLocation) {
     const distance = calculateDistance(
       latitude,
       longitude,
@@ -162,7 +171,7 @@ export async function validateCustomerActionSessionWithLocation(
 
     if (distance > allowedRadius) {
       return {
-        ok: false,
+        ok: false as const,
         status: 403,
         error: `Bu hizmeti sadece restoran içerisindeyken kullanabilirsiniz. (Mesafe: ${Math.round(distance)}m)`,
       };
