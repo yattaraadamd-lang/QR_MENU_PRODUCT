@@ -7,9 +7,11 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     const { error, response, session } = await requireAdmin();
 
     if (error || !session || !session.user?.id) {

@@ -52,6 +52,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ SPAM ÖNLEMİ: Aynı ürünlerle son 30 saniyede sipariş var mı?
+    const recentOrders = await prisma.order.findMany({
+      where: {
+        tableId,
+        businessId,
+        status: { in: ["PENDING", "ACCEPTED"] },
+        createdAt: { gte: new Date(Date.now() - 30 * 1000) }, // Son 30 saniye
+      },
+      include: {
+        items: {
+          select: { productId: true, quantity: true },
+        },
+      },
+    });
+
+    // Gelen siparişin ürün listesi
+    const incomingProductSignature = items
+      .map((item: any) => `${item.productId}:${item.quantity}`)
+      .sort()
+      .join("|");
+
+    // Son siparişlerde aynı ürünler var mı kontrol et
+    for (const recentOrder of recentOrders) {
+      const recentProductSignature = recentOrder.items
+        .map((item) => `${item.productId}:${item.quantity}`)
+        .sort()
+        .join("|");
+
+      if (recentProductSignature === incomingProductSignature) {
+        return NextResponse.json(
+          {
+            error: "Bu siparişi zaten 30 saniye içinde verdiniz. Lütfen bekleyip garsonun onayını kontrol edin.",
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     const table = customerSession.table;
     const business = customerSession.business;
 
@@ -60,39 +98,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
     }
 
-    // ✅ Aktif TableSession kontrolü + gerekirse oluştur
-    let activeTableSession = await prisma.tableSession.findFirst({
+    // ✅ KRİTİK GÜVENLİK: Aktif TableSession ZORUNLU
+    // TableSession sadece garson/admin tarafından "Masayı Aç" ile oluşturulabilir
+    // Müşteri QR okutması otomatik TableSession oluşturamaz
+    const activeTableSession = await prisma.tableSession.findFirst({
       where: { tableId, businessId, status: "ACTIVE" },
       select: { id: true, startedAt: true },
     });
 
-    // Aktif TableSession yoksa oluştur (ilk sipariş)
+    // ❌ Aktif TableSession yoksa sipariş VERİLEMEZ
     if (!activeTableSession) {
-      console.log(`[ORDER] Creating TableSession on first order for tableId=${tableId}`);
-      const result = await prisma.$transaction(async (tx) => {
-        const newTs = await tx.tableSession.create({
-          data: { businessId, tableId, status: "ACTIVE" },
-        });
-        await tx.bill.create({
-          data: {
-            businessId,
-            tableId,
-            tableSessionId: newTs.id,
-            totalAmount: 0,
-            paidAmount: 0,
-            remainingAmount: 0,
-            paymentStatus: "UNPAID",
-            status: "OPEN",
-          },
-        });
-        // Masa durumunu OCCUPIED yap
-        await tx.table.update({
-          where: { id: tableId },
-          data: { status: "OCCUPIED" },
-        });
-        return newTs;
-      });
-      activeTableSession = { id: result.id, startedAt: result.startedAt };
+      return NextResponse.json(
+        {
+          error: "Bu masa şu anda hizmet vermiyor. Lütfen garson çağırın veya personele bilgi verin.",
+          errorCode: "NO_ACTIVE_SESSION",
+        },
+        { status: 403 }
+      );
     }
 
     // ✅ GÜVENLIK: Maksimum ürün çeşidi kontrolü (spam önleme)
@@ -190,6 +212,15 @@ export async function POST(request: NextRequest) {
 
     // ✅ Transaction: Sipariş oluştur + Bill güncelle + Masa durumu güncelle
     const order = await prisma.$transaction(async (tx) => {
+      // ✅ Bill kontrolü - TableSession varsa Bill de olmalı
+      const bill = await tx.bill.findFirst({
+        where: { tableSessionId: activeTableSession.id, status: "OPEN" },
+      });
+
+      if (!bill) {
+        throw new Error("Adisyon bulunamadı. Lütfen garson çağırın.");
+      }
+
       const createdOrder = await tx.order.create({
         data: {
           businessId,
@@ -208,33 +239,23 @@ export async function POST(request: NextRequest) {
       });
 
       // Bill totalAmount güncelle
-      try {
-        const bill = await tx.bill.findFirst({
-          where: { tableSessionId: activeTableSession.id, status: "OPEN" },
-        });
+      const allOrders = await tx.order.findMany({
+        where: {
+          tableSessionId: activeTableSession.id,
+          status: { notIn: ["CANCELLED", "REJECTED"] },
+        },
+      });
 
-        if (bill) {
-          const allOrders = await tx.order.findMany({
-            where: {
-              tableSessionId: activeTableSession.id,
-              status: { notIn: ["CANCELLED", "REJECTED"] },
-            },
-          });
+      const newTotalAmount = allOrders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+      const remainingAmount = Math.max(0, newTotalAmount - Number(bill.paidAmount));
 
-          const newTotalAmount = allOrders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
-          const remainingAmount = Math.max(0, newTotalAmount - Number(bill.paidAmount));
-
-          await tx.bill.update({
-            where: { id: bill.id },
-            data: {
-              totalAmount: newTotalAmount,
-              remainingAmount,
-            },
-          });
-        }
-      } catch (billErr) {
-        console.log("Bill güncelleme uyarısı:", billErr);
-      }
+      await tx.bill.update({
+        where: { id: bill.id },
+        data: {
+          totalAmount: newTotalAmount,
+          remainingAmount,
+        },
+      });
 
       // Masa durumunu HAS_ORDER yap
       const currentTable = await tx.table.findUnique({ where: { id: tableId }, select: { status: true } });

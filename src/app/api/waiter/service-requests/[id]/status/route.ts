@@ -7,9 +7,10 @@ import { emitToBusinessRoom } from "@/lib/socket-server";
 // PUT /api/waiter/service-requests/[id]/status - Talep durumu güncelle
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const { error, response, session } = await requireWaiterOrAdmin();
     if (error) return response!;
 

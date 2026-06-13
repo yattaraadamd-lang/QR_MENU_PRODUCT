@@ -6,9 +6,11 @@ import { TableStatus } from "@prisma/client";
 // POST /api/admin/tables/[id]/open - Masayı aç (TableSession + Bill oluştur)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     // ✅ Authentication (Admin or Waiter)
     const authResult = await requireAuth();
     if (!authResult.success) return authResult.response;

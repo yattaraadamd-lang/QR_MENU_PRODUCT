@@ -7,9 +7,11 @@ import { v4 as uuidv4 } from "uuid";
 // POST /api/admin/tables/[id]/generate-qr - QR kod oluştur
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     const { error, response, session } = await requireAdmin();
     if (error) return response!;
 

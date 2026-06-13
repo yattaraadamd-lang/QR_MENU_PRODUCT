@@ -4,9 +4,10 @@ import { RequestStatus } from "@prisma/client";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { requestId: string } }
+  context: { params: Promise<{ requestId: string }> }
 ) {
   try {
+    const params = await context.params;
     const { requestId } = params;
     const body = await request.json();
     const { status } = body;

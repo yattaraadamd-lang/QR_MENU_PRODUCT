@@ -5,9 +5,10 @@ import { closeTable } from "@/lib/services/table-flow.service";
 export const dynamic = "force-dynamic";
 
 // POST /api/table-sessions/[id]/close — Admin veya garson masa oturumunu kapat
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   let userRole = "WAITER";
   try {
+    const params = await context.params;
     const { error, response, session } = await requireWaiterOrAdmin();
     if (error) return response!;
     const businessId = getBusinessId(session);

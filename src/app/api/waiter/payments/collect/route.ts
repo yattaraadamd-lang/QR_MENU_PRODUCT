@@ -63,8 +63,13 @@ export async function POST(request: NextRequest) {
   } catch (e: any) {
     console.error("Ödeme alma hatası:", e);
 
+    // ✅ Business logic errors should return 400, not 500
     if (e.message?.includes("bulunamadı")) {
       return NextResponse.json({ error: e.message }, { status: 404 });
+    }
+    
+    if (e.message?.includes("0 veya negatif") || e.message?.includes("geçersiz") || e.message?.includes("Kalan borç")) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });

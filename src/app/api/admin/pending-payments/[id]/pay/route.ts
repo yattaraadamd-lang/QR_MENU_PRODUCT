@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.businessId || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
@@ -188,8 +189,19 @@ export async function POST(
     }
 
     return NextResponse.json({ success: true, bill: updatedBill });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Ödeme alma hatası:", error);
+    
+    // ✅ Prisma validation errors should return 400, not 500
+    if (error.message?.includes("bulunamadı") || error.message?.includes("kapatılmış") || error.message?.includes("geçersiz")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    
+    // ✅ Transaction constraint violations
+    if (error.code === "P2002" || error.code === "P2025") {
+      return NextResponse.json({ error: "Veritabanı kısıtlama hatası. Lütfen tekrar deneyin." }, { status: 400 });
+    }
+    
     return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
   }
 }

@@ -8,9 +8,11 @@ import { emitToBusinessRoom } from "@/lib/socket-server";
 // PUT /api/waiter/orders/[id]/status - Sipariş durumu güncelle
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     // ✅ Authentication (Waiter or Admin)
     const authResult = await requireAuth();
     if (!authResult.success) return authResult.response;

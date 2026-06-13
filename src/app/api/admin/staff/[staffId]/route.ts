@@ -6,9 +6,11 @@ import { validateBody, updateStaffSchema, isValidCuid } from "@/lib/validation";
 // PUT /api/admin/staff/[staffId] - Garson güncelle
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { staffId: string } }
+  context: { params: Promise<{ staffId: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;
@@ -92,9 +94,10 @@ export async function PUT(
 // DELETE /api/admin/staff/[staffId] - Garson sil (soft delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { staffId: string } }
+  context: { params: Promise<{ staffId: string }> }
 ) {
   try {
+    const params = await context.params;
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;

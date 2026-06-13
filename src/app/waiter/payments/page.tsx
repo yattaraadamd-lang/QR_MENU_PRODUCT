@@ -11,7 +11,7 @@ export default function WaiterPaymentsPage() {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paymentNote, setPaymentNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingPaymentId, setSubmittingPaymentId] = useState<string | null>(null); // ✅ Per-payment loading
   const [receivedAmount, setReceivedAmount] = useState<string>(""); // Alınan nakit tutarı
 
   const fetchPayments = useCallback(async () => {
@@ -66,7 +66,7 @@ export default function WaiterPaymentsPage() {
       }
     }
 
-    setSubmitting(true);
+    setSubmittingPaymentId(selectedPayment.id); // ✅ Sadece bu ödeme loading
     try {
       const body: any = { 
         method: paymentMethod, 
@@ -98,7 +98,7 @@ export default function WaiterPaymentsPage() {
       console.error(e);
       alert("Bir hata oluştu.");
     } finally {
-      setSubmitting(false);
+      setSubmittingPaymentId(null); // ✅ Loading state temizle
     }
   };
 
@@ -240,8 +240,8 @@ export default function WaiterPaymentsPage() {
                 >
                   İptal
                 </button>
-                <button onClick={handleComplete} className="btn btn-success" style={{ flex: 2 }} disabled={submitting}>
-                  {submitting ? "İşleniyor..." : "✅ Ödemeyi Tamamla"}
+                <button onClick={handleComplete} className="btn btn-success" style={{ flex: 2 }} disabled={submittingPaymentId === selectedPayment.id}>
+                  {submittingPaymentId === selectedPayment.id ? "İşleniyor..." : "✅ Ödemeyi Tamamla"}
                 </button>
               </div>
             </div>

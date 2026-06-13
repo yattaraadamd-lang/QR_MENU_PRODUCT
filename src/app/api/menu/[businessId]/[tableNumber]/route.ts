@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { businessId: string; tableNumber: string } }
+  context: { params: Promise<{ businessId: string; tableNumber: string }> }
 ) {
   try {
+    const params = await context.params;
     const { businessId, tableNumber } = params;
 
     // İşletme bilgisi

@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 // GET /api/public/[businessSlug]/categories - Public kategoriler
 export async function GET(
   request: NextRequest,
-  { params }: { params: { businessSlug: string } }
+  context: { params: Promise<{ businessSlug: string }> }
 ) {
   try {
+    const params = await context.params;
     const business = await prisma.business.findUnique({
       where: { slug: params.businessSlug, isActive: true },
     });
