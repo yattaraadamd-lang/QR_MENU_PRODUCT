@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { validateCustomerActionSession } from "@/lib/security/validate-customer-session";
+import { validateCustomerActionSessionWithLocation } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, items, note } = body;
+    const { businessId, tableId, items, note, latitude, longitude } = body;
 
     if (!businessId || !tableId || !items || items.length === 0) {
       return NextResponse.json({ error: "Geçersiz sipariş bilgileri" }, { status: 400 });
@@ -25,8 +25,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ GÜVENLIK: CustomerSession doğrulama
-    const sessionCheck = await validateCustomerActionSession(request);
+    // ✅ GÜVENLIK: CustomerSession doğrulama + Konum kontrolü
+    const sessionCheck = await validateCustomerActionSessionWithLocation(
+      request,
+      latitude,
+      longitude,
+      { requireLocation: true }
+    );
     if (!sessionCheck.ok) {
       return NextResponse.json({ error: sessionCheck.error }, { status: sessionCheck.status });
     }
@@ -110,7 +115,7 @@ export async function POST(request: NextRequest) {
     if (!activeTableSession) {
       return NextResponse.json(
         {
-          error: "Bu masa şu anda hizmet vermiyor. Lütfen garson çağırın veya personele bilgi verin.",
+          error: "Masa henüz personel tarafından açılmadı. Garson çağrıldıktan sonra tekrar deneyin.",
           errorCode: "NO_ACTIVE_SESSION",
         },
         { status: 403 }

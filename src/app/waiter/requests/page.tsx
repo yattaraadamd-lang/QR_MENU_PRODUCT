@@ -34,6 +34,7 @@ export default function WaiterRequestsPage() {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("active");
+  const [openingTable, setOpeningTable] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -72,6 +73,31 @@ export default function WaiterRequestsPage() {
       });
       if (res.ok) fetchRequests();
     } catch (e) { console.error(e); }
+  };
+
+  // ✅ Masayı Aç — ORDER_REQUEST veya CALL_WAITER geldiğinde garson masayı açabilir
+  const openTable = async (req: any) => {
+    if (!session?.user.businessId || !req.tableId) return;
+    setOpeningTable(req.id);
+    try {
+      const res = await fetch("/api/table-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: session.user.businessId,
+          tableId: req.tableId,
+        }),
+      });
+      if (res.ok) {
+        // Masayı açtıktan sonra talebi tamamla
+        await updateStatus(req.id, "COMPLETED");
+        fetchRequests();
+      } else {
+        const data = await res.json();
+        console.error("Masa açma hatası:", data.error);
+      }
+    } catch (e) { console.error("Masa açma hatası:", e); }
+    finally { setOpeningTable(null); }
   };
 
   const pendingCount = requests.filter(r => r.status === "PENDING").length;
@@ -164,7 +190,24 @@ export default function WaiterRequestsPage() {
                   )}
 
                   {["PENDING", "SEEN", "IN_PROGRESS"].includes(req.status) && (
-                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                      {/* ✅ Masayı Aç butonu — ORDER_REQUEST veya CALL_WAITER için */}
+                      {(req.requestType === "ORDER_REQUEST" || req.requestType === "CALL_WAITER") && req.status === "PENDING" && (
+                        <button
+                          onClick={() => openTable(req)}
+                          disabled={openingTable === req.id}
+                          className="btn btn-sm"
+                          style={{
+                            flex: 1,
+                            background: "linear-gradient(135deg, #059669, #047857)",
+                            color: "white",
+                            border: "none",
+                            opacity: openingTable === req.id ? 0.6 : 1,
+                          }}
+                        >
+                          {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç"}
+                        </button>
+                      )}
                       {req.status === "PENDING" && (
                         <button onClick={() => updateStatus(req.id, "IN_PROGRESS")} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
                           ▶ İşleme Al
