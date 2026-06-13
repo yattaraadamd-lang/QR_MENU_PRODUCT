@@ -10,9 +10,11 @@ import { validateBody, updateProductSchema } from "@/lib/validation";
 // PUT /api/admin/products/[id] - Ürün güncelle
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;
@@ -127,9 +129,10 @@ export async function PUT(
 // DELETE /api/admin/products/[id] - Ürün sil (soft-delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;

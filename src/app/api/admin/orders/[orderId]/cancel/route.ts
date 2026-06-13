@@ -7,9 +7,11 @@ import { emitToBusinessRoom } from "@/lib/socket-server";
 // PUT /api/admin/orders/[orderId]/cancel - Admin sipariş iptal
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  context: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     const { error, response, session } = await requireAdmin();
     if (error) return response!;
 

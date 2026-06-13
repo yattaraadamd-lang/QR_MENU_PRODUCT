@@ -7,9 +7,11 @@ export const dynamic = "force-dynamic";
 // GET /api/business/[slug] - Public: İşletme bilgilerini getir
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  context: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     const business = await prisma.business.findUnique({
       where: { slug: params.slug, isActive: true },
       select: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, use } from "react";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -26,7 +26,8 @@ const WAITER_REASONS = [
 const BRAND = "#B91C1C"; // Bordo
 const BRAND_DARK = "#991B1B";
 
-export default function CustomerMenuPage({ params }: { params: { businessId: string; tableNumber: string } }) {
+export default function CustomerMenuPage({ params }: { params: Promise<{ businessId: string; tableNumber: string }> }) {
+  const resolvedParams = use(params);
   const [business, setBusiness] = useState<Business | null>(null);
   const [table, setTable] = useState<TableInfo | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -72,7 +73,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
       const sr = await fetch("/api/customer/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId: params.businessId, tableId, qrToken }),
+        body: JSON.stringify({ businessId: resolvedParams.businessId, tableId, qrToken }),
       });
       const sd = await sr.json();
       if (sr.ok && sd.sessionToken) {
@@ -92,11 +93,11 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
       setOrderBlockedMsg("Oturum oluşturulamadı. Lütfen QR kodu tekrar okutun.");
       return null;
     }
-  }, [params.businessId]);
+  }, [resolvedParams.businessId]);
 
   const fetchMenu = useCallback(async (initial = false) => {
     try {
-      const res = await fetch(`/api/menu/${params.businessId}/${params.tableNumber}`);
+      const res = await fetch(`/api/menu/${resolvedParams.businessId}/${resolvedParams.tableNumber}`);
       const data = await res.json();
       if (res.ok) {
         setBusiness(data.business);
@@ -120,7 +121,7 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
       }
     } catch { if (initial) setSessionError("Bağlantı hatası."); }
     finally { if (initial) setLoading(false); }
-  }, [params.businessId, params.tableNumber, ensureCustomerSession]);
+  }, [resolvedParams.businessId, resolvedParams.tableNumber, ensureCustomerSession]);
 
   useEffect(() => { fetchMenu(true); }, [fetchMenu]);
   useEffect(() => { const iv = setInterval(() => fetchMenu(false), 5000); return () => clearInterval(iv); }, [fetchMenu]);
@@ -204,6 +205,10 @@ export default function CustomerMenuPage({ params }: { params: { businessId: str
 
   const submitOrder = async () => {
     if (!cart.length || !business || !table) return;
+    
+    // ✅ Double-click guard
+    if (submitting) return;
+    
     setSubmitting(true);
     try {
       const token = sessionToken || (await ensureCustomerSession(table.id));

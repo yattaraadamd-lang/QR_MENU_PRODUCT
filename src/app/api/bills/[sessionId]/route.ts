@@ -5,8 +5,10 @@ import { requireWaiterOrAdmin, requireAdmin, getBusinessId } from "@/lib/auth-he
 export const dynamic = "force-dynamic";
 
 // GET /api/bills/[sessionId] — Oturumun adisyonunu getir (admin + garson)
-export async function GET(request: NextRequest, { params }: { params: { sessionId: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ sessionId: string }> }) {
   try {
+    const params = await context.params;
+    
     // Admin veya garson erişebilir
     const waiterCheck = await requireWaiterOrAdmin();
     if (waiterCheck.error) return waiterCheck.response!;
@@ -41,8 +43,9 @@ export async function GET(request: NextRequest, { params }: { params: { sessionI
 }
 
 // POST /api/bills/[sessionId]/recalculate — Adisyonu yeniden hesapla
-export async function POST(request: NextRequest, { params }: { params: { sessionId: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ sessionId: string }> }) {
   try {
+    const params = await context.params;
     const { error, response, session } = await requireWaiterOrAdmin();
     if (error) return response!;
     const businessId = getBusinessId(session);

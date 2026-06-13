@@ -5,9 +5,10 @@ import { openTable } from "@/lib/services/table-flow.service";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { tableId: string } }
+  context: { params: Promise<{ tableId: string }> }
 ) {
   try {
+    const params = await context.params;
     const { tableId } = params;
     const body = await request.json();
     const { status, businessId } = body;

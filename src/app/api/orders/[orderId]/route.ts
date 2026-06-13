@@ -4,9 +4,10 @@ import { OrderStatus, TableStatus } from "@prisma/client";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  context: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const params = await context.params;
     const { orderId } = params;
     const body = await request.json();
     const { status, waiterId, cancelReason } = body;
@@ -118,9 +119,10 @@ export async function PATCH(
 // Sipariş iptal etme endpoint'i
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  context: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const params = await context.params;
     const { orderId } = params;
     const { searchParams } = new URL(request.url);
     const cancelReason = searchParams.get("reason") || "Admin tarafından iptal edildi";

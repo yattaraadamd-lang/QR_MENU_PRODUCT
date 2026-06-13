@@ -6,9 +6,11 @@ import { validateBody, updateTableSchema, isValidCuid } from "@/lib/validation";
 // PUT /api/admin/tables/[id] - Masa güncelle
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;
@@ -89,9 +91,10 @@ export async function PUT(
 // DELETE /api/admin/tables/[id] - Masa sil (soft-delete)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;
