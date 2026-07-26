@@ -72,4 +72,12 @@ export const RATE_LIMITS = {
     maxRequests: 1,
     windowMs: 60 * 1000, // 60 seconds
   },
+  ORDER_REQUEST_CREATE: {
+    maxRequests: 1,
+    windowMs: 60 * 1000, // 60 seconds
+  },
+  ORDER_REQUEST_BURST: {
+    maxRequests: 3,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+  },
 } as const;

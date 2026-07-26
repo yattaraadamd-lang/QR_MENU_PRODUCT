@@ -65,10 +65,6 @@ export async function PUT(request: NextRequest) {
       address,
       phone,
       email,
-      clearLocationLock,
-      latitude,
-      longitude,
-      allowedRadiusMeters,
     } = body;
 
     const business = await prisma.business.update({
@@ -80,10 +76,6 @@ export async function PUT(request: NextRequest) {
         ...(address !== undefined && { address }),
         ...(phone !== undefined && { phone }),
         ...(email !== undefined && { email }),
-        ...(clearLocationLock === true && { latitude: null, longitude: null }),
-        ...(latitude !== undefined && { latitude }),
-        ...(longitude !== undefined && { longitude }),
-        ...(allowedRadiusMeters !== undefined && { allowedRadiusMeters }),
       },
     });
 

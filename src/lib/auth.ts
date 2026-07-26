@@ -38,30 +38,27 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("E-posta ve şifre gerekli");
+          return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { business: true },
-        });
+        try {
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+            include: { business: true },
+          });
 
-        if (!user) {
-          throw new Error("Kullanıcı bulunamadı");
-        }
+          if (!user || !user.isActive) {
+            return null;
+          }
 
-        if (!user.isActive) {
-          throw new Error("Hesabınız pasif durumda. Yöneticinizle iletişime geçin.");
-        }
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
 
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Geçersiz şifre");
-        }
+          if (!isPasswordValid) {
+            return null;
+          }
 
         return {
           id: user.id,
@@ -71,6 +68,10 @@ export const authOptions: NextAuthOptions = {
           businessId: user.businessId,
           businessName: user.business.name,
         };
+        } catch (error) {
+          console.error("Auth error:", error);
+          return null;
+        }
       },
     }),
   ],

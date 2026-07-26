@@ -53,14 +53,17 @@ export function emitToBusinessRoom(
  * API route'larında string literal yerine bu sabitleri kullanın.
  */
 export const SOCKET_EVENTS = {
-  NEW_ORDER:           "new_order",
-  ORDER_STATUS_UPDATE: "order_status_update",
-  CALL_WAITER:         "call_waiter",
-  PAYMENT_REQUEST:     "payment_request",
-  PAYMENT_COLLECTED:   "payment_collected",
-  SERVICE_REQUEST:     "service_request",
-  HELP_REQUEST:        "help_request",
-  TABLE_UPDATED:       "table_updated",
+  NEW_ORDER:            "new_order",
+  ORDER_STATUS_UPDATE:  "order_status_update",
+  CALL_WAITER:          "call_waiter",
+  PAYMENT_REQUEST:      "payment_request",
+  PAYMENT_COLLECTED:    "payment_collected",
+  SERVICE_REQUEST:      "service_request",
+  HELP_REQUEST:         "help_request",
+  TABLE_UPDATED:        "table_updated",
+  TABLE_OPENED:         "table_opened",
+  SESSION_AUTHORIZED:   "session_authorized",
+  ORDER_REQUEST_UPDATE: "order_request_update",
 } as const;
 
 export type SocketEvent = typeof SOCKET_EVENTS[keyof typeof SOCKET_EVENTS];

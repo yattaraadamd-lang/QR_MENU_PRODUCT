@@ -28,7 +28,12 @@ export async function GET(request: NextRequest) {
 
     const serviceRequests = await prisma.serviceRequest.findMany({
       where,
-      include: { table: true },
+      include: {
+        table: true,
+        customerSession: {
+          select: { id: true, authorizationStatus: true },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 

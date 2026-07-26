@@ -62,6 +62,9 @@ export async function GET(request: NextRequest) {
       },
       include: {
         table: true,
+        customerSession: {
+          select: { id: true, authorizationStatus: true },
+        },
       },
       orderBy: { createdAt: "desc" },
     });

@@ -185,7 +185,7 @@ export interface QRSessionResult {
     tableName: string | null;
     businessId: string;
     qrToken: string;
-    business?: any; // Konum kontrolü için opsiyonel
+    business?: any;
   };
 }
 
@@ -218,13 +218,6 @@ export async function verifyQRSession(
       qrToken: true,
       qrTokenExpiresAt: true,
       isActive: true,
-      business: {
-        select: {
-          latitude: true,
-          longitude: true,
-          allowedRadiusMeters: true,
-        },
-      },
     },
   });
 
@@ -276,7 +269,6 @@ export async function verifyQRSession(
       tableName: table.tableName,
       businessId: table.businessId,
       qrToken: table.qrToken,
-      business: table.business,
     },
   };
 }

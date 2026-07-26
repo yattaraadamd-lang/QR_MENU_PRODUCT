@@ -68,27 +68,25 @@ export default function AdminRequestsPage() {
     } catch (e) { console.error(e); }
   };
 
-  // ✅ Masayı Aç — ORDER_REQUEST veya CALL_WAITER geldiğinde admin masayı açabilir
+  // ✅ Atomik Masa Açma — tek endpoint çağrısı (sadece ORDER_REQUEST için)
   const openTable = async (req: any) => {
     if (!session?.user.businessId || !req.tableId) return;
     setOpeningTable(req.id);
     try {
-      const res = await fetch("/api/table-sessions", {
+      const res = await fetch(`/api/waiter/service-requests/${req.id}/open-table`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessId: session.user.businessId,
-          tableId: req.tableId,
-        }),
       });
+      const data = await res.json();
       if (res.ok) {
-        await updateStatus(req.id, "COMPLETED");
         fetchRequests();
       } else {
-        const data = await res.json();
-        console.error("Masa açma hatası:", data.error);
+        alert(data.error || "Masa açma hatası");
       }
-    } catch (e) { console.error("Masa açma hatası:", e); }
+    } catch (e) {
+      console.error("Masa açma hatası:", e);
+      alert("Bağlantı hatası");
+    }
     finally { setOpeningTable(null); }
   };
 
@@ -176,22 +174,30 @@ export default function AdminRequestsPage() {
               {/* ✅ Aksiyon butonları */}
               {["PENDING", "SEEN", "IN_PROGRESS"].includes(req.status) && (
                 <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                  {/* ✅ Masayı Aç butonu — ORDER_REQUEST veya CALL_WAITER için */}
-                  {(req.requestType === "ORDER_REQUEST" || req.requestType === "CALL_WAITER") && req.status === "PENDING" && (
-                    <button
-                      onClick={() => openTable(req)}
-                      disabled={openingTable === req.id}
-                      className="btn btn-sm"
-                      style={{
-                        flex: 1,
-                        background: "linear-gradient(135deg, #059669, #047857)",
-                        color: "white",
-                        border: "none",
-                        opacity: openingTable === req.id ? 0.6 : 1,
-                      }}
-                    >
-                      {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç"}
-                    </button>
+                  {/* ✅ Masayı Aç butonu — yalnız ORDER_REQUEST için */}
+                  {req.requestType === "ORDER_REQUEST" && req.status === "PENDING" && (
+                    <>
+                      {req.verificationCode && (
+                        <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(245,158,11,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#92400e" }}>Doğrulama Kodu</span>
+                          <span style={{ fontSize: 20, fontWeight: 900, color: "#d97706", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => openTable(req)}
+                        disabled={openingTable === req.id}
+                        className="btn btn-sm"
+                        style={{
+                          flex: 1,
+                          background: "linear-gradient(135deg, #059669, #047857)",
+                          color: "white",
+                          border: "none",
+                          opacity: openingTable === req.id ? 0.6 : 1,
+                        }}
+                      >
+                        {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç"}
+                      </button>
+                    </>
                   )}
                   <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
                     ✓ Tamamla
