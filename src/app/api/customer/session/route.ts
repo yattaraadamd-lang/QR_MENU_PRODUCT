@@ -7,30 +7,23 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/customer/session
  *
- * ✅ DÜZELTME: QR okutulduğunda SADECE görüntüleme token'ı verilir.
- * 
- * YANLIŞTI:
- * - QR okutulunca TableSession + Bill oluşturuluyordu
- * - Masa OCCUPIED yapılıyordu
- * - Müşteri menüye bakıp çıksa bile masa dolu kalıyordu
- * 
- * DOĞRU AKIŞ:
- * 1. Masa ve işletme doğrulanır
- * 2. CustomerSession oluşturulur (sadece görüntüleme için)
- * 3. TableSession VE Bill OLUŞTURULMAZ
- * 4. Masa durumu DEĞİŞTİRİLMEZ
- * 5. İlk sipariş verildiğinde TableSession + Bill oluşturulur (/api/customer/orders)
+ * Her cihaz için benzersiz VIEW_ONLY müşteri oturumu oluşturur.
+ * Başka cihazın token'ını ASLA döndürmez.
+ *
+ * - İstemci kendi mevcut token'ını gönderirse (existingToken) yeniden kullanır.
+ * - Geçerli QR ile gelen her yeni cihaz benzersiz VIEW_ONLY session alır.
+ * - Token loglama YAPILMAZ.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, qrToken } = body;
+    const { businessId, tableId, qrToken, existingToken } = body;
 
     if (!businessId || !tableId) {
       return NextResponse.json({ error: "Geçersiz oturum bilgileri" }, { status: 400 });
     }
 
-    // ─── Masa kontrolü ────────────────────────────────────────────────
+    // ─── Masa kontrolü
     const table = await prisma.table.findFirst({
       where: { id: tableId, businessId, isActive: true, isDeleted: false },
     });
@@ -42,28 +35,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ─── Var olan CustomerSession kontrol et ──────────────────────────
-    // (aynı cihazdan sayfa yenilenirse mevcut token yeniden kullanılır)
-    const existingCustomerSession = await prisma.customerSession.findFirst({
-      where: {
-        tableId,
-        businessId,
-        status: "ACTIVE",
-        expiresAt: { gt: new Date() },
-      },
-    });
-
-    if (existingCustomerSession) {
-      // ✅ Mevcut token döndür — masa durumu değiştirilmez
-      return NextResponse.json({
-        sessionToken: existingCustomerSession.sessionToken,
-        expiresAt: existingCustomerSession.expiresAt.toISOString(),
-        message: "Mevcut oturum kullanılıyor",
+    // ─── Mevcut token yeniden kullanımı (aynı cihaz sayfa yenilerse)
+    if (existingToken) {
+      const existing = await prisma.customerSession.findUnique({
+        where: { sessionToken: existingToken },
       });
+
+      if (
+        existing &&
+        existing.tableId === tableId &&
+        existing.businessId === businessId &&
+        existing.status === "ACTIVE" &&
+        existing.expiresAt > new Date()
+      ) {
+        // Aynı cihazın mevcut token'ı — yeniden kullan
+        return NextResponse.json({
+          sessionToken: existing.sessionToken,
+          expiresAt: existing.expiresAt.toISOString(),
+          authorizationStatus: existing.authorizationStatus,
+          message: "Mevcut oturum kullanılıyor",
+        });
+      }
     }
 
-    // ─── Yeni session oluşturmak için qrToken ZORUNLU ─────────────────
-    // Sayfa yenileme ile (qrToken olmadan) yeni session açılamaz
+    // ─── Yeni session oluşturmak için qrToken ZORUNLU
     if (!qrToken || qrToken !== table.qrToken) {
       return NextResponse.json({
         sessionToken: null,
@@ -72,10 +67,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ─── CustomerSession oluştur (2 saatlik) ──────────────────────────
-    // ✅ SADECE görüntüleme token'ı oluştur — TableSession/Bill oluşturma
+    // ─── Benzersiz VIEW_ONLY CustomerSession oluştur (2 saatlik)
     const sessionToken = `cs_${uuidv4()}`;
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 saat
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
     await prisma.customerSession.create({
       data: {
@@ -83,16 +77,15 @@ export async function POST(request: NextRequest) {
         tableId,
         sessionToken,
         status: "ACTIVE",
+        authorizationStatus: "VIEW_ONLY",
         expiresAt,
       },
     });
 
-    console.log(`[SESSION] View-only session created tableId=${tableId} — NO TableSession/Bill created`);
-
-    // ✅ Masa durumu DEĞİŞTİRİLMEZ — sadece token döndür
     return NextResponse.json({
       sessionToken,
       expiresAt: expiresAt.toISOString(),
+      authorizationStatus: "VIEW_ONLY",
       message: "Menü görüntüleme oturumu oluşturuldu",
     });
   } catch (error) {
@@ -101,30 +94,40 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/customer/session?token=xxx&tableId=yyy - Token doğrula
+/**
+ * GET /api/customer/session?token=xxx — Token doğrula + yetki durumu döndür
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get("token");
-    const tableId = searchParams.get("tableId");
 
-    if (!token || !tableId) {
+    if (!token) {
       return NextResponse.json(
-        { valid: false, error: "Token ve masa ID gerekli" },
+        { valid: false, error: "Token gerekli" },
         { status: 400 }
       );
     }
 
-    const session = await prisma.customerSession.findFirst({
-      where: {
-        sessionToken: token,
-        tableId,
-        status: "ACTIVE",
-      },
+    const session = await prisma.customerSession.findUnique({
+      where: { sessionToken: token },
     });
 
     if (!session) {
       return NextResponse.json({ valid: false, error: "Geçersiz oturum" });
+    }
+
+    if (session.status === "REVOKED") {
+      return NextResponse.json({
+        valid: false,
+        authorizationStatus: "REVOKED",
+        error: "Bu oturum iptal edilmiş.",
+        code: "SESSION_REVOKED",
+      });
+    }
+
+    if (session.status !== "ACTIVE") {
+      return NextResponse.json({ valid: false, error: "Oturum aktif değil" });
     }
 
     if (new Date() > session.expiresAt) {
@@ -135,7 +138,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ valid: false, error: "Oturum süresi doldu" });
     }
 
-    return NextResponse.json({ valid: true });
+    return NextResponse.json({
+      valid: true,
+      authorizationStatus: session.authorizationStatus,
+      tableSessionId: session.tableSessionId,
+    });
   } catch (error) {
     console.error("Token doğrulama hatası:", error);
     return NextResponse.json(

@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Merkezi table-flow.service kullanarak transaction ile masa aç
+    // NOT: Bu endpoint müşteri yetkilendirmesi YAPMAZ.
+    // Müşteri talebinden açılış yalnız /api/waiter/service-requests/[id]/open-table üzerinden yapılır.
     const result = await openTable(tableId, businessId);
 
     return NextResponse.json(

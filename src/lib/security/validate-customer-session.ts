@@ -6,8 +6,11 @@ export type CustomerSessionValidationSuccess = {
     id: string;
     businessId: string;
     tableId: string;
+    tableSessionId: string | null;
     sessionToken: string;
     status: string;
+    authorizationStatus: string;
+    authorizedAt: Date | null;
     expiresAt: Date;
     lastSeenAt: Date;
     closedAt: Date | null;
@@ -15,6 +18,7 @@ export type CustomerSessionValidationSuccess = {
     updatedAt: Date;
     table: any;
     business: any;
+    tableSession: any;
   };
 };
 
@@ -22,6 +26,7 @@ export type CustomerSessionValidationError = {
   ok: false;
   status: number;
   error: string;
+  code?: string;
 };
 
 export type CustomerSessionValidationResult =
@@ -29,16 +34,11 @@ export type CustomerSessionValidationResult =
   | CustomerSessionValidationError;
 
 /**
- * Validates customer session for protected actions (order, service request, payment)
- * Returns session data if valid, error object if invalid
- * 
- * NOTE: This does NOT check if table.status === "EMPTY"
- * That check is context-specific:
- * - For ORDERS: EMPTY is OK (first order will activate table)
- * - For SERVICE_REQUESTS: EMPTY might be OK (depends on request type)
- * - For PAYMENT_REQUESTS: EMPTY is NOT OK (must have active session with orders)
+ * Validates a basic view session — active, not expired, table/business match.
+ * Does NOT check authorization status.
+ * Use for: ORDER_REQUEST creation (VIEW_ONLY or PENDING sessions).
  */
-export async function validateCustomerActionSession(
+export async function validateViewSession(
   req: Request
 ): Promise<CustomerSessionValidationResult> {
   const sessionToken = req.headers.get("x-session-token");
@@ -48,6 +48,7 @@ export async function validateCustomerActionSession(
       ok: false,
       status: 403,
       error: "Aktif müşteri oturumu bulunamadı. Lütfen QR kodu okutun.",
+      code: "VIEW_ONLY_SESSION",
     };
   }
 
@@ -56,6 +57,7 @@ export async function validateCustomerActionSession(
     include: {
       table: true,
       business: true,
+      tableSession: true,
     },
   });
 
@@ -64,19 +66,23 @@ export async function validateCustomerActionSession(
       ok: false,
       status: 403,
       error: "Müşteri oturumu bulunamadı. Lütfen QR kodu tekrar okutun.",
+      code: "VIEW_ONLY_SESSION",
     };
   }
 
   if (customerSession.status !== "ACTIVE") {
+    const code = customerSession.status === "REVOKED" ? "SESSION_REVOKED" : "VIEW_ONLY_SESSION";
     return {
       ok: false,
       status: 403,
-      error: "Müşteri oturumu aktif değil. Bu masa kapatılmış olabilir.",
+      error: customerSession.status === "REVOKED"
+        ? "Bu oturum iptal edilmiş. Personelden yardım isteyin."
+        : "Müşteri oturumu aktif değil. Bu masa kapatılmış olabilir.",
+      code,
     };
   }
 
   if (customerSession.expiresAt < new Date()) {
-    // Auto-expire session
     await prisma.customerSession.update({
       where: { id: customerSession.id },
       data: { status: "EXPIRED", closedAt: new Date() },
@@ -86,6 +92,7 @@ export async function validateCustomerActionSession(
       ok: false,
       status: 403,
       error: "Müşteri oturumunun süresi dolmuş. Lütfen QR kodu tekrar okutun.",
+      code: "VIEW_ONLY_SESSION",
     };
   }
 
@@ -97,13 +104,6 @@ export async function validateCustomerActionSession(
     };
   }
 
-  // ✅ REMOVED: Table EMPTY check
-  // This is handled per-endpoint based on context:
-  // - Orders: EMPTY is OK (first order activates table)
-  // - Service requests: Depends on type
-  // - Payment requests: EMPTY is not OK
-
-  // Validate table is not deleted/inactive
   if (customerSession.table.isDeleted || !customerSession.table.isActive) {
     return {
       ok: false,
@@ -124,82 +124,91 @@ export async function validateCustomerActionSession(
       ...customerSession,
       table: customerSession.table,
       business: customerSession.business,
+      tableSession: customerSession.tableSession,
     },
   };
 }
 
 /**
- * Validates customer session with geolocation check.
- * When options.requireLocation is true AND the business has lat/lng configured,
- * the customer MUST provide valid coordinates within the allowed radius.
+ * Validates an authorized table session — all view checks plus:
+ * - authorizationStatus === AUTHORIZED
+ * - tableSessionId is set
+ * - linked TableSession.status === ACTIVE
+ * - TableSession.tableId/businessId matches customer session
+ *
+ * Use for: orders, CALL_WAITER, PAYMENT_REQUEST, CLEANING_REQUEST, etc.
  */
-export async function validateCustomerActionSessionWithLocation(
-  req: Request,
-  latitude?: number,
-  longitude?: number,
-  options: { requireLocation?: boolean } = {}
-) {
-  const sessionCheck = await validateCustomerActionSession(req);
+export async function validateAuthorizedTableSession(
+  req: Request
+): Promise<CustomerSessionValidationResult> {
+  const viewResult = await validateViewSession(req);
+  if (!viewResult.ok) return viewResult;
 
-  if (!sessionCheck.ok) {
-    return sessionCheck;
-  }
+  const { customerSession } = viewResult;
 
-  const { customerSession } = sessionCheck;
-  const businessHasLocation =
-    customerSession.business.latitude && customerSession.business.longitude;
-
-  // If location is required but customer didn't provide it
-  if (options.requireLocation && businessHasLocation && (!latitude || !longitude)) {
+  if (customerSession.authorizationStatus === "REVOKED") {
     return {
-      ok: false as const,
+      ok: false,
       status: 403,
-      error: "Sipariş verebilmek için restoran içinde olduğunuzu konum ile doğrulamanız gerekir.",
+      error: "Bu oturumun yetkisi iptal edilmiş. Personelden yardım isteyin.",
+      code: "SESSION_REVOKED",
     };
   }
 
-  // If both customer and business have coordinates, check distance
-  if (latitude && longitude && businessHasLocation) {
-    const distance = calculateDistance(
-      latitude,
-      longitude,
-      customerSession.business.latitude,
-      customerSession.business.longitude
-    );
-
-    const allowedRadius = customerSession.business.allowedRadiusMeters || 100;
-
-    if (distance > allowedRadius) {
-      return {
-        ok: false as const,
-        status: 403,
-        error: `Bu hizmeti sadece restoran içerisindeyken kullanabilirsiniz. (Mesafe: ${Math.round(distance)}m)`,
-      };
-    }
+  if (customerSession.authorizationStatus !== "AUTHORIZED") {
+    return {
+      ok: false,
+      status: 403,
+      error: "Bu masa başka bir aktif oturuma ait veya henüz garson onayı alınmamış.",
+      code: "SESSION_NOT_AUTHORIZED_FOR_TABLE",
+    };
   }
 
-  return sessionCheck;
+  if (!customerSession.tableSessionId) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Bu oturum bir masaya bağlı değil. Lütfen garson çağırın.",
+      code: "SESSION_NOT_AUTHORIZED_FOR_TABLE",
+    };
+  }
+
+  if (!customerSession.tableSession || customerSession.tableSession.status !== "ACTIVE") {
+    // Table session closed — revoke authorization
+    await prisma.customerSession.update({
+      where: { id: customerSession.id },
+      data: { authorizationStatus: "REVOKED" },
+    });
+    return {
+      ok: false,
+      status: 403,
+      error: "Masa oturumu kapatılmış. Personelden yardım isteyin.",
+      code: "SESSION_NOT_AUTHORIZED_FOR_TABLE",
+    };
+  }
+
+  // Verify table session belongs to same table/business
+  if (
+    customerSession.tableSession.tableId !== customerSession.tableId ||
+    customerSession.tableSession.businessId !== customerSession.businessId
+  ) {
+    return {
+      ok: false,
+      status: 403,
+      error: "Oturum masa bilgisi uyuşmuyor.",
+      code: "SESSION_NOT_AUTHORIZED_FOR_TABLE",
+    };
+  }
+
+  return viewResult;
 }
 
 /**
- * Calculate distance between two coordinates in meters (Haversine formula)
+ * Legacy compatibility — maps to validateViewSession for backward compatibility.
+ * Callers should migrate to validateViewSession or validateAuthorizedTableSession.
  */
-function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371e3; // Earth radius in meters
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
+export async function validateCustomerActionSession(
+  req: Request
+): Promise<CustomerSessionValidationResult> {
+  return validateViewSession(req);
 }

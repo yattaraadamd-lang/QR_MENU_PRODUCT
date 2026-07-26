@@ -55,6 +55,11 @@ export default function WaiterOrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch(`/api/waiter/orders?status=${filter}`);
+      if (res.status === 401) {
+        // Session expired — redirect to login
+        window.location.href = "/auth/signin";
+        return;
+      }
       const data = await res.json();
       if (res.ok) setOrders(data.orders || []);
     } catch (e) { console.error(e); }

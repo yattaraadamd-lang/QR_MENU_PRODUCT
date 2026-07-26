@@ -29,6 +29,11 @@ function timeAgo(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }
 
+function isExpired(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return false;
+  return new Date(expiresAt) < new Date();
+}
+
 export default function WaiterRequestsPage() {
   const { data: session } = useSession();
   const [requests, setRequests] = useState<any[]>([]);
@@ -53,11 +58,11 @@ export default function WaiterRequestsPage() {
     }
   }, [session, fetchRequests]);
 
-  // ✅ Socket.IO — static import, reconnect sonrası fetchRequests tetiklenir
+  // ✅ Socket.IO
   useEffect(() => {
     if (!session?.user.businessId) return;
     const socket = connectToBusinessRoom(session.user.businessId, fetchRequests);
-    const events = ["call_waiter", "payment_request", "help_request", "service_request"];
+    const events = ["call_waiter", "payment_request", "help_request", "service_request", "order_request_update", "table_opened"];
     events.forEach((ev) => socket.on(ev, fetchRequests));
     return () => {
       events.forEach((ev) => socket.off(ev, fetchRequests));
@@ -75,28 +80,25 @@ export default function WaiterRequestsPage() {
     } catch (e) { console.error(e); }
   };
 
-  // ✅ Masayı Aç — ORDER_REQUEST veya CALL_WAITER geldiğinde garson masayı açabilir
+  // ✅ Atomik Masa Açma — tek endpoint çağrısı
   const openTable = async (req: any) => {
     if (!session?.user.businessId || !req.tableId) return;
     setOpeningTable(req.id);
     try {
-      const res = await fetch("/api/table-sessions", {
+      const res = await fetch(`/api/waiter/service-requests/${req.id}/open-table`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessId: session.user.businessId,
-          tableId: req.tableId,
-        }),
       });
+      const data = await res.json();
       if (res.ok) {
-        // Masayı açtıktan sonra talebi tamamla
-        await updateStatus(req.id, "COMPLETED");
         fetchRequests();
       } else {
-        const data = await res.json();
-        console.error("Masa açma hatası:", data.error);
+        alert(data.error || "Masa açma hatası");
       }
-    } catch (e) { console.error("Masa açma hatası:", e); }
+    } catch (e) {
+      console.error("Masa açma hatası:", e);
+      alert("Bağlantı hatası");
+    }
     finally { setOpeningTable(null); }
   };
 
@@ -159,6 +161,9 @@ export default function WaiterRequestsPage() {
             const tm = TYPE_META[req.requestType] || { label: req.requestType, icon: "📌", color: "#6366f1" };
             const sm = STATUS_META[req.status] || STATUS_META.PENDING;
             const isPending = req.status === "PENDING";
+            const isOrder = req.requestType === "ORDER_REQUEST";
+            const expired = isExpired(req.expiresAt);
+
             return (
               <div key={req.id} className="card animate-fade-in" style={{
                 padding: 0, overflow: "hidden",
@@ -180,8 +185,32 @@ export default function WaiterRequestsPage() {
                         </p>
                       </div>
                     </div>
-                    <span className={`badge ${sm.badge}`}>{sm.label}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {expired && isPending && (
+                        <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 700 }}>⏰ Süresi Doldu</span>
+                      )}
+                      <span className={`badge ${sm.badge}`}>{sm.label}</span>
+                    </div>
                   </div>
+
+                  {/* Doğrulama Kodu — ORDER_REQUEST için */}
+                  {isOrder && req.verificationCode && isPending && !expired && (
+                    <div style={{
+                      padding: "10px 14px", marginTop: 6,
+                      background: "linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))",
+                      borderRadius: 10, border: "1px solid rgba(245,158,11,0.25)",
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                    }}>
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em" }}>Doğrulama Kodu</p>
+                        <p style={{ fontSize: 12, color: "#78716c", marginTop: 2 }}>Müşterinin ekranındaki kodla karşılaştırın</p>
+                      </div>
+                      <span style={{
+                        fontSize: 28, fontWeight: 900, color: "#d97706",
+                        letterSpacing: "0.15em", fontFamily: "monospace",
+                      }}>{req.verificationCode}</span>
+                    </div>
+                  )}
 
                   {req.note && (
                     <div style={{ padding: "6px 10px", background: "rgba(245,158,11,0.08)", borderRadius: 8, fontSize: 12, color: "#fcd34d", marginTop: 6 }}>
@@ -191,8 +220,8 @@ export default function WaiterRequestsPage() {
 
                   {["PENDING", "SEEN", "IN_PROGRESS"].includes(req.status) && (
                     <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                      {/* ✅ Masayı Aç butonu — ORDER_REQUEST veya CALL_WAITER için */}
-                      {(req.requestType === "ORDER_REQUEST" || req.requestType === "CALL_WAITER") && req.status === "PENDING" && (
+                      {/* ✅ Masayı Aç butonu — YALNIZ ORDER_REQUEST için */}
+                      {isOrder && isPending && !expired && (
                         <button
                           onClick={() => openTable(req)}
                           disabled={openingTable === req.id}

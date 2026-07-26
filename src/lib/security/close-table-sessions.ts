@@ -11,7 +11,7 @@ export async function closeAllTableSessions(
 ) {
   const client = tx || prisma;
 
-  // Close all active customer sessions
+  // Close all active customer sessions and revoke authorizations
   await client.customerSession.updateMany({
     where: {
       tableId,
@@ -20,6 +20,7 @@ export async function closeAllTableSessions(
     },
     data: {
       status: "CLOSED",
+      authorizationStatus: "REVOKED",
       closedAt: new Date(),
     },
   });

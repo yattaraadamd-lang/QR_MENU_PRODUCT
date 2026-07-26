@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { validateCustomerActionSessionWithLocation } from "@/lib/security/validate-customer-session";
+import { validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -11,13 +11,13 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, items, note, latitude, longitude } = body;
+    const { items, note, idempotencyKey } = body;
 
-    if (!businessId || !tableId || !items || items.length === 0) {
+    if (!items || items.length === 0) {
       return NextResponse.json({ error: "Geçersiz sipariş bilgileri" }, { status: 400 });
     }
 
-    // ✅ GÜVENLIK: Note validasyonu
+    // ✅ Note validasyonu
     if (note && note.length > 500) {
       return NextResponse.json(
         { error: "Sipariş notu maksimum 500 karakter olabilir." },
@@ -25,26 +25,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ GÜVENLIK: CustomerSession doğrulama + Konum kontrolü
-    const sessionCheck = await validateCustomerActionSessionWithLocation(
-      request,
-      latitude,
-      longitude,
-      { requireLocation: true }
-    );
+    // ✅ GÜVENLİK: Yetkili masa oturumu doğrulaması
+    const sessionCheck = await validateAuthorizedTableSession(request);
     if (!sessionCheck.ok) {
-      return NextResponse.json({ error: sessionCheck.error }, { status: sessionCheck.status });
+      return NextResponse.json(
+        { error: sessionCheck.error, code: sessionCheck.code },
+        { status: sessionCheck.status }
+      );
     }
 
     const customerSession = sessionCheck.customerSession;
-
-    // ✅ Validate tableId and businessId match session
-    if (customerSession.tableId !== tableId || customerSession.businessId !== businessId) {
-      return NextResponse.json(
-        { error: "Oturum bu masa veya işletme için geçerli değil." },
-        { status: 403 }
-      );
-    }
+    const businessId = customerSession.businessId;
+    const tableId = customerSession.tableId;
+    const tableSessionId = customerSession.tableSessionId!;
 
     // ✅ RATE LIMIT: 10 saniyede 1 sipariş
     const sessionToken = request.headers.get("x-session-token")!;
@@ -52,9 +45,24 @@ export async function POST(request: NextRequest) {
     if (!rateLimit.allowed) {
       const waitSeconds = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
       return NextResponse.json(
-        { error: `Lütfen ${waitSeconds} saniye bekleyip tekrar deneyin.` },
+        { error: `Lütfen ${waitSeconds} saniye bekleyip tekrar deneyin.`, code: "RATE_LIMITED" },
         { status: 429 }
       );
+    }
+
+    // ✅ İdempotency check
+    if (idempotencyKey) {
+      const existingOrder = await prisma.order.findUnique({
+        where: { idempotencyKey },
+        include: { items: { include: { product: true } }, table: true },
+      });
+      if (existingOrder) {
+        return NextResponse.json({
+          message: "Sipariş zaten gönderilmiş.",
+          order: existingOrder,
+          status: existingOrder.status,
+        }, { status: 200 });
+      }
     }
 
     // ✅ SPAM ÖNLEMİ: Aynı ürünlerle son 30 saniyede sipariş var mı?
@@ -62,23 +70,20 @@ export async function POST(request: NextRequest) {
       where: {
         tableId,
         businessId,
+        customerSessionId: customerSession.id,
         status: { in: ["PENDING", "ACCEPTED"] },
-        createdAt: { gte: new Date(Date.now() - 30 * 1000) }, // Son 30 saniye
+        createdAt: { gte: new Date(Date.now() - 30 * 1000) },
       },
       include: {
-        items: {
-          select: { productId: true, quantity: true },
-        },
+        items: { select: { productId: true, quantity: true } },
       },
     });
 
-    // Gelen siparişin ürün listesi
     const incomingProductSignature = items
       .map((item: any) => `${item.productId}:${item.quantity}`)
       .sort()
       .join("|");
 
-    // Son siparişlerde aynı ürünler var mı kontrol et
     for (const recentOrder of recentOrders) {
       const recentProductSignature = recentOrder.items
         .map((item) => `${item.productId}:${item.quantity}`)
@@ -87,9 +92,7 @@ export async function POST(request: NextRequest) {
 
       if (recentProductSignature === incomingProductSignature) {
         return NextResponse.json(
-          {
-            error: "Bu siparişi zaten 30 saniye içinde verdiniz. Lütfen bekleyip garsonun onayını kontrol edin.",
-          },
+          { error: "Bu siparişi zaten 30 saniye içinde verdiniz. Lütfen bekleyip garsonun onayını kontrol edin." },
           { status: 429 }
         );
       }
@@ -98,31 +101,11 @@ export async function POST(request: NextRequest) {
     const table = customerSession.table;
     const business = customerSession.business;
 
-    // İşletme aktif mi?
     if (!business.isActive) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
     }
 
-    // ✅ KRİTİK GÜVENLİK: Aktif TableSession ZORUNLU
-    // TableSession sadece garson/admin tarafından "Masayı Aç" ile oluşturulabilir
-    // Müşteri QR okutması otomatik TableSession oluşturamaz
-    const activeTableSession = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-      select: { id: true, startedAt: true },
-    });
-
-    // ❌ Aktif TableSession yoksa sipariş VERİLEMEZ
-    if (!activeTableSession) {
-      return NextResponse.json(
-        {
-          error: "Masa henüz personel tarafından açılmadı. Garson çağrıldıktan sonra tekrar deneyin.",
-          errorCode: "NO_ACTIVE_SESSION",
-        },
-        { status: 403 }
-      );
-    }
-
-    // ✅ GÜVENLIK: Maksimum ürün çeşidi kontrolü (spam önleme)
+    // ✅ Maksimum ürün çeşidi kontrolü
     if (items.length > 50) {
       return NextResponse.json(
         { error: "Bir siparişte maksimum 50 farklı ürün olabilir." },
@@ -130,12 +113,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ GÜVENLIK: Ürün kontrolleri ve validasyonlar
+    // ✅ Ürün kontrolleri ve sunucu tarafı fiyat doğrulaması
     let totalPrice = 0;
     const orderItems: any[] = [];
 
     for (const item of items) {
-      // ✅ Quantity validasyonu
       const quantity = Number(item.quantity);
       if (!quantity || quantity < 1 || quantity > 100 || !Number.isInteger(quantity)) {
         return NextResponse.json(
@@ -144,12 +126,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // ✅ ProductId validasyonu
       if (!item.productId || typeof item.productId !== "string") {
         return NextResponse.json({ error: "Geçersiz ürün ID'si." }, { status: 400 });
       }
 
-      // ✅ CustomerNote validasyonu
       if (item.customerNote && item.customerNote.length > 200) {
         return NextResponse.json(
           { error: "Ürün notu maksimum 200 karakter olabilir." },
@@ -158,23 +138,15 @@ export async function POST(request: NextRequest) {
       }
 
       const product = await prisma.product.findFirst({
-        where: {
-          id: item.productId,
-          businessId,
-          isDeleted: false,
-        },
+        where: { id: item.productId, businessId, isDeleted: false },
       });
 
       if (!product) {
         return NextResponse.json({ error: `Ürün bulunamadı: ${item.productId}` }, { status: 404 });
       }
 
-      // ✅ Ürün bu işletmeye ait mi?
       if (product.businessId !== businessId) {
-        return NextResponse.json(
-          { error: "Bu ürün bu işletmeye ait değil." },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "Bu ürün bu işletmeye ait değil." }, { status: 403 });
       }
 
       if (!product.isAvailable) {
@@ -185,7 +157,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `"${product.name}" şu anda stokta yok.` }, { status: 400 });
       }
 
-      // ✅ GÜVENLIK: Fiyat manipülasyonu koruması - backend DB'den fiyat al
       const backendPrice = Number(product.price);
       if (backendPrice < 0 || !Number.isFinite(backendPrice)) {
         return NextResponse.json(
@@ -201,13 +172,12 @@ export async function POST(request: NextRequest) {
         productId: item.productId,
         productName: product.name,
         quantity: quantity,
-        unitPrice: backendPrice, // ✅ Backend'den alınan fiyat
+        unitPrice: backendPrice,
         totalPrice: itemTotal,
         customerNote: item.customerNote || null,
       });
     }
 
-    // ✅ GÜVENLIK: Toplam fiyat kontrolü
     if (totalPrice > 1000000) {
       return NextResponse.json(
         { error: "Sipariş tutarı çok yüksek. Lütfen iletişime geçin." },
@@ -217,9 +187,9 @@ export async function POST(request: NextRequest) {
 
     // ✅ Transaction: Sipariş oluştur + Bill güncelle + Masa durumu güncelle
     const order = await prisma.$transaction(async (tx) => {
-      // ✅ Bill kontrolü - TableSession varsa Bill de olmalı
+      // Bill kontrolü
       const bill = await tx.bill.findFirst({
-        where: { tableSessionId: activeTableSession.id, status: "OPEN" },
+        where: { tableSessionId, status: "OPEN" },
       });
 
       if (!bill) {
@@ -230,7 +200,9 @@ export async function POST(request: NextRequest) {
         data: {
           businessId,
           tableId,
-          tableSessionId: activeTableSession.id,
+          tableSessionId,
+          customerSessionId: customerSession.id,
+          idempotencyKey: idempotencyKey || undefined,
           totalPrice,
           note: note || null,
           status: OrderStatus.PENDING,
@@ -246,7 +218,7 @@ export async function POST(request: NextRequest) {
       // Bill totalAmount güncelle
       const allOrders = await tx.order.findMany({
         where: {
-          tableSessionId: activeTableSession.id,
+          tableSessionId,
           status: { notIn: ["CANCELLED", "REJECTED"] },
         },
       });
@@ -256,10 +228,7 @@ export async function POST(request: NextRequest) {
 
       await tx.bill.update({
         where: { id: bill.id },
-        data: {
-          totalAmount: newTotalAmount,
-          remainingAmount,
-        },
+        data: { totalAmount: newTotalAmount, remainingAmount },
       });
 
       // Masa durumunu HAS_ORDER yap
@@ -303,12 +272,25 @@ export async function POST(request: NextRequest) {
       console.log("Socket emit hatası:", e);
     }
 
-    return NextResponse.json({ 
-      message: "Sipariş gönderildi. Garson onayı bekleniyor.", 
+    return NextResponse.json({
+      message: "Sipariş gönderildi. Garson onayı bekleniyor.",
       order,
       status: "PENDING"
     }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    // Idempotency key conflict
+    if (error?.code === "P2002" && error?.meta?.target?.includes("idempotencyKey")) {
+      const existingOrder = await prisma.order.findFirst({
+        where: { idempotencyKey: error?.meta?.target },
+      });
+      if (existingOrder) {
+        return NextResponse.json({
+          message: "Sipariş zaten gönderilmiş.",
+          order: existingOrder,
+          status: existingOrder.status,
+        }, { status: 200 });
+      }
+    }
     console.error("Sipariş oluşturma hatası:", error);
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });
   }

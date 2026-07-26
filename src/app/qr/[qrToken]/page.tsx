@@ -24,36 +24,47 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
         return;
       }
 
+      const bId = data.business.id;
+      const tId = data.table.id;
+      const tNum = data.table.tableNumber;
+
       // Masa ve işletme bilgilerini sessionStorage'a kaydet
       sessionStorage.setItem("qr_business", JSON.stringify(data.business));
       sessionStorage.setItem("qr_table", JSON.stringify(data.table));
       sessionStorage.setItem("qr_token", resolvedParams.qrToken);
 
       // ✅ CustomerSession oluştur — qrToken ile (QR tarama kanıtı)
+      // Masa bazlı localStorage anahtarı kullan
+      const storageKey = `qr_session_${bId}_${tId}`;
+      const existingToken = localStorage.getItem(storageKey);
+
       try {
         const sessionRes = await fetch("/api/customer/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            businessId: data.business.id,
-            tableId: data.table.id,
+            businessId: bId,
+            tableId: tId,
             qrToken: resolvedParams.qrToken,
+            existingToken: existingToken || undefined,
           }),
         });
         const sessionData = await sessionRes.json();
         if (sessionRes.ok && sessionData.sessionToken) {
-          sessionStorage.setItem("qr_session_token", sessionData.sessionToken);
+          localStorage.setItem(storageKey, sessionData.sessionToken);
+          // Eski global anahtarı temizle
+          localStorage.removeItem("qr_session_token");
+          sessionStorage.removeItem("qr_session_token");
+          sessionStorage.removeItem("qr_order_blocked_msg");
         } else if (sessionData.viewOnly && sessionData.message) {
           sessionStorage.setItem("qr_order_blocked_msg", sessionData.message);
-        } else {
-          sessionStorage.removeItem("qr_order_blocked_msg");
         }
       } catch (e) {
         console.log("Session oluşturma hatası:", e);
       }
 
       // Menü sayfasına yönlendir
-      router.replace(`/menu/${data.business.id}/${data.table.tableNumber}`);
+      router.replace(`/menu/${bId}/${tNum}`);
     } catch (err) {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
       setLoading(false);
@@ -89,4 +100,3 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
     </div>
   );
 }
-

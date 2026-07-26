@@ -418,15 +418,14 @@ export async function collectPayment(
         data: { status: "SERVED" },
       });
       
-      // ✅ GÜVENLİK: Tam ödeme alındığında tüm CustomerSession'ları kapat
-      // Bu sayede müşteri QR fotoğrafını kullanarak restoran dışından sipariş veremez
+      // ✅ GÜVENLİK: Tam ödeme alındığında tüm CustomerSession'ları kapat ve yetkilerini iptal et
       await tx.customerSession.updateMany({
         where: {
           tableId: tableSession.tableId,
           businessId,
           status: "ACTIVE",
         },
-        data: { status: "CLOSED" },
+        data: { status: "CLOSED", authorizationStatus: "REVOKED", closedAt: new Date() },
       });
     }
 
@@ -513,23 +512,23 @@ export async function closeTable(
       data: { status: "EMPTY" },
     });
 
-    // 4. CustomerSession kayıtlarını kapat
+    // 4. CustomerSession kayıtlarını kapat ve yetkilerini iptal et
     await tx.customerSession.updateMany({
       where: {
         tableId: tableSession.tableId,
         businessId,
         status: "ACTIVE",
       },
-      data: { status: "CLOSED" },
+      data: { status: "CLOSED", authorizationStatus: "REVOKED", closedAt: new Date() },
     });
 
-    // 5. Açık hizmet taleplerini tamamla
+    // 5. Açık hizmet taleplerini tamamla (ORDER_REQUEST dahil)
     await tx.serviceRequest.updateMany({
       where: {
         tableId: tableSession.tableId,
         status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] },
       },
-      data: { status: "COMPLETED", completedAt: new Date() },
+      data: { status: "CANCELLED" },
     });
 
     // 6. Okunmamış bildirimleri okundu yap

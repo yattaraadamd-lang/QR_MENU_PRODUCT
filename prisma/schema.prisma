@@ -138,13 +138,13 @@ model Table {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
-  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  orders          Order[]
-  serviceRequests ServiceRequest[]
-  notifications   Notification[]
-  payments        Payment[]
-  tableSessions   TableSession[]
-  bills           Bill[]
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orders           Order[]
+  serviceRequests  ServiceRequest[]
+  notifications    Notification[]
+  payments         Payment[]
+  tableSessions    TableSession[]
+  bills            Bill[]
   customerSessions CustomerSession[]
 
   @@unique([businessId, tableNumber])
@@ -166,31 +166,35 @@ enum TableStatus {
 
 // ─── Sipariş ─────────────────────────────────────────────────────────────────
 model Order {
-  id             String      @id @default(cuid())
-  businessId     String
-  tableId        String
-  tableSessionId String?
-  waiterId       String?
-  totalPrice     Decimal     @db.Decimal(10, 2)
-  note           String?
-  status         OrderStatus @default(PENDING)
-  paymentStatus  OrderPaymentStatus @default(UNPAID)
-  cancelReason   String?
-  cancelledAt    DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id                String             @id @default(cuid())
+  businessId        String
+  tableId           String
+  tableSessionId    String?
+  waiterId          String?
+  customerSessionId String?
+  idempotencyKey    String?            @unique
+  totalPrice        Decimal            @db.Decimal(10, 2)
+  note              String?
+  status            OrderStatus        @default(PENDING)
+  paymentStatus     OrderPaymentStatus @default(UNPAID)
+  cancelReason      String?
+  cancelledAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  table        Table         @relation(fields: [tableId], references: [id])
-  tableSession TableSession? @relation(fields: [tableSessionId], references: [id])
-  waiter       User?         @relation(fields: [waiterId], references: [id], onDelete: SetNull)
-  items        OrderItem[]
-  payments     Payment[]
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table           Table            @relation(fields: [tableId], references: [id])
+  tableSession    TableSession?    @relation(fields: [tableSessionId], references: [id])
+  waiter          User?            @relation(fields: [waiterId], references: [id], onDelete: SetNull)
+  customerSession CustomerSession? @relation(fields: [customerSessionId], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+  payments        Payment[]
 
   @@index([businessId, status, createdAt])
   @@index([businessId, createdAt])
   @@index([tableId, status])
   @@index([tableSessionId])
+  @@index([customerSessionId, createdAt])
   @@map("orders")
 }
 
@@ -229,24 +233,30 @@ model OrderItem {
 
 // ─── Hizmet Talebi ───────────────────────────────────────────────────────────
 model ServiceRequest {
-  id          String             @id @default(cuid())
-  businessId  String
-  tableId     String
-  requestType ServiceRequestType
-  reason      String?
-  note        String?
-  status      RequestStatus      @default(PENDING)
-  createdAt   DateTime           @default(now())
-  seenAt      DateTime?
-  resolvedAt  DateTime?
-  completedAt DateTime?
+  id                String             @id @default(cuid())
+  businessId        String
+  tableId           String
+  customerSessionId String?
+  requestType       ServiceRequestType
+  reason            String?
+  note              String?
+  status            RequestStatus      @default(PENDING)
+  expiresAt         DateTime?
+  verificationCode  String?
+  idempotencyKey    String?            @unique
+  createdAt         DateTime           @default(now())
+  seenAt            DateTime?
+  resolvedAt        DateTime?
+  completedAt       DateTime?
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  table    Table    @relation(fields: [tableId], references: [id])
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table           Table            @relation(fields: [tableId], references: [id])
+  customerSession CustomerSession? @relation(fields: [customerSessionId], references: [id], onDelete: SetNull)
 
   @@index([businessId, status, createdAt])
   @@index([tableId, status])
   @@index([businessId, tableId, status])
+  @@index([customerSessionId, status])
   @@map("service_requests")
 }
 
@@ -336,11 +346,12 @@ model TableSession {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  table    Table    @relation(fields: [tableId], references: [id])
-  orders   Order[]
-  bill     Bill?
-  payments Payment[]
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table            Table             @relation(fields: [tableId], references: [id])
+  orders           Order[]
+  bill             Bill?
+  payments         Payment[]
+  customerSessions CustomerSession[]
 
   @@index([tableId, status])
   @@map("table_sessions")
@@ -354,19 +365,19 @@ enum TableSessionStatus {
 
 // ─── Adisyon / Hesap ─────────────────────────────────────────────────────────
 model Bill {
-  id             String        @id @default(cuid())
-  businessId     String
-  tableId        String
-  tableSessionId String        @unique
-  totalAmount    Decimal       @default(0) @db.Decimal(10, 2)
-  paidAmount     Decimal       @default(0) @db.Decimal(10, 2)
-  remainingAmount Decimal      @default(0) @db.Decimal(10, 2)
-  paymentStatus  BillPaymentStatus @default(UNPAID)
-  status         BillStatus    @default(OPEN)
-  openedAt       DateTime      @default(now())
-  closedAt       DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id              String            @id @default(cuid())
+  businessId      String
+  tableId         String
+  tableSessionId  String            @unique
+  totalAmount     Decimal           @default(0) @db.Decimal(10, 2)
+  paidAmount      Decimal           @default(0) @db.Decimal(10, 2)
+  remainingAmount Decimal           @default(0) @db.Decimal(10, 2)
+  paymentStatus   BillPaymentStatus @default(UNPAID)
+  status          BillStatus        @default(OPEN)
+  openedAt        DateTime          @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
   table        Table        @relation(fields: [tableId], references: [id])
@@ -389,25 +400,31 @@ enum BillStatus {
   CANCELLED
 }
 
-
 model CustomerSession {
-  id           String                @id @default(cuid())
-  businessId   String
-  tableId      String
-  sessionToken String                @unique
-  status       CustomerSessionStatus @default(ACTIVE)
-  expiresAt    DateTime
-  lastSeenAt   DateTime              @default(now())
-  closedAt     DateTime?
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  id                  String                      @id @default(cuid())
+  businessId          String
+  tableId             String
+  tableSessionId      String?
+  sessionToken        String                      @unique
+  status              CustomerSessionStatus       @default(ACTIVE)
+  authorizationStatus CustomerAuthorizationStatus @default(VIEW_ONLY)
+  authorizedAt        DateTime?
+  expiresAt           DateTime
+  lastSeenAt          DateTime                    @default(now())
+  closedAt            DateTime?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  table    Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  business        Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table           Table            @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableSession    TableSession?    @relation(fields: [tableSessionId], references: [id], onDelete: SetNull)
+  orders          Order[]
+  serviceRequests ServiceRequest[]
 
   @@index([sessionToken])
   @@index([tableId, status])
   @@index([businessId, tableId, status])
+  @@index([tableSessionId, authorizationStatus])
   @@map("customer_sessions")
 }
 
@@ -415,26 +432,34 @@ enum CustomerSessionStatus {
   ACTIVE
   EXPIRED
   CLOSED
+  REVOKED
+}
+
+enum CustomerAuthorizationStatus {
+  VIEW_ONLY
+  PENDING
+  AUTHORIZED
+  REVOKED
 }
 
 // ─── Ödeme ──────────────────────────────────────────────────────────────────
 model Payment {
-  id                   String         @id @default(cuid())
-  businessId           String
-  tableId              String
-  tableSessionId       String?
-  billId               String?
-  orderId              String?
-  amount               Decimal        @db.Decimal(10, 2)
-  status               PaymentStatus  @default(PENDING)
-  method               PaymentMethod?
-  note                 String?
-  requestedAt          DateTime       @default(now())
-  paidAt               DateTime?
-  handledById          String?
-  handledByWaiterName  String?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  id                  String         @id @default(cuid())
+  businessId          String
+  tableId             String
+  tableSessionId      String?
+  billId              String?
+  orderId             String?
+  amount              Decimal        @db.Decimal(10, 2)
+  status              PaymentStatus  @default(PENDING)
+  method              PaymentMethod?
+  note                String?
+  requestedAt         DateTime       @default(now())
+  paidAt              DateTime?
+  handledById         String?
+  handledByWaiterName String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   table        Table         @relation(fields: [tableId], references: [id])
