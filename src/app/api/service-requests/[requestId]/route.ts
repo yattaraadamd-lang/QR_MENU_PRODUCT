@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { RequestStatus } from "@prisma/client";
+import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { requestId: string } }
+  context: { params: Promise<{ requestId: string }> }
 ) {
   try {
+    // ✅ GÜVENLIK: Auth zorunlu — sadece garson veya admin güncelleyebilir
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response!;
+
+    const businessId = getBusinessId(session);
+    const params = await context.params;
     const { requestId } = params;
     const body = await request.json();
     const { status } = body;
@@ -15,6 +22,21 @@ export async function PATCH(
       return NextResponse.json(
         { error: "Durum bilgisi gerekli" },
         { status: 400 }
+      );
+    }
+
+    // ✅ GÜVENLIK: Business izolasyonu — sadece kendi işletmesinin talebini güncelleyebilir
+    const existing = await prisma.serviceRequest.findFirst({
+      where: {
+        id: requestId,
+        businessId,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Talep bulunamadı veya yetkiniz yok" },
+        { status: 404 }
       );
     }
 
@@ -43,3 +65,4 @@ export async function PATCH(
     );
   }
 }
+

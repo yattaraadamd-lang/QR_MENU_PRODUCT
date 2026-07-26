@@ -20,7 +20,7 @@ export default function PendingPaymentsPage() {
   const [payModal, setPayModal] = useState<Bill | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState("CARD");
-  const [processing, setProcessing] = useState(false);
+  const [processingBillId, setProcessingBillId] = useState<string | null>(null); // ✅ Per-bill loading
   const [error, setError] = useState<string | null>(null);
 
   const fetchBills = useCallback(async () => {
@@ -65,7 +65,7 @@ export default function PendingPaymentsPage() {
       return;
     }
 
-    setProcessing(true);
+    setProcessingBillId(payModal.id); // ✅ Sadece bu adisyon loading
     setError(null);
 
     try {
@@ -85,7 +85,7 @@ export default function PendingPaymentsPage() {
     } catch (e) {
       setError("Bağlantı hatası.");
     } finally {
-      setProcessing(false);
+      setProcessingBillId(null); // ✅ Loading state temizle
     }
   };
 
@@ -149,11 +149,11 @@ export default function PendingPaymentsPage() {
 
       {/* Pay Modal */}
       {payModal && (
-        <div className="modal-overlay" onClick={() => !processing && setPayModal(null)}>
+        <div className="modal-overlay" onClick={() => !processingBillId && setPayModal(null)}>
           <div className="modal-content p-6" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-primary)" }}>Ödeme Al</h2>
-              <button onClick={() => !processing && setPayModal(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}>✕</button>
+              <button onClick={() => !processingBillId && setPayModal(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}>✕</button>
             </div>
 
             <div style={{ marginBottom: 20, padding: 16, background: "var(--bg-hover)", borderRadius: 12 }}>
@@ -217,11 +217,11 @@ export default function PendingPaymentsPage() {
 
             <button 
               onClick={handlePayment} 
-              disabled={processing}
+              disabled={processingBillId === payModal.id}
               className="btn btn-primary" 
               style={{ width: "100%", padding: 16, fontSize: 16 }}
             >
-              {processing ? "İşleniyor..." : "Ödemeyi Tamamla"}
+              {processingBillId === payModal.id ? "İşleniyor..." : "Ödemeyi Tamamla"}
             </button>
           </div>
         </div>

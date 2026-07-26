@@ -1,124 +1,167 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { OrderStatus, TableStatus } from "@prisma/client";
+import { OrderStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { validateCustomerActionSessionWithLocation } from "@/lib/security/validate-customer-session";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
-
-// ✅ Oturum token kontrolü — CustomerSession tablosundan doğrula
-async function validateSessionToken(
-  request: NextRequest,
-  tableId: string
-): Promise<{ valid: boolean; error?: string }> {
-  const sessionToken = request.headers.get("x-session-token");
-  if (!sessionToken) {
-    return {
-      valid: false,
-      error: "Sipariş vermek için masadaki QR kodu okutmanız gerekir.",
-    };
-  }
-
-  // ✅ CustomerSession tablosundan doğrula
-  const customerSession = await prisma.customerSession.findFirst({
-    where: {
-      sessionToken,
-      tableId,
-      status: "ACTIVE",
-    },
-  });
-
-  if (!customerSession) {
-    return { valid: false, error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." };
-  }
-
-  if (new Date() > customerSession.expiresAt) {
-    await prisma.customerSession.update({
-      where: { id: customerSession.id },
-      data: { status: "EXPIRED" },
-    });
-    return { valid: false, error: "Oturum süresi doldu. Lütfen QR kodu tekrar okutun." };
-  }
-
-  return { valid: true };
-}
 
 // POST /api/customer/orders
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, items, note } = body;
+    const { businessId, tableId, items, note, latitude, longitude } = body;
 
     if (!businessId || !tableId || !items || items.length === 0) {
       return NextResponse.json({ error: "Geçersiz sipariş bilgileri" }, { status: 400 });
     }
 
-    // Session token kontrolü
-    const tokenValidation = await validateSessionToken(request, tableId);
-    if (!tokenValidation.valid) {
-      return NextResponse.json({ error: tokenValidation.error }, { status: 401 });
+    // ✅ GÜVENLIK: Note validasyonu
+    if (note && note.length > 500) {
+      return NextResponse.json(
+        { error: "Sipariş notu maksimum 500 karakter olabilir." },
+        { status: 400 }
+      );
     }
 
-    // ✅ İkinci güvenlik katmanı: Bu masa için ACTIVE TableSession var mı?
-    // ✅ Aynı zamanda 90 dakika süre kontrolü
-    const SESSION_DURATION_MS = 90 * 60 * 1000;
+    // ✅ GÜVENLIK: CustomerSession doğrulama + Konum kontrolü
+    const sessionCheck = await validateCustomerActionSessionWithLocation(
+      request,
+      latitude,
+      longitude,
+      { requireLocation: true }
+    );
+    if (!sessionCheck.ok) {
+      return NextResponse.json({ error: sessionCheck.error }, { status: sessionCheck.status });
+    }
 
-    const activeTableSession = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-      select: { id: true, startedAt: true },
-    });
+    const customerSession = sessionCheck.customerSession;
 
-    if (!activeTableSession) {
+    // ✅ Validate tableId and businessId match session
+    if (customerSession.tableId !== tableId || customerSession.businessId !== businessId) {
       return NextResponse.json(
-        { error: "Bu masa şu anda aktif değil. Sipariş verilemez." },
+        { error: "Oturum bu masa veya işletme için geçerli değil." },
         { status: 403 }
       );
     }
 
-    const sessionExpired =
-      Date.now() - activeTableSession.startedAt.getTime() > SESSION_DURATION_MS;
-
-    if (sessionExpired) {
-      // Oturumu kapat
-      await prisma.tableSession.update({
-        where: { id: activeTableSession.id },
-        data: { status: "CLOSED", endedAt: new Date() },
-      });
+    // ✅ RATE LIMIT: 10 saniyede 1 sipariş
+    const sessionToken = request.headers.get("x-session-token")!;
+    const rateLimit = await checkRateLimit(`order:${sessionToken}`, RATE_LIMITS.ORDER_CREATE);
+    if (!rateLimit.allowed) {
+      const waitSeconds = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
       return NextResponse.json(
-        { error: "Masa oturumunun süresi doldu. Lütfen QR kodu tekrar okutun." },
-        { status: 403 }
+        { error: `Lütfen ${waitSeconds} saniye bekleyip tekrar deneyin.` },
+        { status: 429 }
       );
     }
 
-    // Masa ve işletme kontrolü — silinen masa engellenir
-    const table = await prisma.table.findFirst({
-      where: { id: tableId, businessId, isActive: true, isDeleted: false },
-      include: { business: true },
+    // ✅ SPAM ÖNLEMİ: Aynı ürünlerle son 30 saniyede sipariş var mı?
+    const recentOrders = await prisma.order.findMany({
+      where: {
+        tableId,
+        businessId,
+        status: { in: ["PENDING", "ACCEPTED"] },
+        createdAt: { gte: new Date(Date.now() - 30 * 1000) }, // Son 30 saniye
+      },
+      include: {
+        items: {
+          select: { productId: true, quantity: true },
+        },
+      },
     });
 
-    if (!table || !table.business) {
-      return NextResponse.json(
-        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
-        { status: 404 }
-      );
+    // Gelen siparişin ürün listesi
+    const incomingProductSignature = items
+      .map((item: any) => `${item.productId}:${item.quantity}`)
+      .sort()
+      .join("|");
+
+    // Son siparişlerde aynı ürünler var mı kontrol et
+    for (const recentOrder of recentOrders) {
+      const recentProductSignature = recentOrder.items
+        .map((item) => `${item.productId}:${item.quantity}`)
+        .sort()
+        .join("|");
+
+      if (recentProductSignature === incomingProductSignature) {
+        return NextResponse.json(
+          {
+            error: "Bu siparişi zaten 30 saniye içinde verdiniz. Lütfen bekleyip garsonun onayını kontrol edin.",
+          },
+          { status: 429 }
+        );
+      }
     }
 
-    const business = table.business;
+    const table = customerSession.table;
+    const business = customerSession.business;
 
     // İşletme aktif mi?
     if (!business.isActive) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
     }
 
-    // Ürün kontrolleri
+    // ✅ KRİTİK GÜVENLİK: Aktif TableSession ZORUNLU
+    // TableSession sadece garson/admin tarafından "Masayı Aç" ile oluşturulabilir
+    // Müşteri QR okutması otomatik TableSession oluşturamaz
+    const activeTableSession = await prisma.tableSession.findFirst({
+      where: { tableId, businessId, status: "ACTIVE" },
+      select: { id: true, startedAt: true },
+    });
+
+    // ❌ Aktif TableSession yoksa sipariş VERİLEMEZ
+    if (!activeTableSession) {
+      return NextResponse.json(
+        {
+          error: "Masa henüz personel tarafından açılmadı. Garson çağrıldıktan sonra tekrar deneyin.",
+          errorCode: "NO_ACTIVE_SESSION",
+        },
+        { status: 403 }
+      );
+    }
+
+    // ✅ GÜVENLIK: Maksimum ürün çeşidi kontrolü (spam önleme)
+    if (items.length > 50) {
+      return NextResponse.json(
+        { error: "Bir siparişte maksimum 50 farklı ürün olabilir." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ GÜVENLIK: Ürün kontrolleri ve validasyonlar
     let totalPrice = 0;
     const orderItems: any[] = [];
 
     for (const item of items) {
+      // ✅ Quantity validasyonu
+      const quantity = Number(item.quantity);
+      if (!quantity || quantity < 1 || quantity > 100 || !Number.isInteger(quantity)) {
+        return NextResponse.json(
+          { error: "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır." },
+          { status: 400 }
+        );
+      }
+
+      // ✅ ProductId validasyonu
+      if (!item.productId || typeof item.productId !== "string") {
+        return NextResponse.json({ error: "Geçersiz ürün ID'si." }, { status: 400 });
+      }
+
+      // ✅ CustomerNote validasyonu
+      if (item.customerNote && item.customerNote.length > 200) {
+        return NextResponse.json(
+          { error: "Ürün notu maksimum 200 karakter olabilir." },
+          { status: 400 }
+        );
+      }
+
       const product = await prisma.product.findFirst({
         where: {
           id: item.productId,
           businessId,
-          isDeleted: false, // ✅ Silinen ürün engellenir
+          isDeleted: false,
         },
       });
 
@@ -126,32 +169,63 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Ürün bulunamadı: ${item.productId}` }, { status: 404 });
       }
 
-      // ✅ isAvailable kontrolü
+      // ✅ Ürün bu işletmeye ait mi?
+      if (product.businessId !== businessId) {
+        return NextResponse.json(
+          { error: "Bu ürün bu işletmeye ait değil." },
+          { status: 403 }
+        );
+      }
+
       if (!product.isAvailable) {
         return NextResponse.json({ error: `"${product.name}" şu anda mevcut değil.` }, { status: 400 });
       }
 
-      // ✅ stockStatus kontrolü
       if (product.stockStatus !== "IN_STOCK") {
         return NextResponse.json({ error: `"${product.name}" şu anda stokta yok.` }, { status: 400 });
       }
 
-      const itemTotal = Number(product.price) * item.quantity;
+      // ✅ GÜVENLIK: Fiyat manipülasyonu koruması - backend DB'den fiyat al
+      const backendPrice = Number(product.price);
+      if (backendPrice < 0 || !Number.isFinite(backendPrice)) {
+        return NextResponse.json(
+          { error: `"${product.name}" için geçersiz fiyat bilgisi.` },
+          { status: 500 }
+        );
+      }
+
+      const itemTotal = backendPrice * quantity;
       totalPrice += itemTotal;
 
       orderItems.push({
         productId: item.productId,
         productName: product.name,
-        quantity: item.quantity,
-        unitPrice: product.price,
+        quantity: quantity,
+        unitPrice: backendPrice, // ✅ Backend'den alınan fiyat
         totalPrice: itemTotal,
         customerNote: item.customerNote || null,
       });
     }
 
+    // ✅ GÜVENLIK: Toplam fiyat kontrolü
+    if (totalPrice > 1000000) {
+      return NextResponse.json(
+        { error: "Sipariş tutarı çok yüksek. Lütfen iletişime geçin." },
+        { status: 400 }
+      );
+    }
+
     // ✅ Transaction: Sipariş oluştur + Bill güncelle + Masa durumu güncelle
     const order = await prisma.$transaction(async (tx) => {
-      // Sipariş oluştur — aktif TableSession'a bağla
+      // ✅ Bill kontrolü - TableSession varsa Bill de olmalı
+      const bill = await tx.bill.findFirst({
+        where: { tableSessionId: activeTableSession.id, status: "OPEN" },
+      });
+
+      if (!bill) {
+        throw new Error("Adisyon bulunamadı. Lütfen garson çağırın.");
+      }
+
       const createdOrder = await tx.order.create({
         data: {
           businessId,
@@ -169,38 +243,26 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // ✅ Bill totalAmount güncelle (server-side, inline)
-      try {
-        const bill = await tx.bill.findFirst({
-          where: { tableSessionId: activeTableSession.id, status: "OPEN" },
-        });
+      // Bill totalAmount güncelle
+      const allOrders = await tx.order.findMany({
+        where: {
+          tableSessionId: activeTableSession.id,
+          status: { notIn: ["CANCELLED", "REJECTED"] },
+        },
+      });
 
-        if (bill) {
-          // Tüm aktif siparişlerin toplamını hesapla
-          const allOrders = await tx.order.findMany({
-            where: {
-              tableSessionId: activeTableSession.id,
-              status: { notIn: ["CANCELLED", "REJECTED"] },
-            },
-          });
+      const newTotalAmount = allOrders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+      const remainingAmount = Math.max(0, newTotalAmount - Number(bill.paidAmount));
 
-          const newTotalAmount = allOrders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
-          const remainingAmount = Math.max(0, newTotalAmount - Number(bill.paidAmount));
+      await tx.bill.update({
+        where: { id: bill.id },
+        data: {
+          totalAmount: newTotalAmount,
+          remainingAmount,
+        },
+      });
 
-          await tx.bill.update({
-            where: { id: bill.id },
-            data: {
-              totalAmount: newTotalAmount,
-              remainingAmount,
-            },
-          });
-        }
-      } catch (billErr) {
-        // Bill güncelleme hatası siparişi engellemez
-        console.log("Bill güncelleme uyarısı:", billErr);
-      }
-
-      // ✅ Masa durumunu HAS_ORDER yap (uygun durumlardan)
+      // Masa durumunu HAS_ORDER yap
       const currentTable = await tx.table.findUnique({ where: { id: tableId }, select: { status: true } });
       if (currentTable && ["OCCUPIED", "SERVED", "HAS_ORDER"].includes(currentTable.status)) {
         await tx.table.update({

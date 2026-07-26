@@ -6,9 +6,11 @@ import { validateBody, updateCategorySchema, isValidCuid } from "@/lib/validatio
 // PUT /api/admin/categories/[id] - Kategori güncelle
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;
@@ -69,9 +71,11 @@ export async function PUT(
 // DELETE /api/admin/categories/[id] - Kategori sil
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     // ✅ Authentication & Authorization
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;

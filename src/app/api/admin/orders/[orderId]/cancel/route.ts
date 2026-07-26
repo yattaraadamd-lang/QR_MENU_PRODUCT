@@ -7,9 +7,11 @@ import { emitToBusinessRoom } from "@/lib/socket-server";
 // PUT /api/admin/orders/[orderId]/cancel - Admin sipariş iptal
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  context: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     const { error, response, session } = await requireAdmin();
     if (error) return response!;
 
@@ -59,8 +61,19 @@ export async function PUT(
       },
     });
 
+    // ✅ Ödenmemiş servis edilmiş siparişleri de kontrol et
+    const unPaidServedOrders = await prisma.order.count({
+      where: {
+        tableId: order.tableId,
+        id: { not: params.orderId },
+        status: "SERVED",
+      },
+    });
+
     // Başka aktif sipariş yoksa masa durumunu güncelle
+    let newTableStatus: TableStatus;
     if (otherActiveOrders === 0) {
+<<<<<<< HEAD
       // ✅ SERVED (ödenmemiş) siparişleri kontrol et — varsa masa kapanmamalı
       const unpaidServedOrders = await prisma.order.count({
         where: {
@@ -68,6 +81,14 @@ export async function PUT(
           status: "SERVED",
           paymentStatus: "UNPAID",
         },
+=======
+      // Ödenmemiş servis edilmiş sipariş varsa SERVED, yoksa OCCUPIED
+      newTableStatus = unPaidServedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
+      
+      await prisma.table.update({
+        where: { id: order.tableId },
+        data: { status: newTableStatus },
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
       });
 
       if (unpaidServedOrders > 0) {

@@ -6,9 +6,10 @@ import { rateLimit, getClientIp, RateLimitPresets, createRateLimitResponse } fro
 // QR kod okutulduğunda masa oturumu oluştur
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tableId: string } }
+  context: { params: Promise<{ tableId: string }> }
 ) {
   try {
+    const params = await context.params;
     // Rate limiting - QR kod okutma
     const clientIp = getClientIp(request);
     const rateLimitResult = rateLimit({
@@ -77,9 +78,10 @@ export async function POST(
 // Oturum doğrulama
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tableId: string } }
+  context: { params: Promise<{ tableId: string }> }
 ) {
   try {
+    const params = await context.params;
     const { tableId } = params;
     const { searchParams } = new URL(request.url);
     const qrToken = searchParams.get("token");

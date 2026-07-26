@@ -5,9 +5,11 @@ import { prisma } from "@/lib/prisma";
 // ✅ Masa durumunu DEĞİŞTİRMEZ — sadece bilgi döndürür
 export async function GET(
   request: NextRequest,
-  { params }: { params: { qrToken: string } }
+  context: { params: Promise<{ qrToken: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     const table = await prisma.table.findFirst({
       where: { qrToken: params.qrToken, isDeleted: false },
       include: {

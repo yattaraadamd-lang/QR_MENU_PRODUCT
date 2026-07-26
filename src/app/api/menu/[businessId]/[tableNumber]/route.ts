@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { businessId: string; tableNumber: string } }
+  context: { params: Promise<{ businessId: string; tableNumber: string }> }
 ) {
   try {
+    const params = await context.params;
     const { businessId, tableNumber } = params;
 
     // İşletme bilgisi
@@ -79,6 +80,7 @@ export async function GET(
       categories,
       popularProducts,
       tableSessionActive: !!activeTableSession, // ✅ Masa oturumu aktif mi?
+      activeTableSessionId: activeTableSession?.id ?? null, // ✅ Aktif oturum ID (Faz 2 hazırlık)
     });
   } catch (error) {
     console.error("Menü yükleme hatası:", error);

@@ -43,6 +43,9 @@ export default function WaiterTablesPage() {
   const [closeError, setCloseError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
 
+  // ✅ Per-table loading states
+  const [actionLoadingTableId, setActionLoadingTableId] = useState<string | null>(null);
+
 
   const fetchTables = useCallback(async () => {
     try {
@@ -81,6 +84,7 @@ export default function WaiterTablesPage() {
   const handlePay = async () => {
     if (!selectedTable?.activeSession || !payAmount || !payMethod) return;
     setPaying(true);
+    setActionLoadingTableId(selectedTable.id);
     try {
       const res = await fetch("/api/waiter/payments/collect", {
         method: "POST",
@@ -105,13 +109,17 @@ export default function WaiterTablesPage() {
         alert(data.error || "Ödeme alınamadı");
       }
     } catch (e) { console.error(e); }
-    finally { setPaying(false); }
+    finally {
+      setPaying(false);
+      setActionLoadingTableId(null);
+    }
   };
 
   const handleClose = async () => {
     if (!selectedTable?.activeSession) return;
     setClosing(true);
     setCloseError(null);
+    setActionLoadingTableId(selectedTable.id);
     try {
       // Garson sadece normal kapatma yapabilir
       const res = await fetch(`/api/table-sessions/${selectedTable.activeSession.id}/close`, {
@@ -133,6 +141,7 @@ export default function WaiterTablesPage() {
       setCloseError("Bağlantı hatası");
     } finally {
       setClosing(false);
+      setActionLoadingTableId(null);
     }
   };
 
@@ -168,10 +177,14 @@ export default function WaiterTablesPage() {
             const isPaymentRequested = table.status === "PAYMENT_REQUESTED";
             const totalBadges = pendingOrders + pendingRequests + (isPaymentRequested ? 1 : 0);
 
+            const isThisTableLoading = actionLoadingTableId === table.id;
+
             return (
-              <div key={table.id} className="card" onClick={() => openDetail(table)} style={{
-                padding: 14, cursor: "pointer", position: "relative", overflow: "visible",
+              <div key={table.id} className="card" onClick={() => !isThisTableLoading && openDetail(table)} style={{
+                padding: 14, cursor: isThisTableLoading ? "wait" : "pointer", position: "relative", overflow: "visible",
                 borderLeft: `3px solid ${sm.color}`,
+                opacity: isThisTableLoading ? 0.6 : 1,
+                transition: "opacity 0.2s",
               }}>
                 {totalBadges > 0 && (
                   <span style={{

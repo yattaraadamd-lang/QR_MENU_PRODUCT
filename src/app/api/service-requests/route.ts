@@ -8,136 +8,17 @@ import { rateLimit, getClientIp, RateLimitPresets, createRateLimitResponse } fro
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  try {
-    // Rate limiting - Hizmet talebi oluşturma
-    const clientIp = getClientIp(request);
-    const rateLimitResult = rateLimit({
-      ...RateLimitPresets.SERVICE_REQUEST,
-      identifier: `service_${clientIp}`,
-    });
-
-    if (!rateLimitResult.success) {
-      return createRateLimitResponse(rateLimitResult);
-    }
-
-    const body = await request.json();
-    const { businessId, tableId, requestType, note } = body;
-
-    if (!businessId || !tableId || !requestType) {
-      return NextResponse.json(
-        { error: "Geçersiz talep bilgileri" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ Transaction ile hizmet talebi + masa durumu + bildirim atomik güncelle
-    const result = await prisma.$transaction(async (tx) => {
-      // Masa kontrolü
-      const table = await tx.table.findFirst({
-        where: { id: tableId, businessId, isActive: true, isDeleted: false },
-      });
-
-      if (!table) {
-        throw new Error("Masa bulunamadı veya aktif değil");
-      }
-
-      // ✅ Aktif session kontrolü — EMPTY masadan garson çağrılmamalı
-      const activeSession = await tx.tableSession.findFirst({
-        where: { tableId, businessId, status: "ACTIVE" },
-        select: { id: true },
-      });
-
-      if (!activeSession && table.status === "EMPTY") {
-        throw new Error("Bu masada aktif oturum yok. Garson çağırmak için masanın açık olması gerekir.");
-      }
-
-      // Hizmet talebi oluştur
-      const serviceRequest = await tx.serviceRequest.create({
-        data: {
-          businessId,
-          tableId,
-          requestType,
-          note: note || null,
-          status: RequestStatus.PENDING,
-        },
-        include: {
-          table: true,
-        },
-      });
-
-      // ✅ Masa durumunu güncelle — geçiş kontrolü ile
-      let tableStatus: TableStatus = table.status;
-
-      if (requestType === ServiceRequestType.CALL_WAITER) {
-        // Garson çağırma sadece aktif masadan yapılabilir
-        if (table.status !== "EMPTY") {
-          tableStatus = TableStatus.WAITING_WAITER;
-        }
-      } else if (requestType === ServiceRequestType.PAYMENT_REQUEST) {
-        if (table.status !== "EMPTY") {
-          tableStatus = TableStatus.PAYMENT_REQUESTED;
-        }
-      }
-
-      if (tableStatus !== table.status) {
-        await tx.table.update({
-          where: { id: tableId },
-          data: { status: tableStatus },
-        });
-      }
-
-      // Bildirim türünü belirle
-      let notificationType: any = "SERVICE_REQUEST";
-      let soundType: any = "DEFAULT";
-      let title = "Hizmet Talebi";
-      let message = `Masa ${serviceRequest.table.tableNumber} hizmet talep etti`;
-
-      if (requestType === ServiceRequestType.CALL_WAITER) {
-        notificationType = "CALL_WAITER";
-        soundType = "WAITER_CALL";
-        title = "Garson Çağrısı";
-        message = `Masa ${serviceRequest.table.tableNumber} garson çağırdı`;
-      } else if (requestType === ServiceRequestType.PAYMENT_REQUEST) {
-        notificationType = "PAYMENT_REQUEST";
-        soundType = "PAYMENT";
-        title = "Ödeme Talebi";
-        message = `Masa ${serviceRequest.table.tableNumber} ödeme istiyor`;
-      }
-
-      // Bildirim oluştur
-      await tx.notification.create({
-        data: {
-          businessId,
-          tableId,
-          type: notificationType,
-          title,
-          message,
-          soundType,
-        },
-      });
-
-      return serviceRequest;
-    });
-
-    return NextResponse.json(
-      {
-        message: "Talep başarıyla oluşturuldu",
-        serviceRequest: result,
-      },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("Hizmet talebi oluşturma hatası:", error);
-
-    if (error.message?.includes("bulunamadı") || error.message?.includes("aktif oturum")) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json(
-      { error: "Talep oluşturulurken bir hata oluştu" },
-      { status: 500 }
-    );
-  }
+  // ⚠️ KULLANIM DIŞI ENDPOINT - Güvenlik nedeniyle devre dışı bırakıldı
+  // Müşteri hizmet talepleri için /api/customer/service-requests kullanılmalı
+  // Admin/Garson talepleri için authenticated endpoint'ler kullanılmalı
+  
+  return NextResponse.json(
+    {
+      error: "Bu endpoint kullanım dışı. Lütfen /api/customer/service-requests kullanın.",
+      redirectTo: "/api/customer/service-requests"
+    },
+    { status: 410 } // Gone
+  );
 }
 
 export async function GET(request: NextRequest) {

@@ -8,9 +8,11 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
+    
     const { error, response, session } = await requireWaiter();
 
     if (error || !session || !session.user?.id) {
@@ -25,7 +27,7 @@ export async function PATCH(
 
     const businessId = getBusinessId(session);
     const body = await request.json();
-    const { method, note } = body;
+    const { method, note, receivedAmount } = body;
 
     // ✅ Transaction ile ödeme tamamla + masa durumu güncelle
     const result = await prisma.$transaction(async (tx) => {
@@ -38,7 +40,26 @@ export async function PATCH(
         throw new Error("Ödeme bulunamadı");
       }
 
+      const dueAmount = Number(payment.amount);
+
+      // ✅ Nakit ödeme için validasyon
+      if (method === "CASH") {
+        if (!receivedAmount || typeof receivedAmount !== "number" || receivedAmount <= 0) {
+          throw new Error("Nakit ödeme için alınan tutar belirtilmelidir");
+        }
+        
+        if (receivedAmount < dueAmount) {
+          throw new Error(
+            `Alınan tutar (₺${receivedAmount.toFixed(2)}), ödenmesi gereken tutardan (₺${dueAmount.toFixed(2)}) küçük olamaz`
+          );
+        }
+      }
+
       // Ödemeyi tamamla
+      // ✅ Ciroya eklenecek tutar her zaman dueAmount (payment.amount)
+      // receivedAmount sadece para üstü hesabı için kullanılır
+      const changeAmount = method === "CASH" && receivedAmount ? receivedAmount - dueAmount : 0;
+      
       const updatedPayment = await tx.payment.update({
         where: { id: params.id },
         data: {

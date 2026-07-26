@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 
-export default function QRTokenPage({ params }: { params: { qrToken: string } }) {
+export default function QRTokenPage({ params }: { params: Promise<{ qrToken: string }> }) {
+  const resolvedParams = use(params);
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -14,7 +15,7 @@ export default function QRTokenPage({ params }: { params: { qrToken: string } })
 
   const resolveQRToken = async () => {
     try {
-      const response = await fetch(`/api/qr/${params.qrToken}`);
+      const response = await fetch(`/api/qr/${resolvedParams.qrToken}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -26,7 +27,7 @@ export default function QRTokenPage({ params }: { params: { qrToken: string } })
       // Masa ve işletme bilgilerini sessionStorage'a kaydet
       sessionStorage.setItem("qr_business", JSON.stringify(data.business));
       sessionStorage.setItem("qr_table", JSON.stringify(data.table));
-      sessionStorage.setItem("qr_token", params.qrToken);
+      sessionStorage.setItem("qr_token", resolvedParams.qrToken);
 
       // ✅ CustomerSession oluştur — qrToken ile (QR tarama kanıtı)
       try {
@@ -36,7 +37,7 @@ export default function QRTokenPage({ params }: { params: { qrToken: string } })
           body: JSON.stringify({
             businessId: data.business.id,
             tableId: data.table.id,
-            qrToken: params.qrToken,
+            qrToken: resolvedParams.qrToken,
           }),
         });
         const sessionData = await sessionRes.json();

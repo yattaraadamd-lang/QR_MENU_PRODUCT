@@ -35,12 +35,28 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/table-sessions — Yeni oturum başlat (garson veya müşteri QR okutunca)
+// POST /api/table-sessions — Yeni oturum başlat (SADECE garson veya admin)
 export async function POST(request: NextRequest) {
   try {
+    // ✅ Authentication zorunlu — müşteri bu endpoint'i kullanamaz
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response!;
+    const authenticatedBusinessId = getBusinessId(session);
+
     const body = await request.json();
     const { businessId, tableId } = body;
-    if (!businessId || !tableId) return NextResponse.json({ error: "businessId ve tableId gerekli" }, { status: 400 });
+    
+    if (!businessId || !tableId) {
+      return NextResponse.json({ error: "businessId ve tableId gerekli" }, { status: 400 });
+    }
+
+    // ✅ Güvenlik: kullanıcı sadece kendi işletmesi için masa açabilir
+    if (businessId !== authenticatedBusinessId) {
+      return NextResponse.json(
+        { error: "Bu işletme için yetkiniz yok" },
+        { status: 403 }
+      );
+    }
 
     // ✅ Merkezi table-flow.service kullanarak transaction ile masa aç
     const result = await openTable(tableId, businessId);

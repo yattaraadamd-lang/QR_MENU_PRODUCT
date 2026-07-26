@@ -13,8 +13,13 @@ export default function WaiterPaymentsPage() {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paymentNote, setPaymentNote] = useState("");
+<<<<<<< HEAD
   const [receivedAmount, setReceivedAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+=======
+  const [submittingPaymentId, setSubmittingPaymentId] = useState<string | null>(null); // ✅ Per-payment loading
+  const [receivedAmount, setReceivedAmount] = useState<string>(""); // Alınan nakit tutarı
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -49,13 +54,41 @@ export default function WaiterPaymentsPage() {
 
   const handleComplete = async () => {
     if (!selectedPayment) return;
-    setSubmitting(true);
+
+    // Nakit ödeme için validasyon
+    if (paymentMethod === "CASH") {
+      const received = parseFloat(receivedAmount);
+      const dueAmount = Number(selectedPayment.amount);
+      
+      if (!receivedAmount || isNaN(received) || received <= 0) {
+        alert("Lütfen alınan nakit tutarını giriniz.");
+        return;
+      }
+      
+      if (received < dueAmount) {
+        alert(`Alınan tutar (₺${received.toFixed(2)}), ödenmesi gereken tutardan (₺${dueAmount.toFixed(2)}) küçük olamaz.`);
+        return;
+      }
+    }
+
+    setSubmittingPaymentId(selectedPayment.id); // ✅ Sadece bu ödeme loading
     try {
+      const body: any = { 
+        method: paymentMethod, 
+        note: paymentNote 
+      };
+      
+      // Nakit ödeme ise alınan tutarı da gönder
+      if (paymentMethod === "CASH") {
+        body.receivedAmount = parseFloat(receivedAmount);
+      }
+
       const res = await fetch(`/api/waiter/payments/${selectedPayment.id}/complete`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method: paymentMethod, note: paymentNote }),
+        body: JSON.stringify(body),
       });
+      
       if (res.ok) {
         toast.success("Ödeme başarıyla tamamlandı!");
         setSelectedPayment(null);
@@ -64,12 +97,21 @@ export default function WaiterPaymentsPage() {
         setReceivedAmount("");
         fetchPayments();
       } else {
+<<<<<<< HEAD
         toast.error("Ödeme tamamlanamadı. Lütfen tekrar deneyin.");
       }
     } catch {
       toast.error("Bağlantı hatası.");
+=======
+        const data = await res.json();
+        alert(data.error || "Ödeme tamamlanamadı.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Bir hata oluştu.");
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
     } finally {
-      setSubmitting(false);
+      setSubmittingPaymentId(null); // ✅ Loading state temizle
     }
   };
 
@@ -123,6 +165,7 @@ export default function WaiterPaymentsPage() {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* Payment Modal */}
       {selectedPayment && (
         <div className="modal-overlay" onClick={() => setSelectedPayment(null)}>
@@ -237,9 +280,115 @@ export default function WaiterPaymentsPage() {
                 )}
               </button>
             </div>
+=======
+      {selectedPayment && (() => {
+        const dueAmount = Number(selectedPayment.amount);
+        const received = parseFloat(receivedAmount) || 0;
+        const changeAmount = paymentMethod === "CASH" && received > 0 ? received - dueAmount : 0;
+        
+        return (
+          <div className="modal-overlay" onClick={() => setSelectedPayment(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Ödeme Al</h3>
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 4 }}>Masa</p>
+                <p style={{ fontSize: 16, fontWeight: 600 }}>{selectedPayment.table?.tableName || `Masa ${selectedPayment.table?.tableNumber}`}</p>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 4 }}>Ödenmesi Gereken Tutar</p>
+                <p style={{ fontSize: 24, fontWeight: 700, color: "var(--primary-light)" }}>₺{dueAmount.toFixed(2)}</p>
+              </div>
+              
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Ödeme Yöntemi</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button 
+                    onClick={() => {
+                      setPaymentMethod("CASH");
+                      setReceivedAmount("");
+                    }} 
+                    className={`btn ${paymentMethod === "CASH" ? "btn-primary" : "btn-ghost"}`} 
+                    style={{ flex: 1 }}
+                  >
+                    💵 Nakit
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setPaymentMethod("CARD");
+                      setReceivedAmount("");
+                    }} 
+                    className={`btn ${paymentMethod === "CARD" ? "btn-primary" : "btn-ghost"}`} 
+                    style={{ flex: 1 }}
+                  >
+                    💳 Kart
+                  </button>
+                </div>
+              </div>
+
+              {paymentMethod === "CASH" && (
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Alınan Nakit Tutarı</p>
+                  <input 
+                    type="number" 
+                    className="input" 
+                    value={receivedAmount} 
+                    onChange={(e) => setReceivedAmount(e.target.value)} 
+                    placeholder="Örn: 100.00"
+                    step="0.01"
+                    min="0"
+                    style={{ fontSize: 18, fontWeight: 600 }}
+                  />
+                  {received > 0 && (
+                    <div style={{ 
+                      marginTop: 12, 
+                      padding: 12, 
+                      background: changeAmount >= 0 ? "rgba(34, 197, 94, 0.1)" : "rgba(239, 68, 68, 0.1)", 
+                      borderRadius: 8,
+                      border: `1px solid ${changeAmount >= 0 ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`
+                    }}>
+                      <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 4 }}>Para Üstü</p>
+                      <p style={{ 
+                        fontSize: 20, 
+                        fontWeight: 700, 
+                        color: changeAmount >= 0 ? "#22c55e" : "#ef4444" 
+                      }}>
+                        {changeAmount >= 0 ? `₺${changeAmount.toFixed(2)}` : "⚠️ Yetersiz tutar"}
+                      </p>
+                      {changeAmount >= 0 && (
+                        <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6 }}>
+                          Ciroya Eklenecek: ₺{dueAmount.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ marginBottom: 24 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Not (Opsiyonel)</p>
+                <input className="input" value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} placeholder="Örn: Parçalı ödendi..." />
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button 
+                  onClick={() => {
+                    setSelectedPayment(null);
+                    setReceivedAmount("");
+                  }} 
+                  className="btn btn-ghost" 
+                  style={{ flex: 1 }}
+                >
+                  İptal
+                </button>
+                <button onClick={handleComplete} className="btn btn-success" style={{ flex: 2 }} disabled={submittingPaymentId === selectedPayment.id}>
+                  {submittingPaymentId === selectedPayment.id ? "İşleniyor..." : "✅ Ödemeyi Tamamla"}
+                </button>
+              </div>
+            </div>
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

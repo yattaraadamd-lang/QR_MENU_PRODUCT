@@ -2,128 +2,121 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { validateCustomerActionSessionWithLocation } from "@/lib/security/validate-customer-session";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
-
-// Spam engelleme: aynı masa + aynı tip için cooldown (saniye)
-const COOLDOWN_SECONDS: Record<string, number> = {
-  CALL_WAITER: 60,
-  PAYMENT_REQUEST: 120,
-  HELP_REQUEST: 60,
-  CLEANING_REQUEST: 120,
-  ORDER_REQUEST: 30,
-  PRODUCT_INFO: 30,
-  COMPLAINT_SUGGESTION: 60,
-};
 
 // POST /api/customer/service-requests
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, requestType, note, reason } = body;
+    const { businessId, tableId, requestType, note, reason, latitude, longitude } = body;
 
     if (!businessId || !tableId || !requestType) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
     }
 
-    // ✅ Session token kontrolü — CustomerSession tablosundan doğrula
-    const sessionToken = request.headers.get("x-session-token");
-    if (!sessionToken) {
+    // ✅ GÜVENLIK: CustomerSession doğrulama + Konum kontrolü
+    const sessionCheck = await validateCustomerActionSessionWithLocation(
+      request,
+      latitude,
+      longitude,
+      { requireLocation: true }
+    );
+    if (!sessionCheck.ok) {
+      return NextResponse.json({ error: sessionCheck.error }, { status: sessionCheck.status });
+    }
+
+    const customerSession = sessionCheck.customerSession;
+
+    // Validate tableId and businessId match session
+    if (customerSession.tableId !== tableId || customerSession.businessId !== businessId) {
       return NextResponse.json(
-        { error: "Oturum token'ı gerekli. Lütfen QR kodu tekrar okutun." },
-        { status: 401 }
+        { error: "Oturum bu masa veya işletme için geçerli değil." },
+        { status: 403 }
       );
     }
 
-    const customerSession = await prisma.customerSession.findFirst({
-      where: {
-        sessionToken,
-        tableId,
-        businessId,
-        status: "ACTIVE",
-      },
-    });
-
-    if (!customerSession) {
+    // ✅ GÜVENLIK: Note ve reason validasyonu
+    if (note && note.length > 500) {
       return NextResponse.json(
-        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
-        { status: 401 }
+        { error: "Not alanı maksimum 500 karakter olabilir." },
+        { status: 400 }
+      );
+    }
+    if (reason && reason.length > 200) {
+      return NextResponse.json(
+        { error: "Sebep alanı maksimum 200 karakter olabilir." },
+        { status: 400 }
       );
     }
 
-    if (new Date() > customerSession.expiresAt) {
-      await prisma.customerSession.update({
-        where: { id: customerSession.id },
-        data: { status: "EXPIRED" },
-      });
+    // ✅ GÜVENLIK: RequestType validasyonu
+    const validRequestTypes = [
+      "CALL_WAITER",
+      "PAYMENT_REQUEST",
+      "HELP_REQUEST",
+      "CLEANING_REQUEST",
+      "ORDER_REQUEST",
+      "PRODUCT_INFO",
+      "COMPLAINT_SUGGESTION",
+    ];
+    if (!validRequestTypes.includes(requestType)) {
       return NextResponse.json(
-        { error: "Oturum süresi doldu. Lütfen QR kodu tekrar okutun." },
-        { status: 401 }
+        { error: "Geçersiz talep türü." },
+        { status: 400 }
       );
     }
 
-    // ✅ Masa kontrolü — silinen masa engellenir
-    const table = await prisma.table.findFirst({
-      where: {
-        id: tableId,
-        businessId,
-        isActive: true,
-        isDeleted: false,
-      },
-      include: { business: true },
-    });
-
-    if (!table || !table.business) {
+    // ✅ RATE LIMIT: 60 saniyede 1 service request
+    const sessionToken = request.headers.get("x-session-token")!;
+    const rateLimit = await checkRateLimit(`service:${sessionToken}`, RATE_LIMITS.SERVICE_REQUEST);
+    if (!rateLimit.allowed) {
+      const waitSeconds = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
       return NextResponse.json(
-        { error: "Masa bulunamadı veya aktif değil." },
-        { status: 404 }
+        { error: `Lütfen ${waitSeconds} saniye bekleyip tekrar deneyin.` },
+        { status: 429 }
       );
     }
 
-    const business = table.business;
+    const table = customerSession.table;
+    const business = customerSession.business;
 
     // İşletme aktif mi?
     if (!business.isActive) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
     }
 
-    // ✅ Spam engelleme: aktif talep var mı?
-    const existingActive = await prisma.serviceRequest.findFirst({
+    // ✅ SPAM KORUMASI: Aynı masa için PENDING durumunda talep var mı kontrol et
+    // ServiceRequestType'a göre kontrol - her tip için ayrı ayrı
+    const existingPendingRequest = await prisma.serviceRequest.findFirst({
       where: {
         tableId,
         businessId,
         requestType: requestType as ServiceRequestType,
-        status: { in: [RequestStatus.PENDING, RequestStatus.SEEN, RequestStatus.IN_PROGRESS] },
-      },
-    });
-
-    if (existingActive) {
-      return NextResponse.json(
-        { error: "Talebiniz zaten personele iletildi. Lütfen kısa bir süre bekleyin." },
-        { status: 409 }
-      );
-    }
-
-    // ✅ Cooldown kontrolü: son X saniye içinde aynı tip talep gönderilmiş mi?
-    const cooldownSec = COOLDOWN_SECONDS[requestType] || 60;
-    const cooldownTime = new Date(Date.now() - cooldownSec * 1000);
-
-    const recentRequest = await prisma.serviceRequest.findFirst({
-      where: {
-        tableId,
-        businessId,
-        requestType: requestType as ServiceRequestType,
-        createdAt: { gte: cooldownTime },
+        status: "PENDING",
       },
       orderBy: { createdAt: "desc" },
     });
 
-    if (recentRequest) {
-      const secondsAgo = Math.floor((Date.now() - recentRequest.createdAt.getTime()) / 1000);
-      const remaining = cooldownSec - secondsAgo;
+    if (existingPendingRequest) {
+      const messageMap: Record<string, string> = {
+        CALL_WAITER: "Bu masa için zaten bekleyen bir garson çağrısı var. Garson en kısa sürede gelecektir.",
+        PAYMENT_REQUEST: "Bu masa için zaten bekleyen bir ödeme talebi var. Garson en kısa sürede gelecektir.",
+        HELP_REQUEST: "Bu masa için zaten bekleyen bir yardım talebi var. Personel en kısa sürede ilgilenecektir.",
+        CLEANING_REQUEST: "Bu masa için zaten bekleyen bir temizlik talebi var.",
+        ORDER_REQUEST: "Bu masa için zaten bekleyen bir sipariş talebi var.",
+        PRODUCT_INFO: "Bu masa için zaten bekleyen bir ürün bilgisi talebi var.",
+        COMPLAINT_SUGGESTION: "Bu masa için zaten bekleyen bir şikayet/öneri var.",
+      };
+
       return NextResponse.json(
-        { error: `Talebiniz zaten iletildi. Lütfen ${remaining} saniye bekleyin.` },
-        { status: 429 }
+        {
+          error: messageMap[requestType] || "Bu masa için zaten bekleyen bir talep var.",
+          existingRequestId: existingPendingRequest.id,
+        },
+        { status: 409 }
       );
     }
 
@@ -136,6 +129,7 @@ export async function POST(request: NextRequest) {
         businessId,
         tableId,
         requestType: requestType as ServiceRequestType,
+        reason: reason || null,
         note: combinedNote,
         status: RequestStatus.PENDING,
       },
@@ -143,7 +137,6 @@ export async function POST(request: NextRequest) {
     });
 
     // ✅ Masa durumunu güncelle — SADECE masa zaten dolu ise
-    // Masa EMPTY iken garson çağırma/ödeme isteği masayı dolu YAPMAZ
     let tableStatus = table.status;
     if (table.status !== TableStatus.EMPTY) {
       if (requestType === "CALL_WAITER") {
@@ -221,7 +214,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: "Talep başarıyla oluşturuldu", serviceRequest },
+      {
+        message:
+          requestType === "ORDER_REQUEST"
+            ? "Sipariş talebiniz garsona iletildi. Masa açılınca siparişinizi gönderebilirsiniz."
+            : "Talep başarıyla oluşturuldu",
+        serviceRequest,
+        requiresStaffToOpenTable: requestType === "ORDER_REQUEST",
+      },
       { status: 201 }
     );
   } catch (error) {
@@ -229,4 +229,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Talep oluşturulurken bir hata oluştu" }, { status: 500 });
   }
 }
-

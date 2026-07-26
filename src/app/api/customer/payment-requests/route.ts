@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { requestPayment } from "@/lib/services/table-flow.service";
+import { validateCustomerActionSession } from "@/lib/security/validate-customer-session";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,35 +16,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
     }
 
-    // ✅ Session token kontrolü — CustomerSession tablosundan doğrula
-    const sessionToken = request.headers.get("x-session-token");
-    if (!sessionToken) {
-      return NextResponse.json({ error: "Oturum token'ı gerekli." }, { status: 401 });
+    // ✅ GÜVENLIK: CustomerSession doğrulama
+    const sessionCheck = await validateCustomerActionSession(request);
+    if (!sessionCheck.ok) {
+      return NextResponse.json({ error: sessionCheck.error }, { status: sessionCheck.status });
     }
 
-    const customerSession = await prisma.customerSession.findFirst({
-      where: {
-        sessionToken,
-        tableId,
-        businessId,
-        status: "ACTIVE",
-      },
-    });
+    const customerSession = sessionCheck.customerSession;
 
-    if (!customerSession) {
-      return NextResponse.json({ error: "Geçersiz oturum veya masa bulunamadı." }, { status: 401 });
+    // Validate tableId and businessId match session
+    if (customerSession.tableId !== tableId || customerSession.businessId !== businessId) {
+      return NextResponse.json(
+        { error: "Oturum bu masa veya işletme için geçerli değil." },
+        { status: 403 }
+      );
     }
 
-    if (new Date() > customerSession.expiresAt) {
-      await prisma.customerSession.update({
-        where: { id: customerSession.id },
-        data: { status: "EXPIRED" },
-      });
-      return NextResponse.json({ error: "Oturum süresi doldu." }, { status: 401 });
+    // ✅ GÜVENLIK: Note validasyonu
+    if (note && note.length > 500) {
+      return NextResponse.json(
+        { error: "Not alanı maksimum 500 karakter olabilir." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ RATE LIMIT: 60 saniyede 1 payment request
+    const sessionToken = request.headers.get("x-session-token")!;
+    const rateLimit = await checkRateLimit(`payment:${sessionToken}`, RATE_LIMITS.PAYMENT_REQUEST);
+    if (!rateLimit.allowed) {
+      const waitSeconds = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: `Lütfen ${waitSeconds} saniye bekleyip tekrar deneyin.` },
+        { status: 429 }
+      );
+    }
+
+    const table = customerSession.table;
+
+    // ✅ Payment requests require an active session with orders
+    // EMPTY table means no orders exist yet - reject payment request
+    if (table.status === "EMPTY") {
+      return NextResponse.json(
+        { error: "Ödeme talebi göndermek için önce sipariş vermeniz gerekir." },
+        { status: 400 }
+      );
     }
 
     // ✅ Merkezi table-flow.service kullanarak transaction ile ödeme talebi oluştur
-    // Payment + ServiceRequest + Notification + Table.status hepsi atomik
     const result = await requestPayment(tableId, businessId, note || null);
 
     // Socket.IO bildirimi (transaction dışında)

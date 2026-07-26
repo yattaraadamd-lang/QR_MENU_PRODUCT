@@ -37,6 +37,7 @@ model Business {
   businessSubscriptions BusinessSubscription[]
   tableSessions         TableSession[]
   bills                 Bill[]
+  customerSessions      CustomerSession[]
 
   @@map("businesses")
 }
@@ -144,6 +145,7 @@ model Table {
   payments        Payment[]
   tableSessions   TableSession[]
   bills           Bill[]
+  customerSessions CustomerSession[]
 
   @@unique([businessId, tableNumber])
   @@index([businessId, status])
@@ -231,9 +233,12 @@ model ServiceRequest {
   businessId  String
   tableId     String
   requestType ServiceRequestType
+  reason      String?
   note        String?
   status      RequestStatus      @default(PENDING)
   createdAt   DateTime           @default(now())
+  seenAt      DateTime?
+  resolvedAt  DateTime?
   completedAt DateTime?
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
@@ -241,6 +246,7 @@ model ServiceRequest {
 
   @@index([businessId, status, createdAt])
   @@index([tableId, status])
+  @@index([businessId, tableId, status])
   @@map("service_requests")
 }
 
@@ -391,11 +397,17 @@ model CustomerSession {
   sessionToken String                @unique
   status       CustomerSessionStatus @default(ACTIVE)
   expiresAt    DateTime
+  lastSeenAt   DateTime              @default(now())
+  closedAt     DateTime?
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
 
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table    Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
   @@index([sessionToken])
   @@index([tableId, status])
+  @@index([businessId, tableId, status])
   @@map("customer_sessions")
 }
 

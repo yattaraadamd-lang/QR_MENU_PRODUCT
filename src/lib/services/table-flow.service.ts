@@ -321,6 +321,9 @@ export async function requestPayment(
 
 /**
  * Garson ödeme alır — transaction ile bill günceller.
+ * 
+ * @param amount - Garsonun girdiği tutar (validasyon için kullanılır)
+ * @param receivedAmount - (Opsiyonel) Nakit ödemelerde müşteriden alınan fiziksel tutar
  */
 export async function collectPayment(
   tableSessionId: string,
@@ -329,7 +332,8 @@ export async function collectPayment(
   method: string,
   handledById: string,
   handledByWaiterName: string,
-  note: string | null = null
+  note: string | null = null,
+  receivedAmount: number | null = null
 ) {
   return prisma.$transaction(async (tx) => {
     // Oturum kontrolü
@@ -342,7 +346,7 @@ export async function collectPayment(
     const bill = tableSession.bill;
     if (!bill) throw new Error("Adisyon bulunamadı");
 
-    // Bill totalAmount'u server-side yeniden hesapla
+    // ✅ Bill totalAmount'u server-side yeniden hesapla
     const orders = await tx.order.findMany({
       where: {
         tableSessionId,
@@ -351,15 +355,32 @@ export async function collectPayment(
     });
     const serverTotalAmount = orders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
 
-    // Bill totalAmount'u güncelle (her zaman server-side hesaplanan değer)
-    // Ödeme kaydı oluştur
+    // ✅ Şimdiye kadar ödenen tutarı hesapla
+    const existingPayments = await tx.payment.findMany({
+      where: { billId: bill.id, status: "PAID" },
+    });
+    const alreadyPaidAmount = existingPayments.reduce((s, p) => s + Number(p.amount), 0);
+    
+    // ✅ Kalan borç
+    const remainingDue = Math.max(0, serverTotalAmount - alreadyPaidAmount);
+
+    // ✅ CİROYA EKLENECEK TUTAR: En fazla kalan borç kadar olabilir
+    // Garson yanlışlıkla fazla tutar girse bile ciroya sadece borç kadar eklenir
+    const actualPaymentAmount = Math.min(amount, remainingDue);
+
+    // ✅ Validasyon: Ödeme tutarı 0 olamaz
+    if (actualPaymentAmount <= 0) {
+      throw new Error("Ödeme tutarı 0 veya negatif olamaz. Kalan borç: ₺" + remainingDue.toFixed(2));
+    }
+
+    // ✅ Ödeme kaydı oluştur (actualPaymentAmount kullan, amount değil!)
     const payment = await tx.payment.create({
       data: {
         businessId,
         tableId: tableSession.tableId,
         tableSessionId,
         billId: bill.id,
-        amount,
+        amount: actualPaymentAmount, // ✅ Ciroya bu tutar eklenir
         method: method as any,
         note,
         status: "PAID",
@@ -369,7 +390,7 @@ export async function collectPayment(
       },
     });
 
-    // Tüm ödemeleri topla
+    // ✅ Tüm ödemeleri topla (yeni ödeme dahil)
     const allPayments = await tx.payment.findMany({
       where: { billId: bill.id, status: "PAID" },
     });
@@ -395,6 +416,17 @@ export async function collectPayment(
       await tx.table.update({
         where: { id: tableSession.tableId },
         data: { status: "SERVED" },
+      });
+      
+      // ✅ GÜVENLİK: Tam ödeme alındığında tüm CustomerSession'ları kapat
+      // Bu sayede müşteri QR fotoğrafını kullanarak restoran dışından sipariş veremez
+      await tx.customerSession.updateMany({
+        where: {
+          tableId: tableSession.tableId,
+          businessId,
+          status: "ACTIVE",
+        },
+        data: { status: "CLOSED" },
       });
     }
 

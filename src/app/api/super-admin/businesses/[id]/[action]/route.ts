@@ -5,9 +5,10 @@ import { authOptions } from "@/lib/auth";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; action: string } }
+  context: { params: Promise<{ id: string; action: string }> }
 ) {
   try {
+    const params = await context.params;
     const session = await getServerSession(authOptions);
 
     if (!session || session.user.role !== "SUPER_ADMIN") {

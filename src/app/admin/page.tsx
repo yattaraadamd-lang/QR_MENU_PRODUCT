@@ -59,9 +59,30 @@ export default function AdminDashboardPage() {
   const fmt = (v: number) => hideRevenue ? "••••" : new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(v);
 
   if (loading) return (
+<<<<<<< HEAD
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 12, color: "var(--text-secondary)" }}>
       <Loader2 size={20} className="animate-spin" color="var(--primary)" />
       Yükleniyor...
+=======
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 300,
+      gap: 14,
+      color: "var(--text-secondary)",
+      flexDirection: "column",
+    }}>
+      <span className="animate-spin" style={{
+        display: "inline-block",
+        width: 28,
+        height: 28,
+        border: "3px solid var(--border-color)",
+        borderTopColor: "var(--primary)",
+        borderRadius: "50%",
+      }} />
+      <span style={{ fontSize: 14, fontWeight: 500 }}>Dashboard yükleniyor...</span>
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
     </div>
   );
 
@@ -87,26 +108,63 @@ export default function AdminDashboardPage() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        marginBottom: 28,
+        flexWrap: "wrap",
+        gap: 14,
+      }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Dashboard</h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>
+          <h1 style={{
+            fontSize: 24,
+            fontWeight: 800,
+            letterSpacing: "-0.02em",
+            lineHeight: 1.2,
+          }}>
+            Dashboard
+          </h1>
+          <p style={{
+            color: "var(--text-secondary)",
+            fontSize: 14,
+            marginTop: 4,
+          }}>
             Hoş geldiniz, {session?.user.name} 👋
           </p>
         </div>
+<<<<<<< HEAD
         <button onClick={toggleRevenue} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
           {hideRevenue ? <><Eye size={14} /> Ciroyu Göster</> : <><EyeOff size={14} /> Ciroyu Gizle</>}
+=======
+        <button
+          onClick={toggleRevenue}
+          className="btn btn-ghost btn-sm"
+          style={{ gap: 6 }}
+        >
+          {hideRevenue ? "👁️ Ciroyu Göster" : "🙈 Ciroyu Gizle"}
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
         </button>
       </div>
 
-      {/* KPI Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 28 }}>
+      {/* KPI Grid - Fully Responsive */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+        gap: 14,
+        marginBottom: 32,
+      }}>
         {kpiCards.map((k, i) => (
-          <div key={i} style={{
-            background: "var(--bg-card)", border: "1px solid var(--border-color)",
-            borderRadius: 14, padding: "16px 18px", position: "relative", overflow: "hidden",
+          <div key={i} className="stat-card" style={{
+            background: "var(--bg-card)",
+            border: "1px solid var(--border-color)",
+            borderRadius: 14,
+            padding: "18px",
+            position: "relative",
+            overflow: "hidden",
             transition: "all 0.2s",
           }}>
+<<<<<<< HEAD
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: k.color, borderRadius: "14px 14px 0 0" }} />
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: k.bg,
@@ -114,19 +172,66 @@ export default function AdminDashboardPage() {
               color: k.color, marginBottom: 10,
             }}>{k.icon}</div>
             <p style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+=======
+            {/* Accent bar */}
+            <div style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              background: k.color,
+              borderRadius: "14px 14px 0 0",
+            }} />
+            <div style={{
+              width: 40,
+              height: 40,
+              borderRadius: 11,
+              background: k.bg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 20,
+              marginBottom: 12,
+            }}>
+              {k.icon}
+            </div>
+            <p style={{
+              fontSize: 11,
+              color: "var(--text-secondary)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: 6,
+            }}>
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
               {k.label}
             </p>
-            <p style={{ fontSize: 22, fontWeight: 800, color: k.color, letterSpacing: "-0.02em" }}>
+            <p style={{
+              fontSize: 24,
+              fontWeight: 800,
+              color: k.color,
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+            }}>
               {k.value}
             </p>
           </div>
         ))}
       </div>
 
-      {/* Bottom grid: recent orders + quick links */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, alignItems: "start" }}>
+      {/* Bottom grid: recent orders + quick links - Responsive */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr",
+        gap: 20,
+        alignItems: "start",
+      }}
+      className="lg:grid-cols-[1fr_auto]"
+      >
         {/* Recent Orders */}
         <div className="card" style={{ overflow: "hidden" }}>
+<<<<<<< HEAD
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ fontSize: 15, fontWeight: 700 }}>Son Siparişler</h3>
             <Link href="/admin/orders" style={{ color: "var(--primary-light)", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
@@ -137,19 +242,57 @@ export default function AdminDashboardPage() {
             <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
               <ClipboardList size={36} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 8px" }} />
               <p style={{ fontSize: 13 }}>Henüz sipariş yok</p>
+=======
+          <div style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--border-subtle)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 10,
+          }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Son Siparişler</h3>
+            <Link href="/admin/orders" style={{
+              color: "var(--primary-light)",
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+              transition: "color 0.15s",
+            }}>
+              Tümünü Gör →
+            </Link>
+          </div>
+          {recentOrders.length === 0 ? (
+            <div style={{
+              padding: "48px 20px",
+              textAlign: "center",
+              color: "var(--text-secondary)",
+            }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
+              <p style={{ fontSize: 14 }}>Henüz sipariş yok</p>
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
             </div>
           ) : (
             recentOrders.map((order) => (
               <div key={order.id} style={{
-                padding: "12px 20px", borderBottom: "1px solid var(--border-subtle)",
-                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "14px 20px",
+                borderBottom: "1px solid var(--border-subtle)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 transition: "background 0.15s",
+                gap: 12,
+                flexWrap: "wrap",
               }}>
-                <div>
-                  <p style={{ fontWeight: 600, fontSize: 14 }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>
                     {order.table?.tableName || `Masa ${order.table?.tableNumber}`}
                   </p>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                  <p style={{
+                    fontSize: 12,
+                    color: "var(--text-secondary)",
+                  }}>
                     {order.items?.length} ürün · {Number(order.totalPrice).toFixed(2)} ₺ · {new Date(order.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
@@ -162,17 +305,45 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Quick Links */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, minWidth: 220 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
+          gap: 10,
+        }}
+        className="lg:grid-cols-2 lg:min-w-[220px]"
+        >
           {quickLinks.map((q) => (
             <Link key={q.href} href={q.href} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              gap: 6, padding: "16px 12px", borderRadius: 12,
-              background: "var(--bg-card)", border: "1px solid var(--border-color)",
-              textDecoration: "none", transition: "all 0.2s",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "18px 12px",
+              borderRadius: 12,
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
+              textDecoration: "none",
+              transition: "all 0.2s",
               color: "var(--text-primary)",
+<<<<<<< HEAD
             }}>
               <span style={{ color: q.color }}>{q.icon}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{q.label}</span>
+=======
+            }}
+            className="hover:border-[var(--primary)] hover:shadow-md"
+            >
+              <span style={{ fontSize: 26 }}>{q.icon}</span>
+              <span style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--text-secondary)",
+                textAlign: "center",
+              }}>
+                {q.label}
+              </span>
+>>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
             </Link>
           ))}
         </div>
