@@ -5,18 +5,22 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
+import {
+  LayoutDashboard, ClipboardList, Bell, Clock, CreditCard,
+  Package, FolderOpen, Table2, Users, Settings, LogOut, QrCode, Menu, Store,
+} from "lucide-react";
 
 const adminMenuItems = [
-  { href: "/admin",                  label: "Dashboard",       icon: "▦",  group: "main" },
-  { href: "/admin/orders",           label: "Siparişler",      icon: "🧾", group: "ops" },
-  { href: "/admin/requests",         label: "Talepler",        icon: "🔔", group: "ops" },
-  { href: "/admin/pending-payments", label: "Bekleyen Ödemeler", icon: "⏳", group: "ops" },
-  { href: "/admin/payments",         label: "Geçmiş Ödemeler", icon: "💳", group: "ops" },
-  { href: "/admin/products",         label: "Ürünler",         icon: "🍽️", group: "menu" },
-  { href: "/admin/categories",       label: "Kategoriler",     icon: "📂", group: "menu" },
-  { href: "/admin/tables",           label: "Masalar & QR",    icon: "🪑", group: "venue" },
-  { href: "/admin/staff",            label: "Personel",        icon: "👥", group: "venue" },
-  { href: "/admin/settings",         label: "Ayarlar",         icon: "⚙️", group: "system" },
+  { href: "/admin",                  label: "Dashboard",       icon: <LayoutDashboard size={18} />,  group: "main" },
+  { href: "/admin/orders",           label: "Siparişler",      icon: <ClipboardList size={18} />, group: "ops" },
+  { href: "/admin/requests",         label: "Talepler",        icon: <Bell size={18} />, group: "ops" },
+  { href: "/admin/pending-payments", label: "Bekleyen Ödemeler", icon: <Clock size={18} />, group: "ops" },
+  { href: "/admin/payments",         label: "Geçmiş Ödemeler", icon: <CreditCard size={18} />, group: "ops" },
+  { href: "/admin/products",         label: "Ürünler",         icon: <Package size={18} />, group: "menu" },
+  { href: "/admin/categories",       label: "Kategoriler",     icon: <FolderOpen size={18} />, group: "menu" },
+  { href: "/admin/tables",           label: "Masalar & QR",    icon: <Table2 size={18} />, group: "venue" },
+  { href: "/admin/staff",            label: "Personel",        icon: <Users size={18} />, group: "venue" },
+  { href: "/admin/settings",         label: "Ayarlar",         icon: <Settings size={18} />, group: "system" },
 ];
 
 const groups: Record<string, string> = {
@@ -34,7 +38,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { counts } = useBadgeCounts(8000);
 
-  // Nav item'ı → badge count eşlemesi
   const badgeMap: Record<string, number> = {
     "/admin/orders":           counts.orders,
     "/admin/requests":         counts.requests,
@@ -89,9 +92,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               width: 36, height: 36, borderRadius: 10,
               background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 18, flexShrink: 0,
+              flexShrink: 0,
               boxShadow: "0 4px 12px var(--primary-glow)",
-            }}>🍽️</div>
+            }}>
+              <QrCode size={18} color="white" />
+            </div>
             <div>
               <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em" }}>QR Menü</p>
               <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 1 }}>Admin Paneli</p>
@@ -104,7 +109,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               fontSize: 12, color: "var(--text-secondary)",
               display: "flex", alignItems: "center", gap: 6,
             }}>
-              <span>🏪</span>
+              <Store size={14} />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {session.user.businessName}
               </span>
@@ -138,14 +143,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "9px 10px", borderRadius: 8,
                         fontSize: 13, fontWeight: isActive ? 600 : 400,
-                        color: isActive ? "var(--accent-light)" : "var(--text-secondary)",
+                        color: isActive ? "var(--primary-light)" : "var(--text-secondary)",
                         background: isActive ? "var(--primary-glow)" : "transparent",
                         textDecoration: "none", marginBottom: 1,
                         transition: "all 0.15s",
                         borderLeft: isActive ? "2px solid var(--primary)" : "2px solid transparent",
                       }}
                     >
-                      <span style={{ fontSize: 16, width: 20, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
+                      <span style={{ flexShrink: 0, display: "flex", alignItems: "center", color: isActive ? "var(--primary-light)" : "var(--text-muted)" }}>{item.icon}</span>
                       <span style={{ flex: 1 }}>{item.label}</span>
                       {badge > 0 && (
                         <span style={{
@@ -193,7 +198,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="btn btn-ghost btn-sm"
             style={{ width: "100%", fontSize: 12, justifyContent: "flex-start", gap: 8 }}
           >
-            <span>🚪</span> Çıkış Yap
+            <LogOut size={14} /> Çıkış Yap
           </button>
         </div>
       </aside>
@@ -210,10 +215,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }} className="lg-hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: 22, cursor: "pointer", padding: 4 }}
-          >☰</button>
-          <span style={{ fontSize: 15, fontWeight: 700 }}>
-            <span style={{ color: "var(--primary)" }}>QR</span> Menü
+            style={{ background: "none", border: "none", color: "var(--text-primary)", cursor: "pointer", padding: 4, display: "flex", alignItems: "center" }}
+          >
+            <Menu size={22} />
+          </button>
+          <span style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            <QrCode size={18} color="var(--primary)" />
+            QR Menü
           </span>
           <div style={{ width: 30 }} />
         </div>

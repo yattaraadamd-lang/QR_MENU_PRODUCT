@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
+import { Plus, Search, Edit3, Trash2, Circle, Star, Loader2, Package, X } from "lucide-react";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -37,12 +40,8 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
-
-  const showToast = (msg: string, type: "ok" | "err" = "ok") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { fetchData(); }, [session]);
 
@@ -66,64 +65,53 @@ export default function AdminProductsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, categoryId: form.categoryId || null, description: form.description || null, ingredients: form.ingredients || null, allergens: form.allergens || null }),
       });
-      if (res.ok) { fetchData(); resetForm(); }
-    } catch (e) { console.error(e); }
+      if (res.ok) {
+        fetchData();
+        resetForm();
+        toast.success(editingId ? "Ürün güncellendi" : "Ürün eklendi");
+      } else {
+        toast.error("İşlem başarısız oldu");
+      }
+    } catch { toast.error("Bağlantı hatası"); }
     finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Bu ürünü silmek istediğinizden emin misiniz?")) return;
-    const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
-    if (res.ok) fetchData();
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/products/${deleteTarget.id}`, { method: "DELETE" });
+      if (res.ok) {
+        fetchData();
+        toast.success(`"${deleteTarget.name}" silindi`);
+      } else {
+        toast.error("Ürün silinemedi");
+      }
+    } catch { toast.error("Bağlantı hatası"); }
+    finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
   };
 
   const toggleStock = async (p: Product) => {
     const next = p.stockStatus === "IN_STOCK" ? "OUT_OF_STOCK" : "IN_STOCK";
-
-    // Optimistik UI: hemen güncelle, hata olursa geri al
-    setProducts(prev =>
-      prev.map(prod =>
-        prod.id === p.id
-          ? { ...prod, stockStatus: next, isAvailable: next === "IN_STOCK" }
-          : prod
-      )
-    );
-
+    setProducts(prev => prev.map(prod => prod.id === p.id ? { ...prod, stockStatus: next, isAvailable: next === "IN_STOCK" } : prod));
     try {
       const res = await fetch(`/api/admin/products/${p.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stockStatus: next,
-          isAvailable: next === "IN_STOCK",
-        }),
+        body: JSON.stringify({ stockStatus: next, isAvailable: next === "IN_STOCK" }),
       });
-
       if (res.ok) {
-        showToast(
-          next === "IN_STOCK" ? `✅ ${p.name} stoğa alındı` : `🔴 ${p.name} stoktan çıkarıldı`
-        );
+        toast.success(next === "IN_STOCK" ? `${p.name} stoğa alındı` : `${p.name} stoktan çıkarıldı`);
       } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.error || "Stok güncellenemedi", "err");
-        // Hata varsa orijinal duruma geri al
-        setProducts(prev =>
-          prev.map(prod =>
-            prod.id === p.id
-              ? { ...prod, stockStatus: p.stockStatus, isAvailable: p.isAvailable }
-              : prod
-          )
-        );
+        setProducts(prev => prev.map(prod => prod.id === p.id ? { ...prod, stockStatus: p.stockStatus, isAvailable: p.isAvailable } : prod));
+        toast.error("Stok güncellenemedi");
       }
     } catch {
-      showToast("Bağlantı hatası", "err");
-      setProducts(prev =>
-        prev.map(prod =>
-          prod.id === p.id
-            ? { ...prod, stockStatus: p.stockStatus, isAvailable: p.isAvailable }
-            : prod
-        )
-      );
+      setProducts(prev => prev.map(prod => prod.id === p.id ? { ...prod, stockStatus: p.stockStatus, isAvailable: p.isAvailable } : prod));
+      toast.error("Bağlantı hatası");
     }
   };
 
@@ -143,35 +131,39 @@ export default function AdminProductsPage() {
 
   return (
     <div>
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)",
-          zIndex: 9999, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600,
-          background: toast.type === "err" ? "#ef4444" : "#10b981",
-          color: "white", boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-          whiteSpace: "nowrap", maxWidth: "90vw", textAlign: "center",
-        }}>
-          {toast.msg}
-        </div>
-      )}
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="Ürünü Sil"
+        description={`"${deleteTarget?.name}" ürününü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`}
+        confirmText="Sil"
+        cancelText="Vazgeç"
+        variant="danger"
+        loading={deleting}
+      />
+
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Ürün Yönetimi</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>{products.length} ürün</p>
         </div>
-        <button onClick={() => { resetForm(); setShowForm(true); }} className="btn btn-primary">
-          + Yeni Ürün
+        <button onClick={() => { resetForm(); setShowForm(true); }} className="btn btn-primary" style={{ gap: 6 }}>
+          <Plus size={16} /> Yeni Ürün
         </button>
       </div>
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          className="input" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="🔍 Ürün ara..." style={{ maxWidth: 220, fontSize: 13 }}
-        />
+        <div style={{ position: "relative" }}>
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+          <input
+            className="input" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Ürün ara..." style={{ maxWidth: 220, fontSize: 13, paddingLeft: 36 }}
+          />
+        </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
           <button onClick={() => setFilterCat("all")} className={`btn btn-sm ${filterCat === "all" ? "btn-primary" : "btn-ghost"}`}>
             Tümü ({products.length})
@@ -190,7 +182,9 @@ export default function AdminProductsPage() {
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700 }}>{editingId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</h3>
-              <button onClick={resetForm} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
+              <button onClick={resetForm} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                <X size={20} />
+              </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "65vh", overflowY: "auto", paddingRight: 4 }}>
               <div>
@@ -234,14 +228,14 @@ export default function AdminProductsPage() {
                   Menüde Görünsün
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
-                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "var(--warning)" }} />
-                  ⭐ Popüler
+                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#f59e0b" }} />
+                  <Star size={14} color="#f59e0b" /> Popüler
                 </label>
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
-              <button onClick={handleSubmit} disabled={saving || !form.name.trim() || !form.price} className="btn btn-primary" style={{ flex: 1 }}>
-                {saving ? "Kaydediliyor..." : editingId ? "Güncelle" : "Ürün Ekle"}
+              <button onClick={handleSubmit} disabled={saving || !form.name.trim() || !form.price} className="btn btn-primary" style={{ flex: 1, gap: 6 }}>
+                {saving ? <><Loader2 size={14} className="animate-spin" /> Kaydediliyor...</> : editingId ? "Güncelle" : "Ürün Ekle"}
               </button>
               <button onClick={resetForm} className="btn btn-ghost">İptal</button>
             </div>
@@ -256,11 +250,11 @@ export default function AdminProductsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🍽️</div>
+          <Package size={48} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 12px" }} />
           <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>
             {search ? `"${search}" için ürün bulunamadı` : "Henüz ürün eklenmemiş"}
           </p>
-          {!search && <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ marginTop: 16 }}>İlk Ürünü Ekle</button>}
+          {!search && <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ marginTop: 16, gap: 6 }}><Plus size={14} /> İlk Ürünü Ekle</button>}
         </div>
       ) : (
         <div className="card" style={{ overflow: "hidden" }}>
@@ -274,14 +268,11 @@ export default function AdminProductsPage() {
                 opacity: p.isAvailable ? 1 : 0.55,
                 transition: "background 0.15s",
               }}>
-                {/* Color dot */}
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: si.color, flexShrink: 0 }} />
-
-                {/* Info */}
+                <Circle size={10} fill={si.color} color={si.color} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
-                    {p.isPopular && <span className="badge badge-warning" style={{ fontSize: 10 }}>⭐ Popüler</span>}
+                    {p.isPopular && <span className="badge badge-warning" style={{ fontSize: 10, gap: 3 }}><Star size={10} /> Popüler</span>}
                     {!p.isAvailable && <span className="badge badge-neutral" style={{ fontSize: 10 }}>Gizli</span>}
                     {p.stockStatus !== "IN_STOCK" && (
                       <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: `${si.color}18`, color: si.color }}>
@@ -293,13 +284,9 @@ export default function AdminProductsPage() {
                     {p.category?.name || "Kategorisiz"}
                   </p>
                 </div>
-
-                {/* Price */}
                 <span style={{ fontWeight: 700, fontSize: 15, color: "var(--primary-light)", flexShrink: 0 }}>
                   {Number(p.price).toFixed(2)} ₺
                 </span>
-
-                {/* Actions */}
                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                   <button
                     onClick={() => toggleStock(p)}
@@ -307,10 +294,14 @@ export default function AdminProductsPage() {
                     title={p.stockStatus === "IN_STOCK" ? "Stoktan Çıkar" : "Stoğa Al"}
                     style={{ padding: "5px 8px" }}
                   >
-                    {p.stockStatus === "IN_STOCK" ? "🟢" : "🔴"}
+                    <Circle size={14} fill={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} color={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} />
                   </button>
-                  <button onClick={() => startEdit(p)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px" }}>✏️</button>
-                  <button onClick={() => handleDelete(p.id)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }}>🗑️</button>
+                  <button onClick={() => startEdit(p)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px" }}>
+                    <Edit3 size={14} />
+                  </button>
+                  <button onClick={() => setDeleteTarget({ id: p.id, name: p.name })} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }}>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             );

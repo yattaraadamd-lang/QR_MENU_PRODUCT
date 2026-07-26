@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import {
+  TrendingUp, BarChart3, ClipboardList, Clock, Bell, CreditCard,
+  Table2, Package, Users, Eye, EyeOff, ArrowRight, Loader2,
+} from "lucide-react";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Bekliyor", ACCEPTED: "Kabul Edildi", PREPARING: "Hazırlanıyor",
@@ -56,28 +60,28 @@ export default function AdminDashboardPage() {
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 12, color: "var(--text-secondary)" }}>
-      <span className="animate-spin" style={{ display: "inline-block", width: 20, height: 20, border: "2px solid var(--border-color)", borderTopColor: "var(--primary)", borderRadius: "50%" }} />
+      <Loader2 size={20} className="animate-spin" color="var(--primary)" />
       Yükleniyor...
     </div>
   );
 
   const kpiCards = [
-    { label: "Bugünkü Ciro",    value: fmt(stats.todayRevenue),    icon: "💸", color: "#10b981", bg: "rgba(16,185,129,0.08)", isRev: true },
-    { label: "Aylık Ciro",      value: fmt(stats.monthlyRevenue),  icon: "📈", color: "#6366f1", bg: "rgba(99,102,241,0.08)", isRev: true },
-    { label: "Bugün Sipariş",   value: stats.todayOrderCount,      icon: "🧾", color: "#3b82f6", bg: "rgba(59,130,246,0.08)" },
-    { label: "Bekleyen",        value: stats.pendingOrderCount,    icon: "⏳", color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
-    { label: "Aktif Talep",     value: stats.activeRequestCount,   icon: "🔔", color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
-    { label: "Ödeme Talebi",    value: stats.paymentRequestCount,  icon: "💳", color: "#8b5cf6", bg: "rgba(139,92,246,0.08)" },
-    { label: "Dolu Masa",       value: `${stats.occupiedTableCount}/${stats.totalTableCount}`, icon: "🪑", color: "#06b6d4", bg: "rgba(6,182,212,0.08)" },
+    { label: "Bugünkü Ciro",    value: fmt(stats.todayRevenue),    icon: <TrendingUp size={20} />, color: "#10b981", bg: "rgba(16,185,129,0.08)" },
+    { label: "Aylık Ciro",      value: fmt(stats.monthlyRevenue),  icon: <BarChart3 size={20} />,  color: "#6366f1", bg: "rgba(99,102,241,0.08)" },
+    { label: "Bugün Sipariş",   value: stats.todayOrderCount,      icon: <ClipboardList size={20} />, color: "#3b82f6", bg: "rgba(59,130,246,0.08)" },
+    { label: "Bekleyen",        value: stats.pendingOrderCount,    icon: <Clock size={20} />,      color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
+    { label: "Aktif Talep",     value: stats.activeRequestCount,   icon: <Bell size={20} />,       color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
+    { label: "Ödeme Talebi",    value: stats.paymentRequestCount,  icon: <CreditCard size={20} />, color: "#8b5cf6", bg: "rgba(139,92,246,0.08)" },
+    { label: "Dolu Masa",       value: `${stats.occupiedTableCount}/${stats.totalTableCount}`, icon: <Table2 size={20} />, color: "#06b6d4", bg: "rgba(6,182,212,0.08)" },
   ];
 
   const quickLinks = [
-    { href: "/admin/orders",   icon: "🧾", label: "Siparişler",   color: "#3b82f6" },
-    { href: "/admin/products", icon: "🍽️", label: "Ürünler",      color: "#6366f1" },
-    { href: "/admin/tables",   icon: "🪑", label: "Masalar",      color: "#10b981" },
-    { href: "/admin/requests", icon: "🔔", label: "Talepler",     color: "#f59e0b" },
-    { href: "/admin/payments", icon: "💳", label: "Ödemeler",     color: "#8b5cf6" },
-    { href: "/admin/staff",    icon: "👥", label: "Personel",     color: "#ef4444" },
+    { href: "/admin/orders",   icon: <ClipboardList size={24} />,  label: "Siparişler",   color: "#3b82f6" },
+    { href: "/admin/products", icon: <Package size={24} />,        label: "Ürünler",      color: "#6366f1" },
+    { href: "/admin/tables",   icon: <Table2 size={24} />,         label: "Masalar",      color: "#10b981" },
+    { href: "/admin/requests", icon: <Bell size={24} />,           label: "Talepler",     color: "#f59e0b" },
+    { href: "/admin/payments", icon: <CreditCard size={24} />,     label: "Ödemeler",     color: "#8b5cf6" },
+    { href: "/admin/staff",    icon: <Users size={24} />,          label: "Personel",     color: "#ef4444" },
   ];
 
   return (
@@ -91,7 +95,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <button onClick={toggleRevenue} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
-          {hideRevenue ? "👁️ Ciroyu Göster" : "🙈 Ciroyu Gizle"}
+          {hideRevenue ? <><Eye size={14} /> Ciroyu Göster</> : <><EyeOff size={14} /> Ciroyu Gizle</>}
         </button>
       </div>
 
@@ -103,12 +107,11 @@ export default function AdminDashboardPage() {
             borderRadius: 14, padding: "16px 18px", position: "relative", overflow: "hidden",
             transition: "all 0.2s",
           }}>
-            {/* Accent bar */}
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: k.color, borderRadius: "14px 14px 0 0" }} />
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: k.bg,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 18, marginBottom: 10,
+              color: k.color, marginBottom: 10,
             }}>{k.icon}</div>
             <p style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
               {k.label}
@@ -126,13 +129,13 @@ export default function AdminDashboardPage() {
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ fontSize: 15, fontWeight: 700 }}>Son Siparişler</h3>
-            <Link href="/admin/orders" style={{ color: "var(--primary-light)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-              Tümünü Gör →
+            <Link href="/admin/orders" style={{ color: "var(--primary-light)", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+              Tümünü Gör <ArrowRight size={12} />
             </Link>
           </div>
           {recentOrders.length === 0 ? (
             <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>📭</div>
+              <ClipboardList size={36} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 8px" }} />
               <p style={{ fontSize: 13 }}>Henüz sipariş yok</p>
             </div>
           ) : (
@@ -168,7 +171,7 @@ export default function AdminDashboardPage() {
               textDecoration: "none", transition: "all 0.2s",
               color: "var(--text-primary)",
             }}>
-              <span style={{ fontSize: 24 }}>{q.icon}</span>
+              <span style={{ color: q.color }}>{q.icon}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{q.label}</span>
             </Link>
           ))}

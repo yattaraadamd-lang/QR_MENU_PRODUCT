@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
+import { toast } from "sonner";
+import { Check, X, ChefHat, UtensilsCrossed, Clock, AlertTriangle, Loader2 } from "lucide-react";
 
 type Order = {
   id: string;
@@ -22,16 +24,15 @@ type Order = {
   }>;
 };
 
-const STATUS_META: Record<string, { label: string; badge: string; color: string }> = {
-  PENDING:   { label: "Bekliyor",      badge: "badge-warning", color: "#f59e0b" },
-  ACCEPTED:  { label: "Kabul Edildi",  badge: "badge-info",    color: "#3b82f6" },
-  PREPARING: { label: "Hazırlanıyor",  badge: "badge-primary", color: "var(--primary)" },
-  SERVED:    { label: "Servis Edildi", badge: "badge-success", color: "#10b981" },
-  CANCELLED: { label: "İptal",         badge: "badge-danger",  color: "#ef4444" },
-  REJECTED:  { label: "Reddedildi",    badge: "badge-danger",  color: "#ef4444" },
+const STATUS_META: Record<string, { label: string; badge: string; color: string; icon: React.ReactNode }> = {
+  PENDING:   { label: "Bekliyor",      badge: "badge-warning", color: "#f59e0b", icon: <Clock size={14} /> },
+  ACCEPTED:  { label: "Kabul Edildi",  badge: "badge-info",    color: "#3b82f6", icon: <Check size={14} /> },
+  PREPARING: { label: "Hazırlanıyor",  badge: "badge-primary", color: "var(--primary)", icon: <ChefHat size={14} /> },
+  SERVED:    { label: "Servis Edildi", badge: "badge-success", color: "#10b981", icon: <UtensilsCrossed size={14} /> },
+  CANCELLED: { label: "İptal",         badge: "badge-danger",  color: "#ef4444", icon: <X size={14} /> },
+  REJECTED:  { label: "Reddedildi",    badge: "badge-danger",  color: "#ef4444", icon: <AlertTriangle size={14} /> },
 };
 
-// Relative time helper
 function timeAgo(dateStr: string) {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (diff < 60) return `${diff}sn önce`;
@@ -46,11 +47,9 @@ export default function WaiterOrdersPage() {
   const [filter, setFilter] = useState("active");
   const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  // ✅ İptal modal state
   const [cancelModal, setCancelModal] = useState<{ id: string; tableName: string } | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null); // orderId that's loading
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -69,10 +68,8 @@ export default function WaiterOrdersPage() {
     }
   }, [session, fetchOrders]);
 
-  // ✅ Socket.IO real-time — static import, reconnect sonrası fetchOrders tetiklenir
   useEffect(() => {
     if (!session?.user.businessId) return;
-    // onReconnect: bağlantı koptuktan sonra tekrar kurulunca API'den senkronize et
     const socket = connectToBusinessRoom(session.user.businessId, fetchOrders);
     socket.on("new_order", fetchOrders);
     socket.on("order_status_update", fetchOrders);
@@ -82,29 +79,29 @@ export default function WaiterOrdersPage() {
     };
   }, [session, fetchOrders]);
 
-  const updateStatus = async (orderId: string, status: string, cancelReason?: string): Promise<boolean> => {
-    setActionError(null);
-    setActionLoading(true);
+  const updateStatus = async (orderId: string, status: string, reason?: string): Promise<boolean> => {
+    setActionLoading(orderId);
     try {
       const res = await fetch(`/api/waiter/orders/${orderId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, cancelReason }),
+        body: JSON.stringify({ status, cancelReason: reason }),
       });
       const data = await res.json();
       if (res.ok) {
         fetchOrders();
+        const labels: Record<string, string> = { ACCEPTED: "Sipariş kabul edildi", PREPARING: "Hazırlanmaya başlandı", SERVED: "Servis edildi" };
+        if (labels[status]) toast.success(labels[status]);
         return true;
       } else {
-        setActionError(data.error || "İşlem başarısız oldu.");
+        toast.error(data.error || "İşlem başarısız oldu.");
         return false;
       }
-    } catch (e) {
-      console.error(e);
-      setActionError("Bağlantı hatası. Lütfen tekrar deneyin.");
+    } catch {
+      toast.error("Bağlantı hatası. Lütfen tekrar deneyin.");
       return false;
     } finally {
-      setActionLoading(false);
+      setActionLoading(null);
     }
   };
 
@@ -114,18 +111,17 @@ export default function WaiterOrdersPage() {
     if (ok) {
       setRejectModal(null);
       setRejectReason("");
-      setActionError(null);
+      toast.info("Sipariş reddedildi");
     }
   };
 
-  // ✅ Sipariş iptal
   const handleCancel = async () => {
     if (!cancelModal) return;
     const ok = await updateStatus(cancelModal.id, "CANCELLED", cancelReason || "Garson tarafından iptal edildi");
     if (ok) {
       setCancelModal(null);
       setCancelReason("");
-      setActionError(null);
+      toast.info("Sipariş iptal edildi");
     }
   };
 
@@ -150,26 +146,24 @@ export default function WaiterOrdersPage() {
                 }}>{rejectReason === r ? "✓ " : ""}{r}</button>
               ))}
             </div>
-            {actionError && (
-              <div style={{ marginBottom: 12, padding: "8px 12px", background: "rgba(239,68,68,0.12)", borderRadius: 8, fontSize: 13, color: "#fca5a5" }}>
-                ⚠️ {actionError}
-              </div>
-            )}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleReject} disabled={actionLoading} className="btn btn-danger" style={{ flex: 1, opacity: actionLoading ? 0.6 : 1 }}>
-                {actionLoading ? "İşleniyor..." : "Reddet"}
+              <button onClick={handleReject} disabled={actionLoading === rejectModal.id} className="btn btn-danger" style={{ flex: 1 }}>
+                {actionLoading === rejectModal.id ? <><Loader2 size={14} className="animate-spin" /> İşleniyor...</> : "Reddet"}
               </button>
-              <button onClick={() => { setRejectModal(null); setActionError(null); }} className="btn btn-ghost">İptal</button>
+              <button onClick={() => setRejectModal(null)} className="btn btn-ghost">İptal</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ✅ İptal Modal */}
+      {/* Cancel Modal */}
       {cancelModal && (
         <div className="modal-overlay" onClick={() => { setCancelModal(null); setCancelReason(""); }}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 360 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>❌ Siparişi İptal Et</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <AlertTriangle size={18} color="#ef4444" />
+              <h3 style={{ fontSize: 17, fontWeight: 700 }}>Siparişi İptal Et</h3>
+            </div>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
               <strong style={{ color: "var(--text-primary)" }}>{cancelModal.tableName}</strong> — İptal nedeni belirtin:
             </p>
@@ -216,17 +210,9 @@ export default function WaiterOrdersPage() {
             {pendingCount > 0 && (
               <span style={{
                 background: filter === "active" ? "rgba(255,255,255,0.25)" : "#ef4444",
-                color: "white",
-                borderRadius: 99,
-                fontSize: 10,
-                fontWeight: 800,
+                color: "white", borderRadius: 99, fontSize: 10, fontWeight: 800,
                 padding: "1px 6px",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-                {pendingCount}
-              </span>
+              }}>{pendingCount}</span>
             )}
           </button>
           <button onClick={() => setFilter("completed")} className={`btn btn-sm ${filter === "completed" ? "btn-primary" : "btn-ghost"}`}>Geçmiş</button>
@@ -240,7 +226,9 @@ export default function WaiterOrdersPage() {
         </div>
       ) : orders.length === 0 ? (
         <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>
+            <ClipboardList size={48} color="var(--text-muted)" strokeWidth={1.5} />
+          </div>
           <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>
             {filter === "active" ? "Bekleyen sipariş yok" : "Geçmiş sipariş yok"}
           </p>
@@ -250,10 +238,13 @@ export default function WaiterOrdersPage() {
           {orders.map(order => {
             const sm = STATUS_META[order.status] || STATUS_META.PENDING;
             const isPending = order.status === "PENDING";
+            const isLoading = actionLoading === order.id;
             return (
               <div key={order.id} className="card animate-fade-in" style={{
                 padding: 0, overflow: "hidden",
                 borderLeft: isPending ? `3px solid ${sm.color}` : "1px solid var(--border-color)",
+                opacity: isLoading ? 0.7 : 1,
+                transition: "opacity 0.2s",
               }}>
                 {/* Card header */}
                 <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--border-subtle)" }}>
@@ -262,11 +253,14 @@ export default function WaiterOrdersPage() {
                       <span style={{ fontWeight: 700, fontSize: 15 }}>
                         {order.table?.tableName || `Masa ${order.table?.tableNumber}`}
                       </span>
-                      <span className={`badge ${sm.badge}`}>{sm.label}</span>
+                      <span className={`badge ${sm.badge}`} style={{ gap: 4 }}>
+                        {sm.icon} {sm.label}
+                      </span>
                     </div>
-                    <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 3 }}>
+                    <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
+                      <Clock size={11} />
                       {timeAgo(order.createdAt)}
-                      {order.waiter && ` · 👤 ${order.waiter.name}`}
+                      {order.waiter && ` · ${order.waiter.name}`}
                     </p>
                   </div>
                   <span style={{ fontWeight: 800, fontSize: 16, color: "var(--primary-light)" }}>
@@ -307,41 +301,41 @@ export default function WaiterOrdersPage() {
                   <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border-subtle)", display: "flex", gap: 8 }}>
                     {order.status === "PENDING" && (
                       <>
-                        <button onClick={() => updateStatus(order.id, "ACCEPTED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
-                          ✓ Kabul Et
+                        <button onClick={() => updateStatus(order.id, "ACCEPTED")} disabled={isLoading} className="btn btn-sm btn-success" style={{ flex: 1, gap: 4 }}>
+                          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Kabul Et
                         </button>
-                        <button onClick={() => setRejectModal({ id: order.id })} className="btn btn-sm btn-danger" style={{ flex: 1 }}>
-                          ✕ Reddet
+                        <button onClick={() => setRejectModal({ id: order.id })} disabled={isLoading} className="btn btn-sm btn-danger" style={{ flex: 1, gap: 4 }}>
+                          <X size={14} /> Reddet
                         </button>
                       </>
                     )}
                     {order.status === "ACCEPTED" && (
                       <>
-                        <button onClick={() => updateStatus(order.id, "PREPARING")} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
-                          👨‍🍳 Hazırlanıyor
+                        <button onClick={() => updateStatus(order.id, "PREPARING")} disabled={isLoading} className="btn btn-sm btn-primary" style={{ flex: 1, gap: 4 }}>
+                          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <ChefHat size={14} />} Hazırlanıyor
                         </button>
-                        {/* ✅ İptal butonu — ACCEPTED durumunda */}
                         <button
                           onClick={() => setCancelModal({ id: order.id, tableName: order.table?.tableName || `Masa ${order.table?.tableNumber}` })}
+                          disabled={isLoading}
                           className="btn btn-sm btn-ghost"
                           style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}
                         >
-                          ✕
+                          <X size={14} />
                         </button>
                       </>
                     )}
                     {order.status === "PREPARING" && (
                       <>
-                        <button onClick={() => updateStatus(order.id, "SERVED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
-                          🍽️ Servis Edildi
+                        <button onClick={() => updateStatus(order.id, "SERVED")} disabled={isLoading} className="btn btn-sm btn-success" style={{ flex: 1, gap: 4 }}>
+                          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <UtensilsCrossed size={14} />} Servis Edildi
                         </button>
-                        {/* ✅ İptal butonu — PREPARING durumunda */}
                         <button
                           onClick={() => setCancelModal({ id: order.id, tableName: order.table?.tableName || `Masa ${order.table?.tableNumber}` })}
+                          disabled={isLoading}
                           className="btn btn-sm btn-ghost"
                           style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)" }}
                         >
-                          ✕
+                          <X size={14} />
                         </button>
                       </>
                     )}

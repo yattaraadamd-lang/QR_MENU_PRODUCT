@@ -6,12 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { NotificationSoundProvider, useNotificationSound } from "@/contexts/NotificationSoundContext";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
+import { ClipboardList, Bell, CreditCard, Table2, Volume2, VolumeX, LogOut, QrCode, X } from "lucide-react";
 
 const NAV = [
-  { href: "/waiter",          label: "Siparişler", icon: "🧾" },
-  { href: "/waiter/requests", label: "Talepler",   icon: "🔔" },
-  { href: "/waiter/payments", label: "Ödemeler",   icon: "💳" },
-  { href: "/waiter/tables",   label: "Masalar",    icon: "🪑" },
+  { href: "/waiter",          label: "Siparişler", icon: <ClipboardList size={22} /> },
+  { href: "/waiter/requests", label: "Talepler",   icon: <Bell size={22} /> },
+  { href: "/waiter/payments", label: "Ödemeler",   icon: <CreditCard size={22} /> },
+  { href: "/waiter/tables",   label: "Masalar",    icon: <Table2 size={22} /> },
 ];
 
 export default function WaiterLayout({ children }: { children: React.ReactNode }) {
@@ -43,18 +44,14 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { soundEnabled, enableSound, newNotification, notifications, clearNotification, clearAll } = useNotificationSound();
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const { counts, refresh: refreshBadges } = useBadgeCounts(8000);
+  const { counts } = useBadgeCounts(8000);
 
-  // Nav item'ı → badge count eşlemesi
   const badgeMap: Record<string, number> = {
     "/waiter":          counts.orders,
     "/waiter/requests": counts.requests,
     "/waiter/payments": counts.payments,
     "/waiter/tables":   counts.payments,
   };
-
-  // Socket.IO: badge’ları anlık yenile
-  // useNotificationSound zaten socket dinliyor, biz sadece badge refresh ekliyoruz
 
   const unreadCount = notifications.length;
 
@@ -72,6 +69,8 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
     if (s < 3600) return `${Math.floor(s / 60)}dk`;
     return `${Math.floor(s / 3600)}sa`;
   }
+
+  const initials = session?.user.name?.slice(0, 2).toUpperCase() || "G";
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary)", paddingBottom: 72 }}>
@@ -96,11 +95,13 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 9,
+            width: 34, height: 34, borderRadius: 10,
             background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16,
-          }}>🍽️</div>
+            boxShadow: "0 4px 12px var(--primary-glow)",
+          }}>
+            <QrCode size={18} color="white" />
+          </div>
           <div>
             <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>
               {session?.user.name || "Garson"}
@@ -111,12 +112,12 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {!soundEnabled ? (
             <button onClick={enableSound} className="btn btn-sm animate-pulse-glow" style={{
               background: "#f59e0b", color: "white", border: "none", fontSize: 11, gap: 4,
             }}>
-              🔊 Sesi Aç
+              <Volume2 size={14} /> Sesi Aç
             </button>
           ) : (
             <span style={{ fontSize: 11, color: "#6ee7b7", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
@@ -125,16 +126,18 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
             </span>
           )}
 
-          {/* ✅ Bildirim butonu */}
+          {/* Notification button */}
           <button
             onClick={() => setShowNotifPanel(!showNotifPanel)}
             style={{
               position: "relative", border: "none",
               cursor: "pointer", padding: 6, borderRadius: 8,
               background: showNotifPanel ? "var(--bg-hover)" : "transparent",
+              color: "var(--text-secondary)",
+              display: "flex", alignItems: "center",
             }}
           >
-            <span style={{ fontSize: 20 }}>🔔</span>
+            <Bell size={20} />
             {unreadCount > 0 && (
               <span style={{
                 position: "absolute", top: 0, right: 0,
@@ -146,11 +149,13 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
             )}
           </button>
 
-          <button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="btn btn-ghost btn-sm btn-icon" title="Çıkış Yap">🚪</button>
+          <button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="btn btn-ghost btn-sm btn-icon" title="Çıkış Yap" style={{ color: "var(--text-secondary)" }}>
+            <LogOut size={18} />
+          </button>
         </div>
       </div>
 
-      {/* ✅ Bildirim Paneli */}
+      {/* Notification Panel */}
       {showNotifPanel && (
         <div style={{
           position: "fixed", top: 56, right: 0, left: 0, zIndex: 40,
@@ -190,7 +195,9 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
                   </div>
                   <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{n.message}</p>
                 </div>
-                <button onClick={() => clearNotification(n.id)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 14, padding: 2, flexShrink: 0 }}>✕</button>
+                <button onClick={() => clearNotification(n.id)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 2, flexShrink: 0, display: "flex", alignItems: "center" }}>
+                  <X size={14} />
+                </button>
               </div>
             ))
           )}
@@ -219,7 +226,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
               gap: 3, padding: "10px 4px 6px",
               textDecoration: "none", fontSize: 10, fontWeight: active ? 700 : 500,
-              color: active ? "var(--accent-light)" : "var(--text-secondary)",
+              color: active ? "var(--primary-light)" : "var(--text-secondary)",
               position: "relative", transition: "color 0.15s",
             }}>
               {active && (
@@ -228,13 +235,12 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
                   height: 2, background: "var(--primary)", borderRadius: "0 0 4px 4px",
                 }} />
               )}
-              {/* İkon + badge wrapper */}
               <span style={{ position: "relative", display: "inline-flex" }}>
-                <span style={{ fontSize: 22 }}>{item.icon}</span>
+                {item.icon}
                 {badge > 0 && (
                   <span style={{
                     position: "absolute",
-                    top: -4, right: -6,
+                    top: -4, right: -8,
                     background: "#ef4444",
                     color: "white",
                     borderRadius: 99,

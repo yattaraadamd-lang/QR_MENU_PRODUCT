@@ -43,25 +43,42 @@ export async function PATCH(
       },
     });
 
-    // Masa durumunu sipariş durumuna göre güncelle
+    // ✅ Masa durumunu TÜM siparişlere göre güncelle (sadece bu siparişe göre değil)
+    const otherActiveOrders = await prisma.order.count({
+      where: {
+        tableId: order.tableId,
+        id: { not: orderId },
+        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
+      },
+    });
+
     let tableStatus: TableStatus = TableStatus.OCCUPIED;
-    
-    switch (status) {
-      case OrderStatus.PENDING:
-        tableStatus = TableStatus.HAS_ORDER;
-        break;
-      case OrderStatus.ACCEPTED:
-        tableStatus = TableStatus.HAS_ORDER;
-        break;
-      case OrderStatus.PREPARING:
-        tableStatus = TableStatus.PREPARING;
-        break;
-      case OrderStatus.SERVED:
+
+    if (status === OrderStatus.PREPARING) {
+      tableStatus = TableStatus.PREPARING;
+    } else if (status === OrderStatus.PENDING || status === OrderStatus.ACCEPTED) {
+      tableStatus = TableStatus.HAS_ORDER;
+    } else if (status === OrderStatus.SERVED) {
+      if (otherActiveOrders === 0) {
         tableStatus = TableStatus.SERVED;
-        break;
-      case OrderStatus.CANCELLED:
-        tableStatus = TableStatus.OCCUPIED;
-        break;
+      } else {
+        tableStatus = TableStatus.PREPARING;
+      }
+    } else if (status === OrderStatus.CANCELLED) {
+      if (otherActiveOrders === 0) {
+        // ✅ SERVED (ödenmemiş) siparişleri kontrol et
+        const unpaidServedOrders = await prisma.order.count({
+          where: {
+            tableId: order.tableId,
+            status: "SERVED",
+            paymentStatus: "UNPAID",
+          },
+        });
+        tableStatus = unpaidServedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
+      } else {
+        // Diğer aktif siparişler var, masa durumunu değiştirme
+        tableStatus = TableStatus.HAS_ORDER;
+      }
     }
 
     await prisma.table.update({
@@ -129,11 +146,29 @@ export async function DELETE(
       },
     });
 
-    // Masa durumunu güncelle
-    await prisma.table.update({
-      where: { id: order.tableId },
-      data: { status: TableStatus.OCCUPIED },
+    // ✅ Masa durumunu güncelle — SERVED ödenmemiş sipariş varsa masa kapanmamalı
+    const otherActiveOrders = await prisma.order.count({
+      where: {
+        tableId: order.tableId,
+        id: { not: orderId },
+        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
+      },
     });
+
+    if (otherActiveOrders === 0) {
+      const unpaidServedOrders = await prisma.order.count({
+        where: {
+          tableId: order.tableId,
+          status: "SERVED",
+          paymentStatus: "UNPAID",
+        },
+      });
+
+      await prisma.table.update({
+        where: { id: order.tableId },
+        data: { status: unpaidServedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED },
+      });
+    }
 
     // Bildirim oluştur
     await prisma.notification.create({

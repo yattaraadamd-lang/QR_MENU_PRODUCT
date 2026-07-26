@@ -61,10 +61,27 @@ export async function PUT(
 
     // Başka aktif sipariş yoksa masa durumunu güncelle
     if (otherActiveOrders === 0) {
-      await prisma.table.update({
-        where: { id: order.tableId },
-        data: { status: TableStatus.OCCUPIED },
+      // ✅ SERVED (ödenmemiş) siparişleri kontrol et — varsa masa kapanmamalı
+      const unpaidServedOrders = await prisma.order.count({
+        where: {
+          tableId: order.tableId,
+          status: "SERVED",
+          paymentStatus: "UNPAID",
+        },
       });
+
+      if (unpaidServedOrders > 0) {
+        // Servis edilmiş ödenmemiş sipariş var — masa SERVED kalmalı
+        await prisma.table.update({
+          where: { id: order.tableId },
+          data: { status: TableStatus.SERVED },
+        });
+      } else {
+        await prisma.table.update({
+          where: { id: order.tableId },
+          data: { status: TableStatus.OCCUPIED },
+        });
+      }
     }
 
     // Socket.IO bildirimi

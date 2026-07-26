@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle } from "lucide-react";
+import Input from "@/components/ui/Input";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -11,7 +13,6 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPass, setShowPass] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +21,7 @@ export default function SignInPage() {
     try {
       const result = await signIn("credentials", { email, password, redirect: false });
       if (result?.error) {
-        setError("E-posta veya şifre hatalı. Lütfen tekrar deneyin.");
+        setError("E-posta veya şifre hatalı. Lütfen bilgilerinizi kontrol edin.");
       } else {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
@@ -35,163 +36,250 @@ export default function SignInPage() {
         router.refresh();
       }
     } catch {
-      setError("Giriş yapılırken bir hata oluştu.");
+      setError("Giriş yapılırken bir sorun oluştu. Lütfen tekrar deneyin.");
     } finally {
       setLoading(false);
     }
   };
 
+  const fillDemo = (demoEmail: string, demoPass: string) => {
+    setEmail(demoEmail);
+    setPassword(demoPass);
+    setError("");
+  };
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #0d1117 0%, #1a1040 50%, #0d1117 100%)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 16,
-    }}>
-      {/* Background decoration */}
-      <div style={{
-        position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0,
-      }}>
-        <div style={{
-          position: "absolute", top: "20%", left: "10%", width: 400, height: 400,
-          background: "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)",
+    <div
+      className="landing-theme"
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        background: "linear-gradient(145deg, #F8FAFC 0%, #FEF7ED 50%, #F8FAFC 100%)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Background decorations */}
+      <div
+        style={{
+          position: "absolute",
+          top: "15%",
+          left: "5%",
+          width: 350,
+          height: 350,
+          background: "radial-gradient(circle, rgba(217,119,6,0.06) 0%, transparent 70%)",
           borderRadius: "50%",
-        }} />
-        <div style={{
-          position: "absolute", bottom: "20%", right: "10%", width: 300, height: 300,
-          background: "radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: "10%",
+          right: "10%",
+          width: 300,
+          height: 300,
+          background: "radial-gradient(circle, rgba(245,158,11,0.05) 0%, transparent 70%)",
           borderRadius: "50%",
-        }} />
-      </div>
+          pointerEvents: "none",
+        }}
+      />
 
       <div style={{ maxWidth: 420, width: "100%", position: "relative", zIndex: 1 }}>
-        {/* Logo */}
+        {/* Logo & Title */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 18,
-            background: "linear-gradient(135deg, #6366f1, #4f46e5)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 28, margin: "0 auto 16px",
-            boxShadow: "0 8px 32px rgba(99,102,241,0.4)",
-          }}>
-            🍽️
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              background: "linear-gradient(135deg, #D97706, #B45309)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              boxShadow: "0 8px 24px rgba(217,119,6,0.3)",
+            }}
+          >
+            <QrCode size={28} color="white" />
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: "#e6edf3", letterSpacing: "-0.02em" }}>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>
             QR Menü Platformu
           </h1>
-          <p style={{ color: "#7d8590", fontSize: 14, marginTop: 6 }}>
-            Hesabınıza giriş yapın
+          <p style={{ color: "#64748B", fontSize: 14, marginTop: 6 }}>
+            Yönetim panelinize giriş yapın
           </p>
         </div>
 
-        {/* Card */}
-        <div style={{
-          background: "#161b22",
-          border: "1px solid #30363d",
-          borderRadius: 20,
-          padding: 32,
-          boxShadow: "0 16px 48px rgba(0,0,0,0.5)",
-        }}>
+        {/* Login Card */}
+        <div
+          style={{
+            background: "#FFFFFF",
+            border: "1px solid #E2E8F0",
+            borderRadius: 20,
+            padding: "28px 28px 24px",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)",
+          }}
+        >
+          {/* Error */}
           {error && (
-            <div style={{
-              padding: "12px 16px",
-              background: "rgba(239,68,68,0.1)",
-              border: "1px solid rgba(239,68,68,0.25)",
-              borderRadius: 10,
-              color: "#fca5a5",
-              fontSize: 13,
-              marginBottom: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}>
-              <span>⚠️</span> {error}
+            <div
+              style={{
+                padding: "12px 14px",
+                background: "rgba(220,38,38,0.06)",
+                border: "1px solid rgba(220,38,38,0.15)",
+                borderRadius: 12,
+                color: "#B91C1C",
+                fontSize: 13,
+                fontWeight: 500,
+                marginBottom: 20,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "#7d8590", display: "block", marginBottom: 6 }}>
-                E-posta adresi
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-                placeholder="ornek@isletme.com"
-                required
-                autoComplete="email"
-                style={{ fontSize: 15 }}
-              />
-            </div>
+            <Input
+              label="E-posta adresi"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ornek@isletme.com"
+              required
+              autoComplete="email"
+              leftIcon={<Mail size={18} />}
+              style={{ fontSize: 15 }}
+            />
 
-            <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "#7d8590", display: "block", marginBottom: 6 }}>
-                Şifre
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showPass ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input"
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                  style={{ fontSize: 15, paddingRight: 44 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  style={{
-                    position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-                    background: "none", border: "none", cursor: "pointer", color: "#7d8590",
-                    fontSize: 16, padding: 4,
-                  }}
-                >
-                  {showPass ? "🙈" : "👁️"}
-                </button>
-              </div>
-            </div>
+            <Input
+              label="Şifre"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              autoComplete="current-password"
+              showPasswordToggle
+              leftIcon={<Lock size={18} />}
+              style={{ fontSize: 15 }}
+            />
 
             <button
               type="submit"
               disabled={loading}
               className="btn btn-primary btn-lg"
-              style={{ width: "100%", marginTop: 4, fontSize: 15 }}
+              style={{ width: "100%", marginTop: 4, fontSize: 15, borderRadius: 12, gap: 8 }}
             >
               {loading ? (
-                <><span className="animate-spin" style={{ display: "inline-block", width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%" }} /> Giriş yapılıyor...</>
-              ) : "Giriş Yap →"}
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Giriş yapılıyor...
+                </>
+              ) : (
+                <>
+                  Giriş Yap
+                  <ArrowRight size={18} />
+                </>
+              )}
             </button>
           </form>
 
           <div style={{ textAlign: "center", marginTop: 20 }}>
-            <p style={{ fontSize: 13, color: "#7d8590" }}>
+            <p style={{ fontSize: 13, color: "#64748B" }}>
               Garson hesabınız yok mu?{" "}
-              <Link href="/auth/register" style={{ color: "#818cf8", fontWeight: 600, textDecoration: "none" }}>
+              <Link
+                href="/auth/register"
+                style={{ color: "#D97706", fontWeight: 600, textDecoration: "none" }}
+              >
                 Kayıt Ol
               </Link>
             </p>
           </div>
         </div>
 
-        {/* Demo hint */}
-        <div style={{
-          marginTop: 16,
-          padding: "12px 16px",
-          background: "rgba(99,102,241,0.06)",
-          border: "1px solid rgba(99,102,241,0.15)",
-          borderRadius: 12,
-          textAlign: "center",
-        }}>
-          <p style={{ fontSize: 12, color: "#7d8590" }}>
-            <strong style={{ color: "#818cf8" }}>Demo:</strong>{" "}
-            admin@demo.com / admin123 &nbsp;·&nbsp; garson@demo.com / garson123
+        {/* Demo Credentials */}
+        <div
+          style={{
+            marginTop: 16,
+            padding: "16px 20px",
+            background: "rgba(217,119,6,0.04)",
+            border: "1px solid rgba(217,119,6,0.12)",
+            borderRadius: 16,
+          }}
+        >
+          <p
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#B45309",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: 10,
+            }}
+          >
+            Demo Hesapları
           </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <button
+              onClick={() => fillDemo("admin@demo.com", "admin123")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid rgba(217,119,6,0.12)",
+                background: "white",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                fontSize: 13,
+                color: "#475569",
+              }}
+            >
+              <span>
+                <strong style={{ color: "#0F172A" }}>Admin</strong> · admin@demo.com
+              </span>
+              <ArrowRight size={14} color="#D97706" />
+            </button>
+            <button
+              onClick={() => fillDemo("garson@demo.com", "garson123")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid rgba(217,119,6,0.12)",
+                background: "white",
+                cursor: "pointer",
+                transition: "all 0.15s",
+                fontSize: 13,
+                color: "#475569",
+              }}
+            >
+              <span>
+                <strong style={{ color: "#0F172A" }}>Garson</strong> · garson@demo.com
+              </span>
+              <ArrowRight size={14} color="#D97706" />
+            </button>
+          </div>
+        </div>
+
+        {/* Back to landing */}
+        <div style={{ textAlign: "center", marginTop: 20 }}>
+          <Link
+            href="/"
+            style={{ fontSize: 13, color: "#94A3B8", textDecoration: "none", fontWeight: 500 }}
+          >
+            ← Ana Sayfaya Dön
+          </Link>
         </div>
       </div>
     </div>

@@ -10,18 +10,6 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          50:  "#FEF2F2",
-          100: "#FEE2E2",
-          200: "#FECACA",
-          300: "#FCA5A5",
-          400: "#F87171",
-          500: "#EF4444",
-          600: "#DC2626",
-          700: "#B91C1C",
-          800: "#991B1B",
-          900: "#7F1D1D",
-        },
-        accent: {
           50:  "#FFFBEB",
           100: "#FEF3C7",
           200: "#FDE68A",
@@ -32,6 +20,18 @@ const config: Config = {
           700: "#B45309",
           800: "#92400E",
           900: "#78350F",
+        },
+        accent: {
+          50:  "#FEF2F2",
+          100: "#FEE2E2",
+          200: "#FECACA",
+          300: "#FCA5A5",
+          400: "#F87171",
+          500: "#EF4444",
+          600: "#DC2626",
+          700: "#B91C1C",
+          800: "#991B1B",
+          900: "#7F1D1D",
         },
         coffee: {
           50:  "#FEF7ED",
@@ -48,6 +48,21 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+      },
+      animation: {
+        "float": "float 3s ease-in-out infinite",
+        "gradient-shift": "gradient-shift 6s ease infinite",
+      },
+      keyframes: {
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        "gradient-shift": {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
+        },
       },
     },
   },
