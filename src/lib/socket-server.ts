@@ -62,6 +62,7 @@ export const SOCKET_EVENTS = {
   HELP_REQUEST:         "help_request",
   TABLE_UPDATED:        "table_updated",
   TABLE_OPENED:         "table_opened",
+  TABLE_STATUS_UPDATE:  "table_status_update",
   SESSION_AUTHORIZED:   "session_authorized",
   ORDER_REQUEST_UPDATE: "order_request_update",
 } as const;

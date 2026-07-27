@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { RequestStatus, TableStatus } from "@prisma/client";
-import { emitToBusinessRoom } from "@/lib/socket-server";
+import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
+import { recalculateTableStatus } from "@/lib/services/table-flow.service";
 
 // PUT /api/waiter/service-requests/[id]/status - Talep durumu güncelle
 export async function PUT(
@@ -25,6 +26,7 @@ export async function PUT(
       );
     }
 
+    // Talebi kontrol et (transaction dışında — varlık doğrulaması)
     const serviceRequest = await prisma.serviceRequest.findFirst({
       where: { id: params.id, businessId },
       include: { table: true },
@@ -37,59 +39,92 @@ export async function PUT(
       );
     }
 
-    const updatedRequest = await prisma.serviceRequest.update({
-      where: { id: params.id },
-      data: {
-        status: status as RequestStatus,
-        ...(status === "COMPLETED" && { completedAt: new Date() }),
-      },
-      include: { table: true },
-    });
+    // ── İdempotency: Talep zaten CANCELLED/COMPLETED ise ──────────────
+    // Talep kaydını tekrar güncelleme, hata döndürme.
+    // Masa durumunu gerçek kayıtlardan tekrar hesapla.
+    const alreadyTerminal = serviceRequest.status === "CANCELLED" || serviceRequest.status === "COMPLETED";
 
-    // Talep tamamlandığında masa durumunu kontrol et
-    if (status === "COMPLETED" || status === "CANCELLED") {
-      // Aynı masada başka aktif talep var mı?
-      const otherActiveRequests = await prisma.serviceRequest.count({
-        where: {
-          tableId: serviceRequest.tableId,
-          id: { not: params.id },
-          status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] },
-        },
-      });
+    // ── Tek transaction içinde talep güncelle + masa durumu hesapla ────
+    const result = await prisma.$transaction(async (tx) => {
+      // Talep kaydını güncelle (zaten terminal değilse)
+      let updatedRequest;
+      if (alreadyTerminal) {
+        // İdempotent: mevcut kaydı olduğu gibi döndür
+        updatedRequest = await tx.serviceRequest.findFirst({
+          where: { id: params.id },
+          include: { table: true },
+        });
+      } else {
+        updatedRequest = await tx.serviceRequest.update({
+          where: { id: params.id },
+          data: {
+            status: status as RequestStatus,
+            ...(status === "COMPLETED" && { completedAt: new Date() }),
+            ...(status === "CANCELLED" && { resolvedAt: new Date() }),
+          },
+          include: { table: true },
+        });
 
-      // Aktif sipariş var mı?
-      const activeOrders = await prisma.order.count({
-        where: {
-          tableId: serviceRequest.tableId,
-          status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
-        },
-      });
-
-      if (otherActiveRequests === 0) {
-        let newStatus: TableStatus = TableStatus.OCCUPIED;
-        if (activeOrders > 0) {
-          newStatus = TableStatus.HAS_ORDER;
+        // ── ORDER_REQUEST iptal: bağlı CustomerSession'ı VIEW_ONLY yap ──
+        // Sadece PENDING durumdaki aktif session'a dokunulur.
+        // AUTHORIZED veya REVOKED session'lar değiştirilmez.
+        // Yeni TableSession/Bill oluşturulmaz; masa durumu recalculateTableStatus ile belirlenir.
+        if (
+          status === "CANCELLED" &&
+          serviceRequest.requestType === "ORDER_REQUEST" &&
+          serviceRequest.customerSessionId
+        ) {
+          await tx.customerSession.updateMany({
+            where: {
+              id: serviceRequest.customerSessionId,
+              status: "ACTIVE",
+              authorizationStatus: "PENDING",
+            },
+            data: {
+              authorizationStatus: "VIEW_ONLY",
+            },
+          });
         }
+      }
 
-        await prisma.table.update({
-          where: { id: serviceRequest.tableId },
-          data: { status: newStatus },
+      // Masa durumunu yeniden hesapla (COMPLETED veya CANCELLED ise)
+      let calculatedTableStatus: TableStatus | null = null;
+      if (status === "COMPLETED" || status === "CANCELLED") {
+        calculatedTableStatus = await recalculateTableStatus(tx, {
+          businessId,
+          tableId: serviceRequest.tableId,
         });
       }
-    }
 
-    // Socket.IO bildirimi
+      return { updatedRequest, calculatedTableStatus };
+    });
+
+    // ── Socket.IO bildirimleri (transaction sonrası) ──────────────────
+
+    // 1. Mevcut request_status_update olayı
     emitToBusinessRoom(businessId, "request_status_update", {
       requestId: serviceRequest.id,
       tableNumber: serviceRequest.table.tableNumber,
       tableName: serviceRequest.table.tableName,
-      status,
+      status: alreadyTerminal ? serviceRequest.status : status,
       requestType: serviceRequest.requestType,
     });
 
+    // 2. Masa durumu değişikliğini yayınla
+    if (result.calculatedTableStatus !== null) {
+      emitToBusinessRoom(businessId, "table_status_update", {
+        tableId: serviceRequest.tableId,
+        status: result.calculatedTableStatus,
+        requestId: serviceRequest.id,
+        requestType: serviceRequest.requestType,
+      });
+    }
+
     return NextResponse.json({
-      message: "Talep durumu güncellendi",
-      serviceRequest: updatedRequest,
+      message: alreadyTerminal
+        ? "Talep zaten bu durumda"
+        : "Talep durumu güncellendi",
+      serviceRequest: result.updatedRequest,
     });
   } catch (error) {
     console.error("Talep güncelleme hatası:", error);

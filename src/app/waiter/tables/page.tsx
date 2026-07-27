@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { connectToBusinessRoom } from "@/lib/socket-client";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   EMPTY:             { label: "Boş",              color: "#7d8590", bg: "rgba(125,133,144,0.12)", icon: "⚪" },
@@ -62,6 +63,17 @@ export default function WaiterTablesPage() {
       const iv = setInterval(fetchTables, 5000);
       return () => clearInterval(iv);
     }
+  }, [session, fetchTables]);
+
+  // ✅ Socket.IO — masa durumu değişikliklerini anında yansıt
+  useEffect(() => {
+    if (!session?.user.businessId) return;
+    const socket = connectToBusinessRoom(session.user.businessId, fetchTables);
+    const events = ["table_status_update", "table_opened", "request_status_update", "payment_collected"];
+    events.forEach((ev) => socket.on(ev, fetchTables));
+    return () => {
+      events.forEach((ev) => socket.off(ev, fetchTables));
+    };
   }, [session, fetchTables]);
 
 
