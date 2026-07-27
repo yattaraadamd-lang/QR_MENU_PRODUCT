@@ -555,7 +555,137 @@ export async function closeTable(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 8. YARDIMCI: MASA DURUMUNU SENKRONIZE ET
+// 8a. YARDIMCI: MASA DURUMUNU TRANSACTION İÇİNDEN YENİDEN HESAPLA
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Masanın gerçek durumunu veritabanındaki kayıtlardan yeniden hesaplar.
+ * Dış transaction içinden çağrılabilir (TxClient alır).
+ *
+ * Karar kuralı:
+ *   Aktif TableSession yok + açık Bill yok + gerçek aktif sipariş yok → EMPTY
+ *   Aktif TableSession varsa:
+ *     PREPARING sipariş varsa          → PREPARING
+ *     PENDING veya ACCEPTED varsa      → HAS_ORDER
+ *     Aktif PAYMENT_REQUEST varsa      → PAYMENT_REQUESTED
+ *     Servis edilmiş açık hesap varsa  → SERVED
+ *     Hiçbiri yoksa                    → OCCUPIED
+ *
+ * Masayı transaction içinde günceller ve hesaplanan durumu döndürür.
+ */
+export async function recalculateTableStatus(
+  tx: TxClient,
+  opts: { businessId: string; tableId: string }
+): Promise<TableStatus> {
+  const { businessId, tableId } = opts;
+
+  // 1. Aktif TableSession var mı?
+  const activeSession = await tx.tableSession.findFirst({
+    where: { tableId, businessId, status: "ACTIVE" },
+    include: { bill: true },
+  });
+
+  // 2. Açık Bill var mı? (session bağımsız kontrol — güvenlik)
+  const openBill = await tx.bill.findFirst({
+    where: { tableId, businessId, status: "OPEN" },
+  });
+
+  // 3. Gerçek aktif / ödenmemiş sipariş var mı?
+  const activeOrderCount = await tx.order.count({
+    where: {
+      tableId,
+      status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
+    },
+  });
+
+  // ── Aktif session yoksa ──────────────────────────────────────────────
+  if (!activeSession && !openBill && activeOrderCount === 0) {
+    const table = await tx.table.findUnique({ where: { id: tableId } });
+    if (table && table.status !== TableStatus.EMPTY) {
+      await tx.table.update({
+        where: { id: tableId },
+        data: { status: TableStatus.EMPTY },
+      });
+    }
+    return TableStatus.EMPTY;
+  }
+
+  // ── Aktif session varsa — durumu gerçek verilerden hesapla ──────────
+  if (activeSession) {
+    // Sipariş durumlarını grupla
+    const orderStatuses = await tx.order.groupBy({
+      by: ["status"],
+      where: {
+        tableSessionId: activeSession.id,
+        status: { notIn: ["CANCELLED", "REJECTED"] },
+      },
+      _count: true,
+    });
+
+    const statusMap: Record<string, number> = {};
+    orderStatuses.forEach((s) => {
+      statusMap[s.status] = s._count;
+    });
+
+    let computed: TableStatus;
+
+    if (statusMap["PREPARING"]) {
+      computed = TableStatus.PREPARING;
+    } else if (statusMap["PENDING"] || statusMap["ACCEPTED"]) {
+      computed = TableStatus.HAS_ORDER;
+    } else {
+      // Aktif PAYMENT_REQUEST var mı?
+      const activePR = await tx.serviceRequest.count({
+        where: {
+          tableId,
+          requestType: "PAYMENT_REQUEST",
+          status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] },
+        },
+      });
+      // Bekleyen ödeme var mı?
+      const pendingPayment = await tx.payment.count({
+        where: { tableSessionId: activeSession.id, status: "PENDING" },
+      });
+
+      if (activePR > 0 || pendingPayment > 0) {
+        computed = TableStatus.PAYMENT_REQUESTED;
+      } else if (
+        statusMap["SERVED"] &&
+        activeSession.bill &&
+        activeSession.bill.status === "OPEN"
+      ) {
+        computed = TableStatus.SERVED;
+      } else {
+        computed = TableStatus.OCCUPIED;
+      }
+    }
+
+    // Güncelle (gereksiz yazma yok)
+    const table = await tx.table.findUnique({ where: { id: tableId } });
+    if (table && table.status !== computed) {
+      await tx.table.update({
+        where: { id: tableId },
+        data: { status: computed },
+      });
+    }
+
+    return computed;
+  }
+
+  // Aktif session yok ama açık bill veya aktif sipariş var — tutarsız durum
+  // Güvenli tarafta kal: OCCUPIED
+  const table = await tx.table.findUnique({ where: { id: tableId } });
+  if (table && table.status !== TableStatus.OCCUPIED) {
+    await tx.table.update({
+      where: { id: tableId },
+      data: { status: TableStatus.OCCUPIED },
+    });
+  }
+  return TableStatus.OCCUPIED;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 8b. YARDIMCI: MASA DURUMUNU SENKRONIZE ET (eski — kendi transaction'ı var)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
