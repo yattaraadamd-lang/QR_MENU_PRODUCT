@@ -218,16 +218,16 @@ export default function WaiterRequestsPage() {
                     </div>
                   )}
 
-                  {["PENDING", "SEEN", "IN_PROGRESS"].includes(req.status) && (
-                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                      {/* ✅ Masayı Aç butonu — YALNIZ ORDER_REQUEST için */}
-                      {isOrder && isPending && !expired && (
+                  {isOrder ? (
+                    /* ✅ ORDER_REQUEST: yalnız Masayı Aç ve İptal */
+                    isPending && !expired && (
+                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                         <button
                           onClick={() => openTable(req)}
                           disabled={openingTable === req.id}
                           className="btn btn-sm"
                           style={{
-                            flex: 1,
+                            flex: 2,
                             background: "linear-gradient(135deg, #059669, #047857)",
                             color: "white",
                             border: "none",
@@ -236,19 +236,30 @@ export default function WaiterRequestsPage() {
                         >
                           {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç"}
                         </button>
-                      )}
-                      {req.status === "PENDING" && (
-                        <button onClick={() => updateStatus(req.id, "IN_PROGRESS")} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
-                          ▶ İşleme Al
+                        <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                          ✕ İptal
                         </button>
-                      )}
-                      <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: req.status === "PENDING" ? 1 : 2 }}>
-                        ✓ Tamamla
-                      </button>
-                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
-                        ✕
-                      </button>
-                    </div>
+                      </div>
+                    )
+                  ) : (
+                    /* ✅ Normal hizmet talepleri: İşleme Al → Tamamla → İptal */
+                    ["PENDING", "SEEN", "IN_PROGRESS"].includes(req.status) && (
+                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                        {req.status === "PENDING" && (
+                          <button onClick={() => updateStatus(req.id, "IN_PROGRESS")} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
+                            ▶ İşleme Al
+                          </button>
+                        )}
+                        {(req.status === "IN_PROGRESS" || req.status === "SEEN") && (
+                          <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: req.status === "PENDING" ? 1 : 2 }}>
+                            ✓ Tamamla
+                          </button>
+                        )}
+                        <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                          ✕
+                        </button>
+                      </div>
+                    )
                   )}
                 </div>
               </div>

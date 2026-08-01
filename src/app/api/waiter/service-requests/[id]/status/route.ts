@@ -39,6 +39,20 @@ export async function PUT(
       );
     }
 
+    // ✅ ORDER_REQUEST güvenlik bariyeri: yalnız open-table veya İptal ile sonuçlandırılabilir
+    if (
+      serviceRequest.requestType === "ORDER_REQUEST" &&
+      ["SEEN", "IN_PROGRESS", "COMPLETED"].includes(status)
+    ) {
+      return NextResponse.json(
+        {
+          code: "USE_OPEN_TABLE_ENDPOINT",
+          error: "Sipariş talebi yalnız Masayı Aç veya İptal işlemiyle sonuçlandırılabilir.",
+        },
+        { status: 409 }
+      );
+    }
+
     // ── İdempotency: Talep zaten CANCELLED/COMPLETED ise ──────────────
     // Talep kaydını tekrar güncelleme, hata döndürme.
     // Masa durumunu gerçek kayıtlardan tekrar hesapla.

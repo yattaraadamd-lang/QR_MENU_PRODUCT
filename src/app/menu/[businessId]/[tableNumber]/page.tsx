@@ -404,8 +404,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     finally { setSubmitting(false); }
   };
 
+  const [sendingRequest, setSendingRequest] = useState(false);
+
   const sendRequest = async (type: string, reason?: string, note?: string) => {
     if (!business || !table) return;
+    if (sendingRequest) return;
 
     // Hizmet talepleri için AUTHORIZED gerekli (ORDER_REQUEST hariç)
     if (type !== "ORDER_REQUEST" && authStatus !== "AUTHORIZED") {
@@ -425,22 +428,42 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       (type === "ORDER_REQUEST" && activeRequests["ORDER_REQUEST"]);
 
     if (isBlocked) {
-      showToast("Devam eden bir talebiniz var. Lütfen bekleyin.", "err");
+      if (type === "PAYMENT_REQUEST") {
+        showToast("Ödeme talebiniz zaten bekliyor.", "err");
+      } else {
+        showToast("Devam eden bir talebiniz var. Lütfen bekleyin.", "err");
+      }
       return;
     }
 
+    setSendingRequest(true);
     try {
-      const r = await fetch("/api/customer/service-requests", {
+      // ✅ PAYMENT_REQUEST → özel ödeme endpointi
+      const isPaymentRequest = type === "PAYMENT_REQUEST";
+      const endpoint = isPaymentRequest
+        ? "/api/customer/payment-requests"
+        : "/api/customer/service-requests";
+
+      const payload = isPaymentRequest
+        ? {
+            businessId: business.id,
+            tableId: table.id,
+            note: note || null,
+          }
+        : {
+            businessId: business.id,
+            tableId: table.id,
+            requestType: type,
+            reason: reason || null,
+            note: note || null,
+          };
+
+      const r = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-session-token": token },
-        body: JSON.stringify({
-          businessId: business.id,
-          tableId: table.id,
-          requestType: type,
-          reason: reason || null,
-          note: note || null,
-        }),
+        body: JSON.stringify(payload),
       });
+
       if (r.ok) {
         const msgs: Record<string, string> = {
           CALL_WAITER: "Garson çağrıldı! 🙋",
@@ -453,9 +476,15 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         checkActiveRequests();
       } else {
         const d = await r.json();
-        showToast(d.error || "Talep gönderilemedi", "err");
+        // ✅ Duplicate ödeme talebi — 409
+        if (isPaymentRequest && (r.status === 409 || d.code === "PAYMENT_REQUEST_ALREADY_EXISTS")) {
+          showToast("Ödeme talebiniz zaten bekliyor.", "err");
+        } else {
+          showToast(d.error || "Talep gönderilemedi", "err");
+        }
       }
     } catch { showToast("Bağlantı hatası", "err"); }
+    finally { setSendingRequest(false); }
   };
 
   const scrollTo = (catId: string) => {
@@ -905,9 +934,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
               )}
               <button
                 onClick={() => sendRequest("CALL_WAITER", waiterReason === "Diğer" ? waiterNote : waiterReason)}
-                disabled={!waiterReason || (waiterReason === "Diğer" && !waiterNote.trim())}
+                disabled={!waiterReason || (waiterReason === "Diğer" && !waiterNote.trim()) || sendingRequest}
                 className="btn btn-primary" style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 16 }}>
-                Garson Çağır
+                {sendingRequest ? "Gönderiliyor..." : "Garson Çağır"}
               </button>
             </div>
           </div>
@@ -933,7 +962,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 {
                   type: "PAYMENT_REQUEST", icon: "💳", title: "Ödeme İste", desc: "Hesabınızı kapatmak için garson çağırın",
                   action: () => sendRequest("PAYMENT_REQUEST"),
-                  blocked: activeRequests["PAYMENT_REQUEST"] || activeRequests["PAYMENT_REQUEST_BLOCKED"],
+                  blocked: activeRequests["PAYMENT_REQUEST"] || activeRequests["PAYMENT_REQUEST_BLOCKED"] || sendingRequest,
                   activeMsg: activeRequests["PAYMENT_REQUEST"] ? "Ödeme talebiniz iletildi, bekleniyor..." : undefined,
                 },
                 {
@@ -943,7 +972,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 },
               ].map(item => (
                 <div key={item.type}>
-                  <button className="service-btn card" onClick={item.blocked ? undefined : item.action} style={{
+                  <button className="service-btn card" onClick={(item.blocked || sendingRequest) ? undefined : item.action} style={{
                     display: "flex", alignItems: "center", gap: 14, padding: "16px", borderRadius: 16,
                     border: `1px solid ${item.blocked ? "rgba(220,38,38,0.3)" : "var(--border-color)"}`,
                     background: item.blocked ? "rgba(220,38,38,0.04)" : "var(--bg-card)",

@@ -83,13 +83,20 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Ödeme talebi hatası:", error);
 
+    // ✅ Duplicate ödeme talebi — 409 ile ayrı döndür
+    if (error.message && error.message.includes("bekleyen")) {
+      return NextResponse.json(
+        { error: "Ödeme talebiniz zaten bekliyor.", code: "PAYMENT_REQUEST_ALREADY_EXISTS" },
+        { status: 409 }
+      );
+    }
+
     // Kullanıcı dostu hata mesajları
     if (error.message && (
       error.message.includes("bulunamadı") ||
       error.message.includes("aktif") ||
       error.message.includes("Boş masadan") ||
-      error.message.includes("sipariş") ||
-      error.message.includes("bekleyen")
+      error.message.includes("sipariş")
     )) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
