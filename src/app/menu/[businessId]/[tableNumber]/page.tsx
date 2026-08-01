@@ -330,7 +330,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       }
 
       if (authStatus === "VIEW_ONLY") {
-        // ✅ İlk basış: ORDER_REQUEST oluştur
+        // ✅ İlk basış: ORDER_REQUEST oluştur (sepet verileri ile)
         const r = await fetch("/api/customer/service-requests", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-session-token": token },
@@ -339,6 +339,12 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             tableId: table.id,
             requestType: "ORDER_REQUEST",
             reason: "Sipariş vermek istiyorum",
+            items: cart.map(i => ({
+              productId: i.product.id,
+              quantity: i.quantity,
+              customerNote: i.customerNote || null,
+            })),
+            orderNote: orderNote || null,
             idempotencyKey: `or_${uuidv4()}`,
           }),
         });
@@ -352,6 +358,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             setPendingRequestExpiresAt(d.serviceRequest.expiresAt);
           }
           showToast("Sipariş talebiniz oluşturuldu. Garson onayı bekleniyor.", "ok");
+        } else if (d.code === "CUSTOMER_DEVICE_BLOCKED") {
+          showToast("Bu cihazın bu işletmede işlem yapması engellendi.", "err");
         } else if (d.code === "TABLE_ALREADY_CLAIMED") {
           setAuthStatus("TABLE_ALREADY_CLAIMED");
           showToast("Bu masa başka bir aktif oturuma ait. Personelden yardım isteyin.", "err");
@@ -361,7 +369,6 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           showToast("Bekleyen talebiniz var. Garson onayı bekleniyor.", "err");
         } else if (d.code === "SESSION_ALREADY_AUTHORIZED") {
           setAuthStatus("AUTHORIZED");
-          // Doğrudan siparişe devam et (recursive değil, sonraki basışta)
           showToast("Masanız açık! Tekrar basarak siparişinizi gönderebilirsiniz.", "ok");
         } else {
           showToast(d.error || "Talep gönderilemedi", "err");
@@ -392,7 +399,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           showToast("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳");
         } else {
           const d = await r.json();
-          if (d.code === "SESSION_NOT_AUTHORIZED_FOR_TABLE" || d.code === "SESSION_REVOKED") {
+          if (d.code === "CUSTOMER_DEVICE_BLOCKED") {
+            showToast("Bu cihazın bu işletmede işlem yapması engellendi.", "err");
+          } else if (d.code === "SESSION_NOT_AUTHORIZED_FOR_TABLE" || d.code === "SESSION_REVOKED") {
             setAuthStatus("REVOKED");
             showToast("Oturumunuz sonlanmış. Personelden yardım isteyin.", "err");
           } else {
@@ -476,8 +485,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         checkActiveRequests();
       } else {
         const d = await r.json();
-        // ✅ Duplicate ödeme talebi — 409
-        if (isPaymentRequest && (r.status === 409 || d.code === "PAYMENT_REQUEST_ALREADY_EXISTS")) {
+        if (d.code === "CUSTOMER_DEVICE_BLOCKED") {
+          showToast("Bu cihazın bu işletmede işlem yapması engellendi.", "err");
+        } else if (isPaymentRequest && (r.status === 409 || d.code === "PAYMENT_REQUEST_ALREADY_EXISTS")) {
           showToast("Ödeme talebiniz zaten bekliyor.", "err");
         } else {
           showToast(d.error || "Talep gönderilemedi", "err");
@@ -508,7 +518,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
 
     switch (authStatus) {
       case "VIEW_ONLY":
-        label = "Sipariş Talebi Oluştur 📋";
+        label = "Sipariş Talebi Oluştur";
         break;
       case "PENDING":
         label = "⏳ Garson Onayı Bekleniyor...";
@@ -540,13 +550,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             textAlign: "center",
           }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-              Doğrulama Kodunuz
+              Masa Doğrulama Kodunuz
             </p>
             <p style={{ fontSize: 36, fontWeight: 900, color: "#d97706", letterSpacing: "0.2em", fontFamily: "monospace" }}>
               {verificationCode}
             </p>
             <p style={{ fontSize: 12, color: "#78716c", marginTop: 6 }}>
-              Bu kodu garsonunuza gösterin
+              Garson masanıza geldiğinde bu kodu söyleyin.
             </p>
           </div>
         )}

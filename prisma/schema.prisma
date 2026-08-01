@@ -36,6 +36,7 @@ model Business {
   payments              Payment[]
   businessSubscriptions BusinessSubscription[]
   tableSessions         TableSession[]
+  customerAccessBlocks  CustomerAccessBlock[]
   bills                 Bill[]
   customerSessions      CustomerSession[]
 
@@ -244,6 +245,7 @@ model ServiceRequest {
   expiresAt         DateTime?
   verificationCode  String?
   idempotencyKey    String?            @unique
+  orderPreview      Json?
   createdAt         DateTime           @default(now())
   seenAt            DateTime?
   resolvedAt        DateTime?
@@ -408,6 +410,7 @@ model CustomerSession {
   sessionToken        String                      @unique
   status              CustomerSessionStatus       @default(ACTIVE)
   authorizationStatus CustomerAuthorizationStatus @default(VIEW_ONLY)
+  deviceKeyHash       String?
   authorizedAt        DateTime?
   expiresAt           DateTime
   lastSeenAt          DateTime                    @default(now())
@@ -426,6 +429,22 @@ model CustomerSession {
   @@index([businessId, tableId, status])
   @@index([tableSessionId, authorizationStatus])
   @@map("customer_sessions")
+}
+
+model CustomerAccessBlock {
+  id              String    @id @default(cuid())
+  businessId      String
+  deviceKeyHash   String
+  reason          String
+  sourceRequestId String?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, deviceKeyHash, revokedAt])
+  @@map("customer_access_blocks")
 }
 
 enum CustomerSessionStatus {

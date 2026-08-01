@@ -70,6 +70,30 @@ export async function validateViewSession(
     };
   }
 
+  // ✅ Cihaz engeli kontrolü
+  let deviceKeyHash = customerSession.deviceKeyHash;
+  if (!deviceKeyHash) {
+    const cookieHeader = req.headers.get("cookie") || "";
+    const match = cookieHeader.match(/customer_device_id=([^;]+)/);
+    if (match && match[1]) {
+      const { hashDeviceKey } = await import("@/lib/security/device-block");
+      deviceKeyHash = hashDeviceKey(match[1]);
+    }
+  }
+
+  if (deviceKeyHash) {
+    const { checkDeviceBlock } = await import("@/lib/security/device-block");
+    const isBlocked = await checkDeviceBlock(customerSession.businessId, deviceKeyHash);
+    if (isBlocked) {
+      return {
+        ok: false,
+        status: 403,
+        error: "Bu cihazın bu işletmede işlem yapması engellendi.",
+        code: "CUSTOMER_DEVICE_BLOCKED",
+      };
+    }
+  }
+
   if (customerSession.status !== "ACTIVE") {
     const code = customerSession.status === "REVOKED" ? "SESSION_REVOKED" : "VIEW_ONLY_SESSION";
     return {

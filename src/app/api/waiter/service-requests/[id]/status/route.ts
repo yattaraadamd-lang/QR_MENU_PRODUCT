@@ -39,18 +39,26 @@ export async function PUT(
       );
     }
 
-    // ✅ ORDER_REQUEST güvenlik bariyeri: yalnız open-table veya İptal ile sonuçlandırılabilir
-    if (
-      serviceRequest.requestType === "ORDER_REQUEST" &&
-      ["SEEN", "IN_PROGRESS", "COMPLETED"].includes(status)
-    ) {
-      return NextResponse.json(
-        {
-          code: "USE_OPEN_TABLE_ENDPOINT",
-          error: "Sipariş talebi yalnız Masayı Aç veya İptal işlemiyle sonuçlandırılabilir.",
-        },
-        { status: 409 }
-      );
+    // ✅ ORDER_REQUEST güvenlik bariyeri: Yalnız open-table veya reject-order-request ile sonuçlandırılabilir
+    if (serviceRequest.requestType === "ORDER_REQUEST") {
+      if (["SEEN", "IN_PROGRESS", "COMPLETED"].includes(status)) {
+        return NextResponse.json(
+          {
+            code: "USE_OPEN_TABLE_ENDPOINT",
+            error: "Sipariş talebi yalnız Masayı Aç işlemiyle onaylanabilir.",
+          },
+          { status: 409 }
+        );
+      }
+      if (status === "CANCELLED") {
+        return NextResponse.json(
+          {
+            code: "USE_REJECT_ORDER_REQUEST_ENDPOINT",
+            error: "Sipariş talebi reddi için Reddet işlemi kullanılmalıdır.",
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // ── İdempotency: Talep zaten CANCELLED/COMPLETED ise ──────────────
