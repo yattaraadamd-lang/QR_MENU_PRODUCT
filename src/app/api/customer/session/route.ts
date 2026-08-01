@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { v4 as uuidv4 } from "uuid";
+import { generateDeviceKey, hashDeviceKey, checkDeviceBlock } from "@/lib/security/device-block";
 
 export const dynamic = "force-dynamic";
+
+const DEVICE_COOKIE_NAME = "customer_device_id";
 
 /**
  * POST /api/customer/session
@@ -13,6 +16,7 @@ export const dynamic = "force-dynamic";
  * - İstemci kendi mevcut token'ını gönderirse (existingToken) yeniden kullanır.
  * - Geçerli QR ile gelen her yeni cihaz benzersiz VIEW_ONLY session alır.
  * - Token loglama YAPILMAZ.
+ * - Cihaz anahtarı HttpOnly cookie olarak saklanır.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +39,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ─── Cihaz anahtarını cookie'den al veya oluştur
+    let rawDeviceKey = request.cookies.get(DEVICE_COOKIE_NAME)?.value || null;
+    let isNewDevice = false;
+
+    if (!rawDeviceKey) {
+      rawDeviceKey = generateDeviceKey();
+      isNewDevice = true;
+    }
+
+    const deviceKeyHash = hashDeviceKey(rawDeviceKey);
+
+    // ─── Cihaz engeli kontrolü
+    const isBlocked = await checkDeviceBlock(businessId, deviceKeyHash);
+    if (isBlocked) {
+      // Engelli cihaz menüyü görüntüleyebilir ama session oluşturamaz
+      const res = NextResponse.json(
+        {
+          error: "Bu cihazın bu işletmede işlem yapması engellendi.",
+          code: "CUSTOMER_DEVICE_BLOCKED",
+          viewOnly: true,
+        },
+        { status: 403 }
+      );
+      // Cookie'yi yine de set et (cihaz tanınsın)
+      if (isNewDevice) {
+        res.cookies.set(DEVICE_COOKIE_NAME, rawDeviceKey, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 365 * 24 * 60 * 60, // 1 yıl
+          path: "/",
+        });
+      }
+      return res;
+    }
+
     // ─── Mevcut token yeniden kullanımı (aynı cihaz sayfa yenilerse)
     if (existingToken) {
       const existing = await prisma.customerSession.findUnique({
@@ -48,13 +88,31 @@ export async function POST(request: NextRequest) {
         existing.status === "ACTIVE" &&
         existing.expiresAt > new Date()
       ) {
-        // Aynı cihazın mevcut token'ı — yeniden kullan
-        return NextResponse.json({
+        // deviceKeyHash'i güncelle (eski session'larda olmayabilir)
+        if (!existing.deviceKeyHash && deviceKeyHash) {
+          await prisma.customerSession.update({
+            where: { id: existing.id },
+            data: { deviceKeyHash },
+          });
+        }
+
+        const res = NextResponse.json({
           sessionToken: existing.sessionToken,
           expiresAt: existing.expiresAt.toISOString(),
           authorizationStatus: existing.authorizationStatus,
           message: "Mevcut oturum kullanılıyor",
         });
+
+        if (isNewDevice) {
+          res.cookies.set(DEVICE_COOKIE_NAME, rawDeviceKey, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 365 * 24 * 60 * 60,
+            path: "/",
+          });
+        }
+        return res;
       }
     }
 
@@ -78,16 +136,30 @@ export async function POST(request: NextRequest) {
         sessionToken,
         status: "ACTIVE",
         authorizationStatus: "VIEW_ONLY",
+        deviceKeyHash,
         expiresAt,
       },
     });
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       sessionToken,
       expiresAt: expiresAt.toISOString(),
       authorizationStatus: "VIEW_ONLY",
       message: "Menü görüntüleme oturumu oluşturuldu",
     });
+
+    // Cookie set et
+    if (isNewDevice) {
+      res.cookies.set(DEVICE_COOKIE_NAME, rawDeviceKey, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 365 * 24 * 60 * 60,
+        path: "/",
+      });
+    }
+
+    return res;
   } catch (error) {
     console.error("Oturum oluşturma hatası:", error);
     return NextResponse.json({ error: "Oturum oluşturulurken bir hata oluştu" }, { status: 500 });

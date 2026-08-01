@@ -10,17 +10,17 @@ import { v4 as uuidv4 } from "uuid";
 export const dynamic = "force-dynamic";
 
 /**
- * Generates a cryptographically secure 4-digit verification code.
+ * Generates a cryptographically secure 6-digit verification code.
  */
 function generateVerificationCode(): string {
-  return crypto.randomInt(1000, 10000).toString();
+  return crypto.randomInt(100000, 1000000).toString();
 }
 
 // POST /api/customer/service-requests
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, requestType, note, reason, idempotencyKey } = body;
+    const { businessId, tableId, requestType, note, reason, idempotencyKey, items, orderNote } = body;
 
     if (!businessId || !tableId || !requestType) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
@@ -230,6 +230,41 @@ export async function POST(request: NextRequest) {
         data: { status: "CANCELLED" },
       });
 
+      // ✅ Ürün özetini oluştur (orderPreview)
+      let orderPreview: any = null;
+      if (items && Array.isArray(items) && items.length > 0) {
+        const productIds = items.map((i: any) => i.productId).filter(Boolean);
+        const products = await prisma.product.findMany({
+          where: { id: { in: productIds }, businessId, isAvailable: true, isDeleted: false },
+        });
+        const productMap = new Map(products.map((p) => [p.id, p]));
+
+        let total = 0;
+        const validatedItems = [];
+        for (const item of items) {
+          const product = productMap.get(item.productId);
+          if (product) {
+            const price = Number(product.price);
+            const qty = Math.max(1, Math.min(99, Number(item.quantity) || 1));
+            total += price * qty;
+            validatedItems.push({
+              productId: product.id,
+              name: product.name,
+              quantity: qty,
+              unitPrice: price,
+              note: item.customerNote || null,
+            });
+          }
+        }
+        if (validatedItems.length > 0) {
+          orderPreview = {
+            items: validatedItems,
+            total,
+            orderNote: orderNote || null,
+          };
+        }
+      }
+
       // ORDER_REQUEST oluştur
       const verificationCode = generateVerificationCode();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 dakika
@@ -248,6 +283,7 @@ export async function POST(request: NextRequest) {
           expiresAt,
           verificationCode,
           idempotencyKey: reqIdempotencyKey,
+          orderPreview: orderPreview || undefined,
         },
         include: { table: true },
       });
@@ -258,30 +294,30 @@ export async function POST(request: NextRequest) {
         data: { authorizationStatus: "PENDING" },
       });
 
-      // Bildirim oluştur
+      // Bildirim oluştur (kod garson bildiriminde gösterilmez)
       await prisma.notification.create({
         data: {
           businessId,
           tableId,
           type: "SERVICE_REQUEST",
           title: "Sipariş Talebi — Masa Açma",
-          message: `${table.tableName || "Masa " + table.tableNumber} sipariş vermek istiyor. Doğrulama kodu: ${verificationCode}`,
+          message: `${table.tableName || "Masa " + table.tableNumber} sipariş talebi oluşturdu.`,
           soundType: "ORDER",
         },
       });
 
-      // Socket.IO
+      // Socket.IO (verificationCode garson socket yayınına dahil edilmez)
       try {
         emitToBusinessRoom(businessId, "order_request_update", {
           requestId: serviceRequest.id,
           tableNumber: table.tableNumber,
           tableName: table.tableName,
-          verificationCode,
           expiresAt: expiresAt.toISOString(),
           message: `${table.tableName || "Masa " + table.tableNumber} sipariş talebi oluşturdu`,
           soundType: "new_order",
           requestType: "ORDER_REQUEST",
           createdAt: serviceRequest.createdAt,
+          orderPreview,
         });
       } catch (e) {
         console.log("Socket emit hatası:", e);

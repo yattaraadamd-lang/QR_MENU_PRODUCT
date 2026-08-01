@@ -3,12 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 
+import { checkRateLimit } from "@/lib/security/rate-limit";
+
 /**
  * POST /api/waiter/service-requests/[id]/open-table
  *
  * Atomik garson onayı: ORDER_REQUEST'i onaylayıp masayı açar.
  * Tek transaction içinde:
  *  - Talep doğrulanır (ORDER_REQUEST, PENDING, süresi geçmemiş, aktif customerSession bağlı)
+ *  - Doğrulama kodu kontrol edilir
  *  - Masa için başka aktif TableSession olmadığı doğrulanır
  *  - TableSession + Bill oluşturulur, masa OCCUPIED yapılır
  *  - Talebi oluşturan CustomerSession AUTHORIZED yapılır
@@ -22,6 +25,24 @@ export async function POST(
   try {
     const params = await context.params;
     const requestId = params.id;
+
+    // ─── Body'den verificationCode al
+    let verificationCode: string | null = null;
+    try {
+      const body = await request.json();
+      if (body?.verificationCode) {
+        verificationCode = String(body.verificationCode).trim();
+      }
+    } catch {
+      // body okuma hatası veya boş body
+    }
+
+    if (!verificationCode) {
+      return NextResponse.json(
+        { error: "Doğrulama kodu gerekli.", code: "VERIFICATION_CODE_REQUIRED" },
+        { status: 400 }
+      );
+    }
 
     // ─── Auth: Garson veya admin zorunlu
     const { error, response, session } = await requireWaiterOrAdmin();
@@ -44,6 +65,25 @@ export async function POST(
     if (serviceRequest.requestType !== "ORDER_REQUEST") {
       return NextResponse.json(
         { error: "Bu talep türü ile masa açılamaz. Yalnız ORDER_REQUEST onaylanabilir." },
+        { status: 400 }
+      );
+    }
+
+    // ─── Rate-limit & Doğrulama kodu kontrolü
+    const rl = await checkRateLimit(`open_table_code:${requestId}`, {
+      maxRequests: 5,
+      windowMs: 5 * 60 * 1000,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla yanlış doğrulama kodu denemesi. Lütfen 5 dakika bekleyin.", code: "TOO_MANY_ATTEMPTS" },
+        { status: 429 }
+      );
+    }
+
+    if (serviceRequest.verificationCode && serviceRequest.verificationCode !== verificationCode) {
+      return NextResponse.json(
+        { error: "Doğrulama kodu yanlış.", code: "INVALID_VERIFICATION_CODE" },
         { status: 400 }
       );
     }

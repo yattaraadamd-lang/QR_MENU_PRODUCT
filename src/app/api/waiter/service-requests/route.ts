@@ -28,7 +28,21 @@ export async function GET(request: NextRequest) {
 
     const serviceRequests = await prisma.serviceRequest.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        businessId: true,
+        tableId: true,
+        customerSessionId: true,
+        requestType: true,
+        reason: true,
+        note: true,
+        status: true,
+        expiresAt: true,
+        orderPreview: true,
+        createdAt: true,
+        seenAt: true,
+        resolvedAt: true,
+        completedAt: true,
         table: true,
         customerSession: {
           select: { id: true, authorizationStatus: true },
