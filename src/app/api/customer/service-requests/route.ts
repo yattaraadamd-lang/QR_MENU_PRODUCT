@@ -36,6 +36,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz talep türü." }, { status: 400 });
     }
 
+    // ✅ PAYMENT_REQUEST bu endpoint üzerinden işlenmez — özel ödeme endpointi kullanılmalı
+    if (requestType === "PAYMENT_REQUEST") {
+      return NextResponse.json(
+        {
+          code: "USE_PAYMENT_REQUEST_ENDPOINT",
+          error: "Ödeme talebi özel ödeme endpointi üzerinden gönderilmelidir.",
+        },
+        { status: 400 }
+      );
+    }
+
     // ✅ Note ve reason validasyonu
     if (note && note.length > 500) {
       return NextResponse.json({ error: "Not alanı maksimum 500 karakter olabilir." }, { status: 400 });
