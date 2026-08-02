@@ -230,13 +230,29 @@ export async function POST(request: NextRequest) {
         data: { status: "CANCELLED" },
       });
 
-      // ✅ Ürün özetini oluştur (orderPreview)
+      // ✅ Ürün özetini oluştur ve doğrula (orderPreview)
       let orderPreview: any = null;
       if (items && Array.isArray(items) && items.length > 0) {
         const productIds = items.map((i: any) => i.productId).filter(Boolean);
+        
+        if (productIds.length === 0) {
+          return NextResponse.json(
+            { error: "Sipariş önizlemesi boş olamaz.", code: "EMPTY_ORDER_PREVIEW" },
+            { status: 400 }
+          );
+        }
+
         const products = await prisma.product.findMany({
           where: { id: { in: productIds }, businessId, isAvailable: true, isDeleted: false },
         });
+        
+        if (products.length === 0) {
+          return NextResponse.json(
+            { error: "Seçtiğiniz ürünler mevcut değil veya işletmeye ait değil.", code: "INVALID_PRODUCTS" },
+            { status: 400 }
+          );
+        }
+
         const productMap = new Map(products.map((p) => [p.id, p]));
 
         let total = 0;
@@ -256,6 +272,7 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+        
         if (validatedItems.length > 0) {
           orderPreview = {
             items: validatedItems,
@@ -265,33 +282,60 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // ORDER_REQUEST oluştur
+      // ✅ Idempotency key validation
+      const reqIdempotencyKey = idempotencyKey || `or_${uuidv4()}`;
+      if (idempotencyKey && (idempotencyKey.length > 100 || idempotencyKey.length < 10)) {
+        return NextResponse.json(
+          { error: "Geçersiz idempotency key formatı.", code: "INVALID_IDEMPOTENCY_KEY" },
+          { status: 400 }
+        );
+      }
+
+      // ✅ Transaction ile atomik işlem
       const verificationCode = generateVerificationCode();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 dakika
-      const reqIdempotencyKey = idempotencyKey || `or_${uuidv4()}`;
       const combinedNote = [reason, note].filter(Boolean).join(" — ") || null;
 
-      const serviceRequest = await prisma.serviceRequest.create({
-        data: {
-          businessId,
-          tableId,
-          customerSessionId: customerSession.id,
-          requestType: "ORDER_REQUEST",
-          reason: reason || null,
-          note: combinedNote,
-          status: RequestStatus.PENDING,
-          expiresAt,
-          verificationCode,
-          idempotencyKey: reqIdempotencyKey,
-          orderPreview: orderPreview || undefined,
-        },
-        include: { table: true },
-      });
+      const serviceRequest = await prisma.$transaction(async (tx) => {
+        // 1. Bekleyen talep kontrolü (transaction içinde tekrar)
+        const pendingCheck = await tx.serviceRequest.findFirst({
+          where: {
+            customerSessionId: customerSession.id,
+            requestType: "ORDER_REQUEST",
+            status: { in: ["PENDING", "SEEN"] },
+            expiresAt: { gt: new Date() },
+          },
+        });
 
-      // CustomerSession'ı PENDING yap
-      await prisma.customerSession.update({
-        where: { id: customerSession.id },
-        data: { authorizationStatus: "PENDING" },
+        if (pendingCheck) {
+          throw new Error("ORDER_REQUEST_PENDING");
+        }
+
+        // 2. ServiceRequest oluştur
+        const newRequest = await tx.serviceRequest.create({
+          data: {
+            businessId,
+            tableId,
+            customerSessionId: customerSession.id,
+            requestType: "ORDER_REQUEST",
+            reason: reason || null,
+            note: combinedNote,
+            status: RequestStatus.PENDING,
+            expiresAt,
+            verificationCode,
+            idempotencyKey: reqIdempotencyKey,
+            orderPreview: orderPreview || undefined,
+          },
+          include: { table: true },
+        });
+
+        // 3. CustomerSession durumunu güncelle
+        await tx.customerSession.update({
+          where: { id: customerSession.id },
+          data: { authorizationStatus: "PENDING" },
+        });
+
+        return newRequest;
       });
 
       // Bildirim oluştur (kod garson bildiriminde gösterilmez)
@@ -467,14 +511,121 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error: any) {
-    // Handle partial unique index violation for ORDER_REQUEST
-    if (error?.code === "P2002" && error?.meta?.target?.includes("unique_pending_order_request")) {
+    // ✅ Transaction'dan dönen business logic errors
+    if (error.message === "ORDER_REQUEST_PENDING") {
       return NextResponse.json(
-        { error: "Bu masa için zaten bekleyen bir sipariş talebi var.", code: "ORDER_REQUEST_PENDING" },
+        {
+          error: "Bekleyen sipariş talebiniz var. Garson onayı bekleniyor.",
+          code: "ORDER_REQUEST_PENDING",
+        },
         { status: 409 }
       );
     }
-    console.error("Hizmet talebi oluşturma hatası:", error);
-    return NextResponse.json({ error: "Talep oluşturulurken bir hata oluştu" }, { status: 500 });
+
+    // ✅ Prisma schema mismatch errors (P2021: table does not exist, P2022: column does not exist)
+    if (error?.code === "P2021" || error?.code === "P2022") {
+      console.error(`[ServiceRequest] Database schema outdated:`, {
+        code: error.code,
+        meta: error.meta,
+        message: error.message,
+        endpoint: "/api/customer/service-requests",
+        requestType: error?.meta?.target || "unknown",
+      });
+      
+      return NextResponse.json(
+        {
+          error: "Sistem güncellemesi tamamlanamadı. Lütfen işletme personeline bildirin.",
+          code: "DATABASE_SCHEMA_OUTDATED",
+        },
+        { status: 503 }
+      );
+    }
+
+    // ✅ Idempotency key unique constraint violation
+    if (error?.code === "P2002" && error?.meta?.target?.includes("idempotencyKey")) {
+      // Mevcut kaydı bul ve döndür
+      try {
+        const existingRequest = await prisma.serviceRequest.findUnique({
+          where: { idempotencyKey: error?.meta?.constraint || "" },
+        });
+        
+        if (existingRequest) {
+          return NextResponse.json(
+            {
+              message: "Talep zaten oluşturulmuş.",
+              code: "IDEMPOTENT_REQUEST",
+              serviceRequest: {
+                id: existingRequest.id,
+                verificationCode: existingRequest.verificationCode,
+                expiresAt: existingRequest.expiresAt?.toISOString(),
+                status: existingRequest.status,
+              },
+            },
+            { status: 200 }
+          );
+        }
+      } catch (lookupError) {
+        console.error(`[ServiceRequest] Failed to lookup idempotent request:`, lookupError);
+      }
+    }
+
+    // ✅ Other Prisma unique constraint violations
+    if (error?.code === "P2002") {
+      console.error(`[ServiceRequest] Unique constraint violation:`, {
+        code: error.code,
+        meta: error.meta,
+        endpoint: "/api/customer/service-requests",
+      });
+      
+      return NextResponse.json(
+        {
+          error: "Bu masa için zaten bekleyen bir talep var.",
+          code: "DUPLICATE_REQUEST",
+        },
+        { status: 409 }
+      );
+    }
+
+    // ✅ Foreign key constraint violations
+    if (error?.code === "P2003") {
+      console.error(`[ServiceRequest] Foreign key constraint failed:`, {
+        code: error.code,
+        meta: error.meta,
+        endpoint: "/api/customer/service-requests",
+      });
+      
+      return NextResponse.json(
+        {
+          error: "Geçersiz referans. Lütfen sayfayı yenileyin.",
+          code: "INVALID_REFERENCE",
+        },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Generic database errors
+    if (error?.code && error.code.startsWith("P")) {
+      console.error(`[ServiceRequest] Prisma error ${error.code}:`, {
+        code: error.code,
+        meta: error.meta,
+        message: error.message,
+        endpoint: "/api/customer/service-requests",
+      });
+    } else {
+      console.error("[ServiceRequest] Unexpected error:", {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack?.split("\n").slice(0, 3).join("\n"),
+        endpoint: "/api/customer/service-requests",
+      });
+    }
+    
+    return NextResponse.json(
+      {
+        error: "Talep oluşturulurken bir hata oluştu.",
+        code: "INTERNAL_ERROR",
+      },
+      { status: 500 }
+    );
   }
 }
