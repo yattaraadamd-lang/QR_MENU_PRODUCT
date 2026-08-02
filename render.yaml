@@ -4,7 +4,7 @@ services:
     env: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && npm run db:deploy && npm run build
+    buildCommand: npm ci && npm run db:deploy && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -13,6 +13,8 @@ services:
         sync: false
       - key: DATABASE_URL_UNPOOLED
         sync: false
+        # IMPORTANT: Must be direct PostgreSQL connection (not pooled)
+        # Format: postgresql://user:pass@host:5432/database
       - key: NEXTAUTH_SECRET
         sync: false
       - key: NEXTAUTH_URL
