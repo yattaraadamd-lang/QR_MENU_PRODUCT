@@ -18,8 +18,11 @@ function generateVerificationCode(): string {
 
 // POST /api/customer/service-requests
 export async function POST(request: NextRequest) {
+  let requestBody: any = null; // Catch bloğunda erişmek için
+  
   try {
     const body = await request.json();
+    requestBody = body; // Save for catch block
     const { businessId, tableId, requestType, note, reason, idempotencyKey, items, orderNote } = body;
 
     if (!businessId || !tableId || !requestType) {
@@ -543,29 +546,32 @@ export async function POST(request: NextRequest) {
 
     // ✅ Idempotency key unique constraint violation
     if (error?.code === "P2002" && error?.meta?.target?.includes("idempotencyKey")) {
-      // Mevcut kaydı bul ve döndür
-      try {
-        const existingRequest = await prisma.serviceRequest.findUnique({
-          where: { idempotencyKey: error?.meta?.constraint || "" },
-        });
-        
-        if (existingRequest) {
-          return NextResponse.json(
-            {
-              message: "Talep zaten oluşturulmuş.",
-              code: "IDEMPOTENT_REQUEST",
-              serviceRequest: {
-                id: existingRequest.id,
-                verificationCode: existingRequest.verificationCode,
-                expiresAt: existingRequest.expiresAt?.toISOString(),
-                status: existingRequest.status,
+      // Mevcut kaydı bul ve döndür - requestBody'den gelen key kullan
+      const attemptedKey = requestBody?.idempotencyKey;
+      if (attemptedKey) {
+        try {
+          const existingRequest = await prisma.serviceRequest.findUnique({
+            where: { idempotencyKey: attemptedKey },
+          });
+          
+          if (existingRequest) {
+            return NextResponse.json(
+              {
+                message: "Talep zaten oluşturulmuş.",
+                code: "IDEMPOTENT_REQUEST",
+                serviceRequest: {
+                  id: existingRequest.id,
+                  verificationCode: existingRequest.verificationCode,
+                  expiresAt: existingRequest.expiresAt?.toISOString(),
+                  status: existingRequest.status,
+                },
               },
-            },
-            { status: 200 }
-          );
+              { status: 200 }
+            );
+          }
+        } catch (lookupError) {
+          console.error(`[ServiceRequest] Failed to lookup idempotent request:`, lookupError);
         }
-      } catch (lookupError) {
-        console.error(`[ServiceRequest] Failed to lookup idempotent request:`, lookupError);
       }
     }
 
