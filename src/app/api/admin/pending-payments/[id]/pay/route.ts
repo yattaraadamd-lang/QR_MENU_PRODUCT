@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { processAdminPayment, PaymentError } from "@/lib/services/table-flow.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 
 export const dynamic = "force-dynamic";
@@ -13,195 +13,103 @@ export async function POST(
   try {
     const params = await context.params;
     const session = await getServerSession(authOptions);
-    if (!session?.user?.businessId || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
 
-    const billId = params.id;
-    const body = await request.json();
-    const { amount, paymentMethod } = body; // paymentMethod: CASH, CREDIT_CARD, ONLINE
-
-    if (!amount || amount <= 0 || !paymentMethod) {
-      return NextResponse.json({ error: "Geçersiz ödeme bilgileri" }, { status: 400 });
-    }
-
-    // Faturayı getir
-    const bill = await prisma.bill.findUnique({
-      where: { id: billId, businessId: session.user.businessId },
-      include: { table: true, tableSession: true }
-    });
-
-    if (!bill) {
-      return NextResponse.json({ error: "Adisyon bulunamadı" }, { status: 404 });
-    }
-
-    if (bill.status !== "OPEN") {
-      return NextResponse.json({ error: "Bu adisyon zaten kapatılmış" }, { status: 400 });
-    }
-
-    // ✅ ÇIFT CİRO ÖNLEMİ: Aynı Bill için zaten PAID Payment var mı?
-    const existingPaidPayment = await prisma.payment.findFirst({
-      where: {
-        billId: bill.id,
-        status: "PAID",
-      },
-    });
-
-    if (existingPaidPayment) {
+    // Yalnız ADMIN ve SUPER_ADMIN
+    if (
+      !session?.user?.businessId ||
+      (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN")
+    ) {
       return NextResponse.json(
-        {
-          error: "Bu adisyon için zaten ödeme alınmış. Çift ödeme kabul edilemez.",
-          existingPayment: {
-            id: existingPaidPayment.id,
-            amount: existingPaidPayment.amount,
-            paidAt: existingPaidPayment.paidAt,
-            method: existingPaidPayment.method,
-          },
-        },
-        { status: 409 } // Conflict
+        { error: "Bu işlem için admin yetkisi gereklidir.", code: "FORBIDDEN" },
+        { status: 403 }
       );
     }
 
-    // ✅ Bill'in güncel durumunu server-side hesapla
-    const orders = await prisma.order.findMany({
-      where: {
-        tableSessionId: bill.tableSessionId,
-        status: { notIn: ["CANCELLED", "REJECTED"] },
-      },
-    });
-    const serverTotalAmount = orders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
+    const billId = params.id; // Bu route'ta [id] = billId
+    const body = await request.json();
 
-    // ✅ Şimdiye kadar ödenen tutarı hesapla
-    const existingPayments = await prisma.payment.findMany({
-      where: { billId: bill.id, status: "PAID" },
-    });
-    const alreadyPaidAmount = existingPayments.reduce((s, p) => s + Number(p.amount), 0);
-    
-    // ✅ Kalan borç
-    const remainingDue = Math.max(0, serverTotalAmount - alreadyPaidAmount);
+    // Eski paymentMethod alanını method'a normalize et
+    const rawMethod = body.method || body.paymentMethod;
+    let method: "CASH" | "CARD" | "ONLINE" | "OTHER";
+    switch (rawMethod) {
+      case "CREDIT_CARD": method = "CARD"; break;
+      case "CASH": method = "CASH"; break;
+      case "CARD": method = "CARD"; break;
+      case "ONLINE": method = "ONLINE"; break;
+      case "OTHER": method = "OTHER"; break;
+      default: method = "CARD"; break;
+    }
 
-    // ✅ CİROYA EKLENECEK TUTAR: En fazla kalan borç kadar olabilir
-    const actualPaymentAmount = Math.min(Number(amount), remainingDue);
-
-    // ✅ Validasyon
-    if (actualPaymentAmount <= 0) {
+    const amount = Number(body.amount);
+    if (isNaN(amount) || amount <= 0) {
       return NextResponse.json(
-        { error: `Ödeme tutarı geçersiz. Kalan borç: ₺${remainingDue.toFixed(2)}` },
+        { error: "Geçerli bir ödeme tutarı giriniz.", code: "INVALID_AMOUNT" },
         { status: 400 }
       );
     }
 
-    // Ödeme hesaplamaları
-    const newPaidAmount = alreadyPaidAmount + actualPaymentAmount;
-    const newRemainingAmount = Math.max(0, serverTotalAmount - newPaidAmount);
-
-    let paymentStatus: "PARTIALLY_PAID" | "PAID" = "PARTIALLY_PAID";
-    let billStatus: "OPEN" | "CLOSED" = "OPEN";
-    const now = new Date();
-
-    // Tamamı ödendiyse
-    if (newRemainingAmount === 0) {
-      paymentStatus = "PAID";
-      billStatus = "CLOSED";
-    }
-
-    // İşlem (Transaction) - Ödemeyi kaydet ve faturayı güncelle
-    const updatedBill = await prisma.$transaction(async (tx) => {
-      // ✅ ÇIFT CİRO ÖNLEMİ: Transaction içinde tekrar kontrol
-      const doubleCheck = await tx.payment.findFirst({
-        where: { billId: bill.id, status: "PAID" },
-      });
-      if (doubleCheck) {
-        throw new Error("Bu adisyon için zaten ödeme alınmış");
-      }
-
-      // ✅ Ödeme kaydı oluştur (actualPaymentAmount kullan!)
-      await tx.payment.create({
-        data: {
-          businessId: session.user.businessId,
-          tableId: bill.tableId,
-          tableSessionId: bill.tableSessionId,
-          billId: bill.id,
-          amount: actualPaymentAmount, // ✅ Ciroya bu tutar eklenir
-          method: paymentMethod === "CREDIT_CARD" ? "CARD" : paymentMethod,
-          status: "PAID",
-          paidAt: now,
-          handledById: session.user.id,
-          handledByWaiterName: session.user.name || "Admin",
-        }
-      });
-
-      // Siparişleri güncelle (Eğer fatura kapanıyorsa siparişleri de ödendi işaretle)
-      if (billStatus === "CLOSED") {
-        await tx.order.updateMany({
-          where: { tableSessionId: bill.tableSessionId },
-          data: { paymentStatus: "PAID" }
-        });
-
-        // Masa oturumunu kapat
-        await tx.tableSession.update({
-          where: { id: bill.tableSessionId },
-          data: { status: "CLOSED", endedAt: now }
-        });
-
-        // ✅ HATA DÜZELTİLDİ: CLEANING_NEEDED yerine EMPTY — ödeme sonrası masa boş görünmeli
-        await tx.table.update({
-          where: { id: bill.tableId },
-          data: { status: "EMPTY" }
-        });
-
-        // ✅ Aktif CustomerSession'ları kapat — eski QR ile sipariş verilmesin
-        await tx.customerSession.updateMany({
-          where: {
-            tableId: bill.tableId,
-            businessId: session.user.businessId,
-            status: "ACTIVE",
-          },
-          data: { status: "CLOSED" },
-        });
-      }
-
-      // Faturayı güncelle — server-side hesaplanan totalAmount kullan
-      return await tx.bill.update({
-        where: { id: bill.id },
-        data: {
-          totalAmount: serverTotalAmount, // ✅ Server-side hesaplanan değer
-          paidAmount: newPaidAmount,
-          remainingAmount: newRemainingAmount,
-          paymentStatus: paymentStatus,
-          status: billStatus,
-          ...(billStatus === "CLOSED" ? { closedAt: now } : {}),
-        }
-      });
+    const result = await processAdminPayment({
+      billId,
+      amount,
+      method,
+      receivedAmount: body.receivedAmount != null ? Number(body.receivedAmount) : null,
+      note: body.note || null,
+      idempotencyKey: body.idempotencyKey || null,
+      adminId: session.user.id,
+      adminName: session.user.name || "Admin",
+      businessId: session.user.businessId,
     });
 
-    // Soket bildirimi — masa boş oldu, panelleri güncelle
-    if (billStatus === "CLOSED" && bill.table) {
+    // Socket bildirimi — transaction sonrası
+    if (result.isFullyPaid && result.table) {
       try {
         emitToBusinessRoom(session.user.businessId, "table_status_update", {
-          tableId: bill.table.id,
+          tableId: result.table.id,
           status: "EMPTY",
-          message: `${bill.table.tableName || "Masa " + bill.table.tableNumber} hesabı ödendi ve masa boşaltıldı.`
+          message: `${result.table.tableName || "Masa " + result.table.tableNumber} hesabı ödendi ve masa boşaltıldı.`,
+        });
+        emitToBusinessRoom(session.user.businessId, "payment_collected", {
+          tableNumber: result.table.tableNumber,
+          tableName: result.table.tableName,
+          amount,
+          method,
+          remainingAmount: Number(result.bill.remainingAmount),
+          paymentStatus: result.bill.paymentStatus,
         });
       } catch (e) {
         console.error("Soket emit hatası:", e);
       }
     }
 
-    return NextResponse.json({ success: true, bill: updatedBill });
+    return NextResponse.json({
+      success: true,
+      bill: result.bill,
+      payment: result.payment,
+      changeAmount: result.changeAmount,
+      isFullyPaid: result.isFullyPaid,
+      isIdempotent: result.isIdempotent,
+    });
   } catch (error: any) {
     console.error("Ödeme alma hatası:", error);
-    
-    // ✅ Prisma validation errors should return 400, not 500
-    if (error.message?.includes("bulunamadı") || error.message?.includes("kapatılmış") || error.message?.includes("geçersiz")) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+
+    if (error instanceof PaymentError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.statusCode }
+      );
     }
-    
-    // ✅ Transaction constraint violations
-    if (error.code === "P2002" || error.code === "P2025") {
-      return NextResponse.json({ error: "Veritabanı kısıtlama hatası. Lütfen tekrar deneyin." }, { status: 400 });
+
+    // Prisma constraint violations
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { error: "Veritabanı kısıtlama hatası. Lütfen tekrar deneyin.", code: "DB_CONSTRAINT" },
+        { status: 400 }
+      );
     }
-    
-    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
+
+    return NextResponse.json(
+      { error: "Sunucu hatası", code: "INTERNAL_ERROR" },
+      { status: 500 }
+    );
   }
 }

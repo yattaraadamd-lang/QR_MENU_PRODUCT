@@ -6,28 +6,42 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import {
-  LayoutDashboard, ClipboardList, Bell, Clock, CreditCard,
-  Package, FolderOpen, Table2, Users, Settings, LogOut, QrCode, Menu, Store,
+  LayoutDashboard,
+  ClipboardList,
+  Bell,
+  Clock,
+  CreditCard,
+  Package,
+  FolderOpen,
+  Table2,
+  Users,
+  Ban,
+  Settings,
+  LogOut,
+  QrCode,
+  Menu,
+  Store,
 } from "lucide-react";
 
 const adminMenuItems = [
-  { href: "/admin",                  label: "Dashboard",       icon: <LayoutDashboard size={18} />,  group: "main" },
-  { href: "/admin/orders",           label: "Siparişler",      icon: <ClipboardList size={18} />, group: "ops" },
-  { href: "/admin/requests",         label: "Talepler",        icon: <Bell size={18} />, group: "ops" },
-  { href: "/admin/pending-payments", label: "Bekleyen Ödemeler", icon: <Clock size={18} />, group: "ops" },
-  { href: "/admin/payments",         label: "Geçmiş Ödemeler", icon: <CreditCard size={18} />, group: "ops" },
-  { href: "/admin/products",         label: "Ürünler",         icon: <Package size={18} />, group: "menu" },
-  { href: "/admin/categories",       label: "Kategoriler",     icon: <FolderOpen size={18} />, group: "menu" },
-  { href: "/admin/tables",           label: "Masalar & QR",    icon: <Table2 size={18} />, group: "venue" },
-  { href: "/admin/staff",            label: "Personel",        icon: <Users size={18} />, group: "venue" },
-  { href: "/admin/settings",         label: "Ayarlar",         icon: <Settings size={18} />, group: "system" },
+  { href: "/admin",                  label: "Dashboard",         icon: <LayoutDashboard size={18} />, group: "main" },
+  { href: "/admin/orders",           label: "Siparişler",        icon: <ClipboardList size={18} />,   group: "ops" },
+  { href: "/admin/requests",         label: "Talepler",          icon: <Bell size={18} />,            group: "ops" },
+  { href: "/admin/pending-payments", label: "Bekleyen Ödemeler", icon: <Clock size={18} />,           group: "ops" },
+  { href: "/admin/payments",         label: "Geçmiş Ödemeler",   icon: <CreditCard size={18} />,      group: "ops" },
+  { href: "/admin/products",         label: "Ürünler",           icon: <Package size={18} />,         group: "menu" },
+  { href: "/admin/categories",       label: "Kategoriler",       icon: <FolderOpen size={18} />,      group: "menu" },
+  { href: "/admin/tables",           label: "Masalar & QR",      icon: <Table2 size={18} />,          group: "venue" },
+  { href: "/admin/staff",            label: "Personel",          icon: <Users size={18} />,           group: "venue" },
+  { href: "/admin/blocked-devices",  label: "Engelli Cihazlar",  icon: <Ban size={18} />,             group: "system" },
+  { href: "/admin/settings",         label: "Ayarlar",           icon: <Settings size={18} />,        group: "system" },
 ];
 
 const groups: Record<string, string> = {
-  main:   "",
-  ops:    "Operasyon",
-  menu:   "Menü",
-  venue:  "İşletme",
+  main: "",
+  ops: "Operasyon",
+  menu: "Menü",
+  venue: "İşletme",
   system: "Sistem",
 };
 
@@ -39,10 +53,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { counts } = useBadgeCounts(8000);
 
   const badgeMap: Record<string, number> = {
-    "/admin/orders":           counts.orders,
-    "/admin/requests":         counts.requests,
+    "/admin/orders": counts.orders,
+    "/admin/requests": counts.requests,
     "/admin/pending-payments": counts.payments,
-    "/admin/tables":           counts.payments,
+    "/admin/tables": counts.payments,
   };
 
   if (session?.user.role !== "ADMIN") {
@@ -51,8 +65,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div style={{ textAlign: "center", padding: 32 }}>
           <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Erişim Engellendi</h1>
-          <p style={{ color: "var(--text-secondary)", marginBottom: 24 }}>Bu sayfaya erişim için admin yetkisi gerekli.</p>
-          <button onClick={() => router.push("/auth/signin")} className="btn btn-primary">Giriş Yap</button>
+          <p style={{ color: "var(--text-secondary)", marginBottom: 24 }}>
+            Bu sayfaya erişim için admin yetkisi gerekli.
+          </p>
+          <button onClick={() => router.push("/auth/signin")} className="btn btn-primary">
+            Giriş Yap
+          </button>
         </div>
       </div>
     );
@@ -63,38 +81,50 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 40, backdropFilter: "blur(2px)" }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 40,
+            backdropFilter: "blur(2px)",
+          }}
         />
       )}
 
-      {/* Sidebar */}
-      <aside style={{
-        width: 248,
-        background: "var(--bg-secondary)",
-        borderRight: "1px solid var(--border-color)",
-        display: "flex",
-        flexDirection: "column",
-        position: "fixed",
-        top: 0, bottom: 0,
-        left: sidebarOpen ? 0 : -248,
-        zIndex: 50,
-        transition: "left 0.25s cubic-bezier(0.4,0,0.2,1)",
-      }} className="lg-left-0">
-
-        {/* Brand */}
+      <aside
+        style={{
+          width: 248,
+          background: "var(--bg-secondary)",
+          borderRight: "1px solid var(--border-color)",
+          display: "flex",
+          flexDirection: "column",
+          position: "fixed",
+          top: 0,
+          bottom: 0,
+          left: sidebarOpen ? 0 : -248,
+          zIndex: 50,
+          transition: "left 0.25s cubic-bezier(0.4,0,0.2,1)",
+        }}
+        className="lg-left-0"
+      >
         <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-              boxShadow: "0 4px 12px var(--primary-glow)",
-            }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                boxShadow: "0 4px 12px var(--primary-glow)",
+              }}
+            >
               <QrCode size={18} color="white" />
             </div>
             <div>
@@ -102,13 +132,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 1 }}>Admin Paneli</p>
             </div>
           </div>
+
           {session?.user.businessName && (
-            <div style={{
-              marginTop: 10, padding: "6px 10px",
-              background: "var(--bg-hover)", borderRadius: 8,
-              fontSize: 12, color: "var(--text-secondary)",
-              display: "flex", alignItems: "center", gap: 6,
-            }}>
+            <div
+              style={{
+                marginTop: 10,
+                padding: "6px 10px",
+                background: "var(--bg-hover)",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "var(--text-secondary)",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
               <Store size={14} />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {session.user.businessName}
@@ -117,55 +155,81 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           )}
         </div>
 
-        {/* Nav */}
         <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
           {grouped.map(([groupKey, groupLabel]) => {
-            const items = adminMenuItems.filter(i => i.group === groupKey);
+            const items = adminMenuItems.filter((item) => item.group === groupKey);
             if (!items.length) return null;
+
             return (
               <div key={groupKey} style={{ marginBottom: 4 }}>
                 {groupLabel && (
-                  <p style={{
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-                    textTransform: "uppercase", color: "var(--text-muted)",
-                    padding: "8px 10px 4px",
-                  }}>{groupLabel}</p>
+                  <p
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "var(--text-muted)",
+                      padding: "8px 10px 4px",
+                    }}
+                  >
+                    {groupLabel}
+                  </p>
                 )}
+
                 {items.map((item) => {
                   const isActive = pathname === item.href;
                   const badge = badgeMap[item.href] || 0;
+
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
                       onClick={() => setSidebarOpen(false)}
                       style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "9px 10px", borderRadius: 8,
-                        fontSize: 13, fontWeight: isActive ? 600 : 400,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "9px 10px",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        fontWeight: isActive ? 600 : 400,
                         color: isActive ? "var(--primary-light)" : "var(--text-secondary)",
                         background: isActive ? "var(--primary-glow)" : "transparent",
-                        textDecoration: "none", marginBottom: 1,
+                        textDecoration: "none",
+                        marginBottom: 1,
                         transition: "all 0.15s",
                         borderLeft: isActive ? "2px solid var(--primary)" : "2px solid transparent",
                       }}
                     >
-                      <span style={{ flexShrink: 0, display: "flex", alignItems: "center", color: isActive ? "var(--primary-light)" : "var(--text-muted)" }}>{item.icon}</span>
-                      <span style={{ flex: 1 }}>{item.label}</span>
-                      {badge > 0 && (
-                        <span style={{
-                          background: "#ef4444",
-                          color: "white",
-                          borderRadius: 99,
-                          fontSize: 10,
-                          fontWeight: 800,
-                          padding: "1px 6px",
-                          minWidth: 18,
-                          textAlign: "center",
-                          lineHeight: "16px",
+                      <span
+                        style={{
                           flexShrink: 0,
-                          animation: badge > 0 ? "pulse-glow 2s infinite" : "none",
-                        }}>
+                          display: "flex",
+                          alignItems: "center",
+                          color: isActive ? "var(--primary-light)" : "var(--text-muted)",
+                        }}
+                      >
+                        {item.icon}
+                      </span>
+                      <span style={{ flex: 1 }}>{item.label}</span>
+
+                      {badge > 0 && (
+                        <span
+                          style={{
+                            background: "#ef4444",
+                            color: "white",
+                            borderRadius: 99,
+                            fontSize: 10,
+                            fontWeight: 800,
+                            padding: "1px 6px",
+                            minWidth: 18,
+                            textAlign: "center",
+                            lineHeight: "16px",
+                            flexShrink: 0,
+                            animation: "pulse-glow 2s infinite",
+                          }}
+                        >
                           {badge > 99 ? "99+" : badge}
                         </span>
                       )}
@@ -177,22 +241,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        {/* User */}
         <div style={{ padding: "12px 10px", borderTop: "1px solid var(--border-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-              background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "white", fontWeight: 700, fontSize: 13,
-            }}>{initials}</div>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 10,
+                flexShrink: 0,
+                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              {initials}
+            </div>
+
             <div style={{ overflow: "hidden" }}>
-              <p style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <p
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
                 {session?.user.name}
               </p>
               <p style={{ fontSize: 11, color: "var(--text-secondary)" }}>Admin</p>
             </div>
           </div>
+
           <button
             onClick={() => signOut({ callbackUrl: "/auth/signin" })}
             className="btn btn-ghost btn-sm"
@@ -203,26 +287,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Main */}
       <main style={{ flex: 1, marginLeft: 0, minWidth: 0 }} className="lg-ml-260">
-        {/* Mobile topbar */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 16px",
-          borderBottom: "1px solid var(--border-color)",
-          background: "var(--bg-secondary)",
-          position: "sticky", top: 0, zIndex: 30,
-        }} className="lg-hidden">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 16px",
+            borderBottom: "1px solid var(--border-color)",
+            background: "var(--bg-secondary)",
+            position: "sticky",
+            top: 0,
+            zIndex: 30,
+          }}
+          className="lg-hidden"
+        >
           <button
             onClick={() => setSidebarOpen(true)}
-            style={{ background: "none", border: "none", color: "var(--text-primary)", cursor: "pointer", padding: 4, display: "flex", alignItems: "center" }}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--text-primary)",
+              cursor: "pointer",
+              padding: 4,
+              display: "flex",
+              alignItems: "center",
+            }}
           >
             <Menu size={22} />
           </button>
+
           <span style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
             <QrCode size={18} color="var(--primary)" />
             QR Menü
           </span>
+
           <div style={{ width: 30 }} />
         </div>
 
@@ -233,9 +332,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <style jsx global>{`
         @media (min-width: 1024px) {
-          .lg-hidden { display: none !important; }
-          .lg-left-0 { left: 0 !important; }
-          .lg-ml-260 { margin-left: 248px !important; }
+          .lg-hidden {
+            display: none !important;
+          }
+
+          .lg-left-0 {
+            left: 0 !important;
+          }
+
+          .lg-ml-260 {
+            margin-left: 248px !important;
+          }
         }
       `}</style>
     </div>

@@ -11,6 +11,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:super-admin": "tsx prisma/seed-super-admin.ts",
     "db:studio": "prisma studio",
@@ -25,12 +26,8 @@
     "@prisma/client": "^5.22.0",
     "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^2.4.3",
-<<<<<<< HEAD
     "lucide-react": "^1.18.0",
-    "next": "14.2.18",
-=======
     "next": "^15.5.18",
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
     "next-auth": "^4.24.10",
     "qrcode": "^1.5.4",
     "react": "^19.2.7",

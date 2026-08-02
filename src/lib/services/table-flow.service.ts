@@ -7,8 +7,9 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { TableStatus, TableSessionStatus, BillStatus, BillPaymentStatus, RequestStatus, PaymentStatus } from "@prisma/client";
+import { TableStatus, TableSessionStatus, BillStatus, BillPaymentStatus, RequestStatus, PaymentStatus, PaymentMethod } from "@prisma/client";
 import type { PrismaClient, Prisma } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 
 // Transaction client tipi
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
@@ -430,6 +431,317 @@ export async function collectPayment(
     }
 
     return { payment, bill: updatedBill, table: tableSession.table };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6b. ADMİN ÖDEME İŞLEMİ (MERKEZİ)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Yapılandırılmış ödeme hatası — kod ve mesaj taşır.
+ */
+export class PaymentError extends Error {
+  public readonly code: string;
+  public readonly statusCode: number;
+  constructor(code: string, message: string, statusCode: number = 400) {
+    super(message);
+    this.name = "PaymentError";
+    this.code = code;
+    this.statusCode = statusCode;
+  }
+}
+
+export interface AdminPaymentInput {
+  billId: string;
+  amount: number;
+  method: "CASH" | "CARD" | "ONLINE" | "OTHER";
+  receivedAmount?: number | null;
+  note?: string | null;
+  idempotencyKey?: string | null;
+  adminId: string;
+  adminName: string;
+  businessId: string;
+}
+
+export interface AdminPaymentResult {
+  payment: any;
+  bill: any;
+  table: any;
+  changeAmount: number | null;
+  isFullyPaid: boolean;
+  isIdempotent: boolean;
+}
+
+/**
+ * Merkezi admin ödeme fonksiyonu.
+ *
+ * Kurallar:
+ * - Yalnızca admin/super_admin route seviyesinde çağırmalı
+ * - Nakit: receivedAmount zorunlu ve >= amount
+ * - Kart/online: receivedAmount null
+ * - Kalan borcu Decimal aritmetikle hesaplar
+ * - Idempotency key kontrolü yapar
+ * - Kısmi ödeme: bill ve masa açık kalır
+ * - Tam ödeme: bill, tableSession, masa, customerSessions hepsini kapatır
+ */
+export async function processAdminPayment(input: AdminPaymentInput): Promise<AdminPaymentResult> {
+  const { billId, amount, method, receivedAmount, note, idempotencyKey, adminId, adminName, businessId } = input;
+
+  // ── Temel doğrulama ───────────────────────────────────────────────────
+  if (typeof amount !== "number" || amount <= 0) {
+    throw new PaymentError("INVALID_AMOUNT", "Ödeme tutarı sıfırdan büyük olmalıdır.");
+  }
+
+  // ── Nakit doğrulama ───────────────────────────────────────────────────
+  if (method === "CASH") {
+    if (receivedAmount == null || typeof receivedAmount !== "number" || receivedAmount <= 0) {
+      throw new PaymentError("CASH_RECEIVED_AMOUNT_REQUIRED", "Nakit ödeme için müşteriden alınan tutar belirtilmelidir.");
+    }
+    if (receivedAmount < amount) {
+      throw new PaymentError(
+        "INSUFFICIENT_CASH_RECEIVED",
+        `Alınan tutar (₺${receivedAmount.toFixed(2)}), ödenmesi gereken tutardan (₺${amount.toFixed(2)}) küçük olamaz.`
+      );
+    }
+  }
+
+  // ── Transaction ───────────────────────────────────────────────────────
+  return prisma.$transaction(async (tx) => {
+    // 1. Idempotency kontrolü
+    if (idempotencyKey) {
+      const existingPayment = await tx.payment.findUnique({
+        where: { idempotencyKey },
+        include: {
+          bill: true,
+          table: true,
+        },
+      });
+
+      if (existingPayment) {
+        // Aynı işlemi temsil ediyor mu?
+        if (
+          existingPayment.businessId !== businessId ||
+          existingPayment.billId !== billId ||
+          Number(existingPayment.amount) !== amount ||
+          existingPayment.method !== method
+        ) {
+          throw new PaymentError(
+            "IDEMPOTENCY_KEY_CONFLICT",
+            "Bu idempotency anahtarı farklı bir ödeme işlemi için kullanılmış.",
+            409
+          );
+        }
+        // Aynı işlem — idempotent dönüş
+        return {
+          payment: existingPayment,
+          bill: existingPayment.bill,
+          table: existingPayment.table,
+          changeAmount: existingPayment.changeAmount ? Number(existingPayment.changeAmount) : null,
+          isFullyPaid: existingPayment.bill?.paymentStatus === "PAID",
+          isIdempotent: true,
+        };
+      }
+    }
+
+    // 2. Bill doğrulama
+    const bill = await tx.bill.findFirst({
+      where: { id: billId, businessId },
+      include: { table: true, tableSession: true },
+    });
+
+    if (!bill) {
+      throw new PaymentError("BILL_NOT_FOUND", "Adisyon bulunamadı.", 404);
+    }
+
+    if (bill.status !== "OPEN") {
+      throw new PaymentError("BILL_ALREADY_CLOSED", "Bu adisyon zaten kapatılmış.");
+    }
+
+    if (!bill.tableSession || bill.tableSession.status !== "ACTIVE") {
+      throw new PaymentError("SESSION_NOT_ACTIVE", "Bu masanın aktif oturumu bulunamadı.");
+    }
+
+    // 3. Gerçek sipariş toplamını sunucuda hesapla (Decimal)
+    const orders = await tx.order.findMany({
+      where: {
+        tableSessionId: bill.tableSessionId,
+        status: { notIn: ["CANCELLED", "REJECTED"] },
+      },
+    });
+
+    const serverTotalDecimal = orders.reduce(
+      (sum, o) => sum.add(new Decimal(o.totalPrice.toString())),
+      new Decimal(0)
+    );
+
+    // 4. Daha önce yapılan toplam ödemeyi hesapla (yalnız PAID)
+    const existingPayments = await tx.payment.findMany({
+      where: { billId: bill.id, status: "PAID" },
+    });
+
+    const alreadyPaidDecimal = existingPayments.reduce(
+      (sum, p) => sum.add(new Decimal(p.amount.toString())),
+      new Decimal(0)
+    );
+
+    // 5. Kalan borç (Decimal)
+    const remainingDueDecimal = Decimal.max(new Decimal(0), serverTotalDecimal.sub(alreadyPaidDecimal));
+    const remainingDue = remainingDueDecimal.toNumber();
+
+    // 6. Tutar doğrulama
+    const amountDecimal = new Decimal(amount.toFixed(2));
+
+    if (amountDecimal.greaterThan(remainingDueDecimal)) {
+      throw new PaymentError(
+        "AMOUNT_EXCEEDS_REMAINING_DUE",
+        `Ödeme tutarı (₺${amount.toFixed(2)}) kalan borçtan (₺${remainingDue.toFixed(2)}) büyük olamaz.`
+      );
+    }
+
+    // 7. Nakit: changeAmount hesapla (Decimal)
+    let changeAmountDecimal: Decimal | null = null;
+    let receivedAmountDecimal: Decimal | null = null;
+    if (method === "CASH" && receivedAmount != null) {
+      receivedAmountDecimal = new Decimal(receivedAmount.toFixed(2));
+      changeAmountDecimal = receivedAmountDecimal.sub(amountDecimal);
+    }
+
+    // 8. Ödeme kaydı oluştur
+    const payment = await tx.payment.create({
+      data: {
+        businessId,
+        tableId: bill.tableId,
+        tableSessionId: bill.tableSessionId,
+        billId: bill.id,
+        amount: amountDecimal,
+        receivedAmount: receivedAmountDecimal,
+        changeAmount: changeAmountDecimal,
+        method: method as PaymentMethod,
+        note: note || null,
+        idempotencyKey: idempotencyKey || null,
+        status: "PAID",
+        paidAt: new Date(),
+        handledById: adminId,
+        handledByWaiterName: adminName,
+      },
+    });
+
+    // 9. Tüm ödemeleri topla (yeni dahil)
+    const allPayments = await tx.payment.findMany({
+      where: { billId: bill.id, status: "PAID" },
+    });
+
+    const totalPaidDecimal = allPayments.reduce(
+      (sum, p) => sum.add(new Decimal(p.amount.toString())),
+      new Decimal(0)
+    );
+
+    const newRemainingDecimal = Decimal.max(new Decimal(0), serverTotalDecimal.sub(totalPaidDecimal));
+    const isFullyPaid = newRemainingDecimal.isZero() && serverTotalDecimal.greaterThan(new Decimal(0));
+
+    let billPaymentStatus: BillPaymentStatus = "UNPAID";
+    if (isFullyPaid) billPaymentStatus = "PAID";
+    else if (totalPaidDecimal.greaterThan(new Decimal(0))) billPaymentStatus = "PARTIALLY_PAID";
+
+    const now = new Date();
+
+    // 10. Bill güncelle
+    const updatedBill = await tx.bill.update({
+      where: { id: bill.id },
+      data: {
+        totalAmount: serverTotalDecimal,
+        paidAmount: totalPaidDecimal,
+        remainingAmount: newRemainingDecimal,
+        paymentStatus: billPaymentStatus,
+        ...(isFullyPaid ? { status: "CLOSED" as BillStatus, closedAt: now } : {}),
+      },
+    });
+
+    // 11. Tam ödeme — atomik kapanış
+    if (isFullyPaid) {
+      // Siparişleri ödendi yap
+      await tx.order.updateMany({
+        where: {
+          tableSessionId: bill.tableSessionId,
+          status: { notIn: ["CANCELLED", "REJECTED"] },
+        },
+        data: { paymentStatus: "PAID" },
+      });
+
+      // Masa oturumunu kapat
+      await tx.tableSession.update({
+        where: { id: bill.tableSessionId },
+        data: {
+          status: "CLOSED",
+          endedAt: now,
+          closedById: adminId,
+          closeReason: "PAYMENT_COMPLETED",
+        },
+      });
+
+      // Masa EMPTY
+      await tx.table.update({
+        where: { id: bill.tableId },
+        data: { status: "EMPTY" },
+      });
+
+      // CustomerSession kayıtlarını kapat
+      await tx.customerSession.updateMany({
+        where: {
+          tableId: bill.tableId,
+          businessId,
+          status: "ACTIVE",
+        },
+        data: {
+          status: "CLOSED",
+          authorizationStatus: "REVOKED",
+          closedAt: now,
+        },
+      });
+
+      // Açık hizmet taleplerini kapat
+      await tx.serviceRequest.updateMany({
+        where: {
+          tableId: bill.tableId,
+          businessId,
+          status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] },
+        },
+        data: { status: "CANCELLED", resolvedAt: now },
+      });
+
+      // Bekleyen ödeme taleplerini iptal et
+      await tx.payment.updateMany({
+        where: {
+          tableSessionId: bill.tableSessionId,
+          status: "PENDING",
+          id: { not: payment.id },
+        },
+        data: { status: "CANCELLED" },
+      });
+
+      // Okunmamış bildirimleri okundu yap
+      await tx.notification.updateMany({
+        where: {
+          tableId: bill.tableId,
+          businessId,
+          isRead: false,
+        },
+        data: { isRead: true },
+      });
+    }
+
+    // Güncel table bilgisini al
+    const updatedTable = await tx.table.findUnique({ where: { id: bill.tableId } });
+
+    return {
+      payment,
+      bill: updatedBill,
+      table: updatedTable || bill.table,
+      changeAmount: changeAmountDecimal ? changeAmountDecimal.toNumber() : null,
+      isFullyPaid,
+      isIdempotent: false,
+    };
   });
 }
 

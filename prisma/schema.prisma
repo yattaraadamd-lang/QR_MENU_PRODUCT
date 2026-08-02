@@ -440,6 +440,8 @@ model CustomerAccessBlock {
   createdById     String?
   createdAt       DateTime  @default(now())
   revokedAt       DateTime?
+  revokedById     String?
+  revocationNote  String?
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -470,9 +472,12 @@ model Payment {
   billId              String?
   orderId             String?
   amount              Decimal        @db.Decimal(10, 2)
+  receivedAmount      Decimal?       @db.Decimal(10, 2)
+  changeAmount        Decimal?       @db.Decimal(10, 2)
   status              PaymentStatus  @default(PENDING)
   method              PaymentMethod?
   note                String?
+  idempotencyKey      String?        @unique
   requestedAt         DateTime       @default(now())
   paidAt              DateTime?
   handledById         String?
