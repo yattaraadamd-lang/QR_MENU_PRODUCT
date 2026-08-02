@@ -338,19 +338,19 @@ export async function POST(request: NextRequest) {
           data: { authorizationStatus: "PENDING" },
         });
 
-        return newRequest;
-      });
+        // 4. Bildirim oluştur (atomik işlemin parçası — kod garson bildiriminde gösterilmez)
+        await tx.notification.create({
+          data: {
+            businessId,
+            tableId,
+            type: "SERVICE_REQUEST",
+            title: "Sipariş Talebi — Masa Açma",
+            message: `${table.tableName || "Masa " + table.tableNumber} sipariş talebi oluşturdu.`,
+            soundType: "ORDER",
+          },
+        });
 
-      // Bildirim oluştur (kod garson bildiriminde gösterilmez)
-      await prisma.notification.create({
-        data: {
-          businessId,
-          tableId,
-          type: "SERVICE_REQUEST",
-          title: "Sipariş Talebi — Masa Açma",
-          message: `${table.tableName || "Masa " + table.tableNumber} sipariş talebi oluşturdu.`,
-          soundType: "ORDER",
-        },
+        return newRequest;
       });
 
       // Socket.IO (verificationCode garson socket yayınına dahil edilmez)
