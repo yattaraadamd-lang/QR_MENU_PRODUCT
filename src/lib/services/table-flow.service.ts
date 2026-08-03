@@ -374,6 +374,18 @@ export async function collectPayment(
       throw new Error("Ödeme tutarı 0 veya negatif olamaz. Kalan borç: ₺" + remainingDue.toFixed(2));
     }
 
+    // ✅ CASH doğrulama
+    if (method === "CASH") {
+      if (receivedAmount === null || !Number.isFinite(receivedAmount) || receivedAmount < actualPaymentAmount) {
+        throw new Error("Alınan nakit tutarı geçersiz veya yetersiz.");
+      }
+    }
+
+    // ✅ Para üstü hesapla
+    const changeAmount = method === "CASH" && receivedAmount !== null
+      ? receivedAmount - actualPaymentAmount
+      : null;
+
     // ✅ Ödeme kaydı oluştur (actualPaymentAmount kullan, amount değil!)
     const payment = await tx.payment.create({
       data: {
@@ -388,6 +400,8 @@ export async function collectPayment(
         paidAt: new Date(),
         handledById,
         handledByWaiterName,
+        receivedAmount: method === "CASH" ? receivedAmount : null,
+        changeAmount,
       },
     });
 
@@ -431,7 +445,7 @@ export async function collectPayment(
     }
 
     return { payment, bill: updatedBill, table: tableSession.table };
-  });
+  }, { maxWait: 10_000, timeout: 20_000 });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
