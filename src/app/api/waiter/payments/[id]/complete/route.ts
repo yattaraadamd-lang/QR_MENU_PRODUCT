@@ -10,8 +10,11 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  let paymentId: string | undefined;
+  
   try {
     const params = await context.params;
+    paymentId = params.id;
     
     const { error, response, session } = await requireWaiter();
 
@@ -105,12 +108,77 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, payment: result });
   } catch (error: any) {
-    console.error("Ödeme tamamlama hatası:", error);
+    console.error("[PAYMENT_COMPLETE_FAILED]", {
+      endpoint: "/api/waiter/payments/[id]/complete",
+      code: error?.code,
+      name: error?.name,
+      message: error?.message,
+      meta: error?.meta,
+      paymentId: paymentId,
+    });
 
+    // Ödeme bulunamadı
     if (error.message === "Ödeme bulunamadı") {
-      return NextResponse.json({ success: false, error: error.message }, { status: 404 });
+      return NextResponse.json(
+        { success: false, error: error.message, code: "PAYMENT_NOT_FOUND" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ success: false, error: "Sunucu hatası" }, { status: 500 });
+    // Nakit tutar doğrulama hataları
+    if (error.message?.includes("alınan tutar belirtilmelidir")) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: "CASH_RECEIVED_AMOUNT_REQUIRED" },
+        { status: 400 }
+      );
+    }
+
+    if (error.message?.includes("küçük olamaz") || error.message?.includes("yetersiz")) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: "CASH_AMOUNT_INSUFFICIENT" },
+        { status: 400 }
+      );
+    }
+
+    // İş kuralı hataları
+    if (error.message?.includes("Kalan borç") || error.message?.includes("0 veya negatif")) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: "INVALID_PAYMENT_AMOUNT" },
+        { status: 400 }
+      );
+    }
+
+    // Prisma şema hataları
+    if (error?.code === "P2021" || error?.code === "P2022") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Veritabanı güncellemesi tamamlanmamış. Lütfen yöneticiye bildirin.",
+          code: "DATABASE_SCHEMA_OUTDATED",
+        },
+        { status: 503 }
+      );
+    }
+
+    // Prisma duplicate/constraint hataları
+    if (error?.code === "P2002") {
+      return NextResponse.json(
+        { success: false, error: "Bu ödeme zaten işlenmiş.", code: "DUPLICATE_PAYMENT" },
+        { status: 409 }
+      );
+    }
+
+    if (error?.code === "P2025") {
+      return NextResponse.json(
+        { success: false, error: "Ödeme durumu değişti. Lütfen sayfayı yenileyin.", code: "PAYMENT_STATE_CHANGED" },
+        { status: 409 }
+      );
+    }
+
+    // Genel sunucu hatası
+    return NextResponse.json(
+      { success: false, error: "Ödeme işlenirken bir hata oluştu.", code: "PAYMENT_INTERNAL_ERROR" },
+      { status: 500 }
+    );
   }
 }
