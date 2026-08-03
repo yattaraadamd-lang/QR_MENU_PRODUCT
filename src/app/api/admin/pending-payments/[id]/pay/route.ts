@@ -10,8 +10,11 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  let billId: string | undefined;
+  
   try {
     const params = await context.params;
+    billId = params.id;
     const session = await getServerSession(authOptions);
 
     // Yalnız ADMIN ve SUPER_ADMIN
@@ -25,7 +28,6 @@ export async function POST(
       );
     }
 
-    const billId = params.id; // Bu route'ta [id] = billId
     const body = await request.json();
 
     // Eski paymentMethod alanını method'a normalize et
@@ -90,7 +92,14 @@ export async function POST(
       isIdempotent: result.isIdempotent,
     });
   } catch (error: any) {
-    console.error("Ödeme alma hatası:", error);
+    console.error("[ADMIN_PENDING_PAYMENT_PAY_FAILED]", {
+      endpoint: "/api/admin/pending-payments/[id]/pay",
+      code: error?.code,
+      name: error?.name,
+      message: error?.message,
+      meta: error?.meta,
+      billId: billId,
+    });
 
     if (error instanceof PaymentError) {
       return NextResponse.json(
@@ -102,13 +111,24 @@ export async function POST(
     // Prisma constraint violations
     if (error.code === "P2002") {
       return NextResponse.json(
-        { error: "Veritabanı kısıtlama hatası. Lütfen tekrar deneyin.", code: "DB_CONSTRAINT" },
-        { status: 400 }
+        { error: "Bu ödeme zaten işlenmiş.", code: "DUPLICATE_PAYMENT" },
+        { status: 409 }
+      );
+    }
+
+    // Prisma şema hataları
+    if (error?.code === "P2021" || error?.code === "P2022") {
+      return NextResponse.json(
+        {
+          error: "Veritabanı güncellemesi tamamlanmamış. Lütfen yöneticiye bildirin.",
+          code: "DATABASE_SCHEMA_OUTDATED",
+        },
+        { status: 503 }
       );
     }
 
     return NextResponse.json(
-      { error: "Sunucu hatası", code: "INTERNAL_ERROR" },
+      { error: "Ödeme işlenirken bir hata oluştu.", code: "PAYMENT_INTERNAL_ERROR" },
       { status: 500 }
     );
   }

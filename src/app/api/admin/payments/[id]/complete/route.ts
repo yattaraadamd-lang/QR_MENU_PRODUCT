@@ -11,8 +11,11 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  let paymentId: string | undefined;
+  
   try {
     const params = await context.params;
+    paymentId = params.id;
     const session = await getServerSession(authOptions);
 
     // Yalnız ADMIN ve SUPER_ADMIN
@@ -31,7 +34,6 @@ export async function PATCH(
     const body = await request.json();
 
     // Bu route'ta [id] = paymentId — mevcut PENDING ödeme kaydını tamamlama
-    const paymentId = params.id;
 
     // Mevcut ödeme kaydını bul
     const existingPayment = await prisma.payment.findFirst({
@@ -118,7 +120,14 @@ export async function PATCH(
       isFullyPaid: result.isFullyPaid,
     });
   } catch (error: any) {
-    console.error("Ödeme tamamlama hatası:", error);
+    console.error("[ADMIN_PAYMENT_COMPLETE_FAILED]", {
+      endpoint: "/api/admin/payments/[id]/complete",
+      code: error?.code,
+      name: error?.name,
+      message: error?.message,
+      meta: error?.meta,
+      paymentId: paymentId,
+    });
 
     if (error instanceof PaymentError) {
       return NextResponse.json(
@@ -127,8 +136,20 @@ export async function PATCH(
       );
     }
 
+    // Prisma şema hataları
+    if (error?.code === "P2021" || error?.code === "P2022") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Veritabanı güncellemesi tamamlanmamış. Lütfen yöneticiye bildirin.",
+          code: "DATABASE_SCHEMA_OUTDATED",
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: "Sunucu hatası" },
+      { success: false, error: "Ödeme işlenirken bir hata oluştu.", code: "PAYMENT_INTERNAL_ERROR" },
       { status: 500 }
     );
   }

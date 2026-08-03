@@ -10,9 +10,13 @@ export const dynamic = "force-dynamic";
 // WAITER: Yalnız PENDING ödeme talebi oluşturur — finansal kapanış yapamaz.
 // ADMIN: processAdminPayment üzerinden tam ödeme alır.
 export async function POST(request: NextRequest) {
+  let userRole: string | undefined;
+  
   try {
     const { error, response, session } = await requireWaiterOrAdmin();
     if (error) return response!;
+    
+    userRole = session?.user?.role;
     const businessId = getBusinessId(session);
     const body = await request.json();
     const { tableSessionId, amount, method, note, receivedAmount } = body;
@@ -25,10 +29,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz tutar" }, { status: 400 });
     }
 
-    const userRole = session!.user.role;
+    const waiterOrAdminRole = session!.user.role;
 
     // ── GARSON: Finansal kapanış yapamaz ─────────────────────────────────
-    if (userRole === "WAITER") {
+    if (waiterOrAdminRole === "WAITER") {
       // Garson yalnızca bilgi niteliğinde PENDING ödeme kaydı oluşturur.
       // Bu kayıt admin onayına sunulur.
       const tableSession = await prisma.tableSession.findFirst({
@@ -124,16 +128,37 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ payment: result.payment, bill: result.bill }, { status: 201 });
   } catch (e: any) {
-    console.error("Ödeme alma hatası:", e);
+    console.error("[PAYMENT_COLLECT_FAILED]", {
+      endpoint: "/api/waiter/payments/collect",
+      code: e?.code,
+      name: e?.name,
+      message: e?.message,
+      meta: e?.meta,
+      userRole: userRole,
+    });
 
     if (e instanceof PaymentError) {
       return NextResponse.json({ error: e.message, code: e.code }, { status: e.statusCode });
     }
 
     if (e.message?.includes("bulunamadı")) {
-      return NextResponse.json({ error: e.message }, { status: 404 });
+      return NextResponse.json({ error: e.message, code: "NOT_FOUND" }, { status: 404 });
     }
 
-    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
+    // Prisma şema hataları
+    if (e?.code === "P2021" || e?.code === "P2022") {
+      return NextResponse.json(
+        {
+          error: "Veritabanı güncellemesi tamamlanmamış. Lütfen yöneticiye bildirin.",
+          code: "DATABASE_SCHEMA_OUTDATED",
+        },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Ödeme işlenirken bir hata oluştu.", code: "PAYMENT_INTERNAL_ERROR" },
+      { status: 500 }
+    );
   }
 }
