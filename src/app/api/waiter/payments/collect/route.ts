@@ -72,6 +72,8 @@ export async function POST(request: NextRequest) {
           status: "PENDING",
           handledById: session!.user.id,
           handledByWaiterName: session!.user.name,
+          receivedAmount: method === "CASH" && receivedAmount ? Number(receivedAmount) : null,
+          changeAmount: method === "CASH" && receivedAmount ? Number(receivedAmount) - amount : null,
         },
       });
 
@@ -151,6 +153,17 @@ export async function POST(request: NextRequest) {
         {
           error: "Veritabanı güncellemesi tamamlanmamış. Lütfen yöneticiye bildirin.",
           code: "DATABASE_SCHEMA_OUTDATED",
+        },
+        { status: 503 }
+      );
+    }
+
+    // Prisma transaction timeout
+    if (e?.code === "P2028" || e?.message?.includes("Transaction not found")) {
+      return NextResponse.json(
+        {
+          error: "Ödeme işlemi zaman aşımına uğradı. Tekrar deneyin.",
+          code: "PAYMENT_TRANSACTION_EXPIRED",
         },
         { status: 503 }
       );

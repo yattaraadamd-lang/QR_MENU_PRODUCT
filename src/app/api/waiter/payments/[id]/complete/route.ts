@@ -72,6 +72,8 @@ export async function PATCH(
           paidAt: new Date(),
           handledById: session.user.id,
           handledByWaiterName: session.user.name || null,
+          receivedAmount: method === "CASH" && receivedAmount ? receivedAmount : null,
+          changeAmount: method === "CASH" && receivedAmount ? changeAmount : null,
         },
       });
 
@@ -104,7 +106,7 @@ export async function PATCH(
       });
 
       return updatedPayment;
-    });
+    }, { maxWait: 10_000, timeout: 20_000 });
 
     return NextResponse.json({ success: true, payment: result });
   } catch (error: any) {
@@ -172,6 +174,14 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: "Ödeme durumu değişti. Lütfen sayfayı yenileyin.", code: "PAYMENT_STATE_CHANGED" },
         { status: 409 }
+      );
+    }
+
+    // Prisma transaction timeout
+    if (error?.code === "P2028" || error?.message?.includes("Transaction not found")) {
+      return NextResponse.json(
+        { success: false, error: "İşlem zaman aşımına uğradı. Tekrar deneyin.", code: "PAYMENT_TRANSACTION_EXPIRED" },
+        { status: 503 }
       );
     }
 
