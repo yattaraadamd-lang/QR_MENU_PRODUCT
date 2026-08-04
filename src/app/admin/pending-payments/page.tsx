@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { CheckCircle2, XCircle, Clock, Banknote, CreditCard, AlertCircle } from "lucide-react";
 
 type Bill = {
   id: string;
@@ -10,6 +11,20 @@ type Bill = {
   remainingAmount: string;
   status: string;
   updatedAt: string;
+  table: { tableNumber: string; tableName: string | null };
+};
+
+type PaymentRequest = {
+  id: string;
+  amount: string;
+  receivedAmount: string | null;
+  changeAmount: string | null;
+  method: string;
+  note: string | null;
+  status: string;
+  requestedByName: string | null;
+  approvalRequestedAt: string | null;
+  createdAt: string;
   table: { tableNumber: string; tableName: string | null };
 };
 
@@ -24,24 +39,44 @@ function generateUUID(): string {
 export default function PendingPaymentsPage() {
   const { data: session } = useSession();
   const [bills, setBills] = useState<Bill[]>([]);
+  const [approvalRequests, setApprovalRequests] = useState<PaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Bill Pay Modal State
   const [payModal, setPayModal] = useState<Bill | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState("CARD");
   const [receivedAmount, setReceivedAmount] = useState<string>("");
   const [processingBillId, setProcessingBillId] = useState<string | null>(null);
+
+  // Reject Modal State
+  const [rejectModal, setRejectModal] = useState<PaymentRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>("");
+  const [rejecting, setRejecting] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Idempotency key — modal açıldığında oluşturulur, retry'larda aynı kalır
   const idempotencyKeyRef = useRef<string>("");
 
-  const fetchBills = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/pending-payments");
-      if (res.ok) {
-        const data = await res.json();
+      const [billsRes, paymentsRes] = await Promise.all([
+        fetch("/api/admin/pending-payments"),
+        fetch("/api/admin/payments"),
+      ]);
+
+      if (billsRes.ok) {
+        const data = await billsRes.json();
         setBills(data.bills || []);
+      }
+
+      if (paymentsRes.ok) {
+        const data = await paymentsRes.json();
+        const pendingOrAwaiting = (data.payments || []).filter(
+          (p: any) => p.status === "AWAITING_ADMIN_APPROVAL" || p.status === "PENDING"
+        );
+        setApprovalRequests(pendingOrAwaiting);
       }
     } catch (e) {
       console.error(e);
@@ -52,11 +87,11 @@ export default function PendingPaymentsPage() {
 
   useEffect(() => {
     if (session?.user.businessId) {
-      fetchBills();
-      const iv = setInterval(fetchBills, 10000);
+      fetchData();
+      const iv = setInterval(fetchData, 6000);
       return () => clearInterval(iv);
     }
-  }, [session, fetchBills]);
+  }, [session, fetchData]);
 
   const openPayModal = (bill: Bill) => {
     setPayModal(bill);
@@ -65,17 +100,81 @@ export default function PendingPaymentsPage() {
     setReceivedAmount("");
     setError(null);
     setSuccessMessage(null);
-    // Yeni modal açıldığında yeni idempotency key üret
     idempotencyKeyRef.current = generateUUID();
   };
 
-  // ── Para üstü hesaplama ─────────────────────────────────────────────
+  const handleApproveRequest = async (req: PaymentRequest) => {
+    setProcessingBillId(req.id);
+    setError(null);
+    try {
+      const body: any = {
+        amount: Number(req.amount),
+        method: req.method || "CASH",
+        receivedAmount: req.receivedAmount ? Number(req.receivedAmount) : null,
+        note: req.note,
+        idempotencyKey: generateUUID(),
+      };
+
+      const res = await fetch(`/api/admin/payments/${req.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMessage(
+          req.method === "CASH" && data.changeAmount > 0
+            ? `Ödeme onaylandı! Para üstü: ₺${Number(data.changeAmount).toFixed(2)}`
+            : "Ödeme onaylandı ve tahsil edildi!"
+        );
+        fetchData();
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else {
+        setError(data.error || "Ödeme onaylanamadı.");
+      }
+    } catch (e) {
+      setError("Bağlantı hatası.");
+    } finally {
+      setProcessingBillId(null);
+    }
+  };
+
+  const handleRejectRequest = async () => {
+    if (!rejectModal) return;
+    setRejecting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/admin/payments/${rejectModal.id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: rejectReason }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccessMessage("Ödeme talebi reddedildi.");
+        setRejectModal(null);
+        setRejectReason("");
+        fetchData();
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else {
+        setError(data.error || "Talep reddedilemedi.");
+      }
+    } catch (e) {
+      setError("Bağlantı hatası.");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const amountNum = parseFloat(paymentAmount) || 0;
   const receivedNum = parseFloat(receivedAmount) || 0;
   const changeAmount = paymentMethod === "CASH" ? Math.max(0, receivedNum - amountNum) : 0;
   const isCashInsufficient = paymentMethod === "CASH" && receivedAmount !== "" && receivedNum < amountNum;
 
-  const handlePayment = async () => {
+  const handleDirectPayment = async () => {
     if (!payModal) return;
 
     if (isNaN(amountNum) || amountNum <= 0) {
@@ -88,7 +187,6 @@ export default function PendingPaymentsPage() {
       return;
     }
 
-    // Nakit doğrulama
     if (paymentMethod === "CASH") {
       if (!receivedAmount || receivedNum <= 0) {
         setError("Nakit ödeme için müşteriden alınan tutarı giriniz.");
@@ -107,7 +205,6 @@ export default function PendingPaymentsPage() {
       const body: any = {
         amount: amountNum,
         method: paymentMethod,
-        paymentMethod, // geriye uyumluluk
         idempotencyKey: idempotencyKeyRef.current,
       };
 
@@ -129,21 +226,11 @@ export default function PendingPaymentsPage() {
             ? `Ödeme alındı! Para üstü: ₺${Number(data.changeAmount).toFixed(2)}`
             : "Ödeme başarıyla alındı!"
         );
-        fetchBills();
-        // Başarılı ödeme sonrası feedback'i 5sn sonra temizle
+        fetchData();
         setTimeout(() => setSuccessMessage(null), 5000);
       } else {
         const data = await res.json();
-        // Hata mesajını Türkçe göster
-        const errorMessages: Record<string, string> = {
-          CASH_RECEIVED_AMOUNT_REQUIRED: "Nakit ödeme için müşteriden alınan tutarı giriniz.",
-          INSUFFICIENT_CASH_RECEIVED: "Alınan nakit tutarı yetersiz.",
-          AMOUNT_EXCEEDS_REMAINING_DUE: "Ödeme tutarı kalan borçtan büyük olamaz.",
-          IDEMPOTENCY_KEY_CONFLICT: "Bu işlem başka bir ödeme için kullanılmış. Sayfayı yenileyip tekrar deneyin.",
-          BILL_NOT_FOUND: "Adisyon bulunamadı.",
-          BILL_ALREADY_CLOSED: "Bu adisyon zaten kapatılmış.",
-        };
-        setError(errorMessages[data.code] || data.error || "Ödeme işlemi başarısız.");
+        setError(data.error || "Ödeme işlemi başarısız.");
       }
     } catch (e) {
       setError("Bağlantı hatası.");
@@ -159,11 +246,10 @@ export default function PendingPaymentsPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: "var(--text-primary)" }}>Bekleyen Ödemeler</h1>
-        <p style={{ color: "var(--text-secondary)" }}>Açık adisyonlar ve hesap kapatma işlemleri.</p>
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: "var(--text-primary)" }}>Admin Ödeme Onayları & Bekleyen Adisyonlar</h1>
+        <p style={{ color: "var(--text-secondary)" }}>Garsonlardan gelen ödeme bildirimlerini onaylayın veya açık adisyonlardan tahsilat yapın.</p>
       </div>
 
-      {/* Başarı mesajı */}
       {successMessage && (
         <div style={{
           padding: "12px 16px", borderRadius: 10, marginBottom: 16,
@@ -176,54 +262,160 @@ export default function PendingPaymentsPage() {
         </div>
       )}
 
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 12 }} />)}
+      {error && (
+        <div style={{
+          padding: "12px 16px", borderRadius: 10, marginBottom: 16,
+          fontSize: 13, fontWeight: 600,
+          background: "rgba(239,68,68,0.1)", color: "#ef4444",
+          border: "1px solid rgba(239,68,68,0.2)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <AlertCircle size={16} /> {error}
         </div>
-      ) : bills.length === 0 ? (
-        <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🧾</div>
-          <p style={{ color: "var(--text-secondary)" }}>Bekleyen ödeme bulunmamaktadır.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {bills.map(bill => (
-            <div key={bill.id} className="card p-5" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-                    {bill.table?.tableName || `Masa ${bill.table?.tableNumber}`}
-                  </h3>
-                  <span className="badge badge-warning">Açık Adisyon</span>
-                </div>
+      )}
 
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>Toplam Hesap:</span>
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>{formatCurrency(Number(bill.totalAmount))} ₺</span>
-                </div>
+      {/* SECTION 1: ADMIN ONAYI BEKLEYEN ÖDEME TALEPLERİ */}
+      <div style={{ marginBottom: 32 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          <Clock size={20} color="#f59e0b" /> Garson / Müşteri Ödeme Onay Talepleri ({approvalRequests.length})
+        </h2>
 
-                {Number(bill.paidAmount) > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>Ödenen:</span>
-                    <span style={{ fontWeight: 600, color: "var(--success)", fontSize: 14 }}>-{formatCurrency(Number(bill.paidAmount))} ₺</span>
+        {approvalRequests.length === 0 ? (
+          <div className="card" style={{ padding: "24px", textAlign: "center", color: "var(--text-secondary)" }}>
+            Onay bekleyen ödeme talebi yok.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+            {approvalRequests.map((req) => (
+              <div key={req.id} className="card p-5" style={{ borderLeft: "4px solid #f59e0b", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 18, fontWeight: 700 }}>
+                      {req.table?.tableName || `Masa ${req.table?.tableNumber}`}
+                    </h3>
+                    <span className="badge badge-warning">Onay Bekliyor</span>
                   </div>
-                )}
 
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
-                  <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>Kalan Tutar:</span>
-                  <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: 18 }}>{formatCurrency(Number(bill.remainingAmount))} ₺</span>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+                    <p><strong>Garson:</strong> {req.requestedByName || "Belirtilmedi"}</p>
+                    <p><strong>Yöntem:</strong> {req.method === "CASH" ? "💵 Nakit" : "💳 Kart"}</p>
+                    {req.method === "CASH" && req.receivedAmount && (
+                      <p><strong>Alınan Nakit:</strong> ₺{Number(req.receivedAmount).toFixed(2)} (Üstü: ₺{Number(req.changeAmount || 0).toFixed(2)})</p>
+                    )}
+                    {req.note && <p><strong>Not:</strong> {req.note}</p>}
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8, borderTop: "1px solid var(--border-subtle)", marginBottom: 16 }}>
+                    <span style={{ fontWeight: 600 }}>Tahsil Edilecek:</span>
+                    <span style={{ fontWeight: 800, fontSize: 18, color: "var(--primary)" }}>₺{Number(req.amount).toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => handleApproveRequest(req)}
+                    disabled={processingBillId === req.id}
+                    className="btn btn-success"
+                    style={{ flex: 2, gap: 4 }}
+                  >
+                    <CheckCircle2 size={16} /> Onayla ve Tahsil Et
+                  </button>
+                  <button
+                    onClick={() => { setRejectModal(req); setRejectReason(""); }}
+                    className="btn btn-danger"
+                    style={{ flex: 1, gap: 4 }}
+                  >
+                    <XCircle size={16} /> Reddet
+                  </button>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-              <button
-                onClick={() => openPayModal(bill)}
-                className="btn btn-primary mt-6"
-                style={{ width: "100%" }}
-              >
-                Ödeme Al
+      {/* SECTION 2: AÇIK ADİSYONLAR */}
+      <div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Açık Adisyonlar (Doğrudan Tahsilat)</h2>
+
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80, borderRadius: 12 }} />)}
+          </div>
+        ) : bills.length === 0 ? (
+          <div className="card" style={{ padding: "32px 24px", textAlign: "center" }}>
+            <p style={{ color: "var(--text-secondary)" }}>Bekleyen açık adisyon bulunmamaktadır.</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
+            {bills.map(bill => (
+              <div key={bill.id} className="card p-5" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
+                      {bill.table?.tableName || `Masa ${bill.table?.tableNumber}`}
+                    </h3>
+                    <span className="badge badge-warning">Açık Adisyon</span>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>Toplam Hesap:</span>
+                    <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>{formatCurrency(Number(bill.totalAmount))} ₺</span>
+                  </div>
+
+                  {Number(bill.paidAmount) > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>Ödenen:</span>
+                      <span style={{ fontWeight: 600, color: "var(--success)", fontSize: 14 }}>-{formatCurrency(Number(bill.paidAmount))} ₺</span>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
+                    <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>Kalan Tutar:</span>
+                    <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: 18 }}>{formatCurrency(Number(bill.remainingAmount))} ₺</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => openPayModal(bill)}
+                  className="btn btn-primary mt-6"
+                  style={{ width: "100%" }}
+                >
+                  Ödeme Al
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Reject Modal */}
+      {rejectModal && (
+        <div className="modal-overlay" onClick={() => !rejecting && setRejectModal(null)}>
+          <div className="modal-content p-6" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Ödeme Talebini Reddet</h3>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
+              {rejectModal.table?.tableName || `Masa ${rejectModal.table?.tableNumber}`} ödeme talebini reddetmek üzeresiniz.
+            </p>
+
+            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+              Red Nedeni
+            </label>
+            <input
+              className="input"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Örn: Tutar hatalı veya eksik"
+              style={{ marginBottom: 20 }}
+            />
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setRejectModal(null)} className="btn btn-ghost" style={{ flex: 1 }}>İptal</button>
+              <button onClick={handleRejectRequest} disabled={rejecting} className="btn btn-danger" style={{ flex: 1 }}>
+                {rejecting ? "İşleniyor..." : "Reddet"}
               </button>
             </div>
-          ))}
+          </div>
         </div>
       )}
 
@@ -246,12 +438,6 @@ export default function PendingPaymentsPage() {
                 <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: 18 }}>{formatCurrency(Number(payModal.remainingAmount))} ₺</span>
               </div>
             </div>
-
-            {error && (
-              <div style={{ padding: "10px 14px", background: "rgba(220,38,38,0.1)", color: "var(--danger)", borderRadius: 8, marginBottom: 16, fontSize: 13, fontWeight: 500 }}>
-                {error}
-              </div>
-            )}
 
             {/* Ödenecek Tutar */}
             <div style={{ marginBottom: 16 }}>
@@ -326,7 +512,6 @@ export default function PendingPaymentsPage() {
                   )}
                 </div>
 
-                {/* Para üstü gösterimi */}
                 <div style={{
                   padding: "12px 16px", borderRadius: 10,
                   background: changeAmount > 0 ? "rgba(16,185,129,0.08)" : "var(--bg-hover)",
@@ -345,7 +530,7 @@ export default function PendingPaymentsPage() {
             )}
 
             <button
-              onClick={handlePayment}
+              onClick={handleDirectPayment}
               disabled={processingBillId === payModal.id || (paymentMethod === "CASH" && isCashInsufficient)}
               className="btn btn-primary"
               style={{ width: "100%", padding: 16, fontSize: 16 }}

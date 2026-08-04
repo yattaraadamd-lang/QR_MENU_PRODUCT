@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { processAdminPayment, PaymentError } from "@/lib/services/table-flow.service";
+import { createDirectAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 
 export const dynamic = "force-dynamic";
@@ -11,13 +11,12 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   let billId: string | undefined;
-  
+
   try {
     const params = await context.params;
     billId = params.id;
     const session = await getServerSession(authOptions);
 
-    // Yalnız ADMIN ve SUPER_ADMIN
     if (
       !session?.user?.businessId ||
       (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN")
@@ -30,7 +29,6 @@ export async function POST(
 
     const body = await request.json();
 
-    // Eski paymentMethod alanını method'a normalize et
     const rawMethod = body.method || body.paymentMethod;
     let method: "CASH" | "CARD" | "ONLINE" | "OTHER";
     switch (rawMethod) {
@@ -50,7 +48,7 @@ export async function POST(
       );
     }
 
-    const result = await processAdminPayment({
+    const result = await createDirectAdminPayment({
       billId,
       amount,
       method,
@@ -62,7 +60,6 @@ export async function POST(
       businessId: session.user.businessId,
     });
 
-    // Socket bildirimi — transaction sonrası
     if (result.isFullyPaid && result.table) {
       try {
         emitToBusinessRoom(session.user.businessId, "table_status_update", {
@@ -97,8 +94,7 @@ export async function POST(
       code: error?.code,
       name: error?.name,
       message: error?.message,
-      meta: error?.meta,
-      billId: billId,
+      billId,
     });
 
     if (error instanceof PaymentError) {
@@ -108,22 +104,10 @@ export async function POST(
       );
     }
 
-    // Prisma constraint violations
     if (error.code === "P2002") {
       return NextResponse.json(
         { error: "Bu ödeme zaten işlenmiş.", code: "DUPLICATE_PAYMENT" },
         { status: 409 }
-      );
-    }
-
-    // Prisma şema hataları
-    if (error?.code === "P2021" || error?.code === "P2022") {
-      return NextResponse.json(
-        {
-          error: "Veritabanı güncellemesi tamamlanmamış. Lütfen yöneticiye bildirin.",
-          code: "DATABASE_SCHEMA_OUTDATED",
-        },
-        { status: 503 }
       );
     }
 

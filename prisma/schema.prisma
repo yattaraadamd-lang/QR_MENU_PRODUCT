@@ -482,6 +482,15 @@ model Payment {
   paidAt              DateTime?
   handledById         String?
   handledByWaiterName String?
+  requestedById       String?
+  requestedByName     String?
+  approvalRequestedAt DateTime?
+  approvedById        String?
+  approvedByName      String?
+  approvedAt          DateTime?
+  rejectedById        String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
@@ -494,12 +503,17 @@ model Payment {
   @@index([businessId, status, createdAt])
   @@index([tableId, status])
   @@index([tableSessionId])
+  @@index([billId, status])
+  @@index([tableSessionId, status])
   @@map("payments")
 }
 
 enum PaymentStatus {
   PENDING
+  AWAITING_ADMIN_APPROVAL
+  PROCESSING
   PAID
+  REJECTED
   CANCELLED
   FAILED
 }
