@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateBody, updateOrderStatusSchema, isValidCuid } from "@/lib/validation";
 import { OrderStatus, TableStatus } from "@prisma/client";
-import { emitToBusinessRoom } from "@/lib/socket-server";
+import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
+import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
 
 // PUT /api/waiter/orders/[id]/status - Sipariş durumu güncelle
 export async function PUT(
@@ -51,6 +52,45 @@ export async function PUT(
 
     const status = validation.data.status as OrderStatus;
     const cancellationReason = validation.data.cancellationReason;
+    const reasonCode = validation.data.reasonCode;
+    const outOfStockProductIds = validation.data.outOfStockProductIds;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // İPTAL / RED → Merkezi servise delege et
+    // ═══════════════════════════════════════════════════════════════════
+    if (status === "CANCELLED" || status === "REJECTED") {
+      try {
+        const result = await cancelOrderAndSyncState({
+          orderId: params.id,
+          businessId,
+          actorId: authResult.session.userId,
+          actorRole: authResult.session.role as "WAITER" | "ADMIN" | "SUPER_ADMIN",
+          targetStatus: status,
+          reasonCode: reasonCode || null,
+          reasonText: cancellationReason || null,
+          outOfStockProductIds: outOfStockProductIds || null,
+        });
+
+        return NextResponse.json({
+          message: status === "REJECTED" ? "Sipariş reddedildi" : "Sipariş iptal edildi",
+          order: result.order,
+          tableStatus: result.tableStatus,
+          stockUpdatedProductIds: result.stockUpdatedProductIds,
+        });
+      } catch (error) {
+        if (error instanceof OrderCancellationError) {
+          return NextResponse.json(
+            { error: error.message, code: error.code },
+            { status: error.statusCode }
+          );
+        }
+        throw error;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NORMAL DURUM GÜNCELLEMELERİ (ACCEPTED, PREPARING, SERVED)
+    // ═══════════════════════════════════════════════════════════════════
 
     // ✅ Verify order ownership
     const order = await prisma.order.findFirst({
@@ -132,7 +172,6 @@ export async function PUT(
 
         if (tableSession.bill) {
           // ✅ Kümülatif toplama YOK — her zaman DB'den sıfırdan hesapla
-          // Bu sayede recalculate veya başka bir işlemle çift sayım engellenir
           const sessionOrders = await prisma.order.findMany({
             where: {
               tableSessionId: tableSession.id,
@@ -167,16 +206,6 @@ export async function PUT(
       waiterId: authResult.session.userId,
     };
 
-    // ✅ İptal veya red durumunda bilgileri kaydet
-    if (status === "CANCELLED" || status === "REJECTED") {
-      updateData.cancelledAt = new Date();
-      updateData.cancelReason =
-        cancellationReason ||
-        (status === "REJECTED"
-          ? "Garson tarafından reddedildi"
-          : "Garson tarafından iptal edildi");
-    }
-
     // ✅ Update order
     const updatedOrder = await prisma.order.update({
       where: { id: params.id },
@@ -206,44 +235,27 @@ export async function PUT(
       },
     });
 
-    // ✅ Diğer aktif siparişleri kontrol et
-    const otherActiveOrders = await prisma.order.count({
-      where: {
-        tableId: order.tableId,
-        id: { not: params.id },
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
-      },
-    });
+    // ✅ Diğer aktif siparişleri kontrol et (tableSessionId bazlı)
+    const sessionIdForQuery = order.tableSessionId;
+    const otherActiveOrders = sessionIdForQuery
+      ? await prisma.order.count({
+          where: {
+            tableSessionId: sessionIdForQuery,
+            id: { not: params.id },
+            status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
+          },
+        })
+      : 0;
 
     let newTableStatus: TableStatus | null = null;
 
     if (status === "ACCEPTED") {
-      // Garson kabul etti - masa siparişli olur
       newTableStatus = TableStatus.HAS_ORDER;
     } else if (status === "PREPARING") {
       newTableStatus = TableStatus.PREPARING;
     } else if (status === "SERVED") {
       if (otherActiveOrders === 0) {
         newTableStatus = TableStatus.SERVED;
-      }
-    } else if (status === "CANCELLED" || status === "REJECTED") {
-      if (otherActiveOrders === 0) {
-        // ✅ SERVED (ödenmemiş) siparişleri kontrol et — varsa masa kapanmamalı
-        const unpaidServedOrders = await prisma.order.count({
-          where: {
-            tableId: order.tableId,
-            status: "SERVED",
-            paymentStatus: "UNPAID",
-          },
-        });
-
-        if (unpaidServedOrders > 0) {
-          // Servis edilmiş ödenmemiş sipariş var — masa SERVED kalmalı
-          newTableStatus = TableStatus.SERVED;
-        } else {
-          // Gerçekten hiç aktif/servis edilmiş sipariş yok — masa boşaltılabilir
-          newTableStatus = TableStatus.EMPTY;
-        }
       }
     }
 
@@ -254,49 +266,9 @@ export async function PUT(
       });
     }
 
-    // ✅ İptal veya Red: adisyon tutarını güncelle
-    if (
-      (status === "CANCELLED" || status === "REJECTED") &&
-      order.tableSessionId
-    ) {
-      const bill = await prisma.bill.findFirst({
-        where: { tableSessionId: order.tableSessionId },
-        select: {
-          id: true,
-          totalAmount: true,
-          paidAmount: true,
-        },
-      });
-
-      if (bill) {
-        const newTotal = Math.max(
-          0,
-          Number(bill.totalAmount) - Number(order.totalPrice)
-        );
-        const remaining = Math.max(0, newTotal - Number(bill.paidAmount));
-
-        let paymentStatus: "UNPAID" | "PARTIALLY_PAID" | "PAID" = "UNPAID";
-
-        if (remaining === 0 && newTotal > 0) {
-          paymentStatus = "PAID";
-        } else if (Number(bill.paidAmount) > 0) {
-          paymentStatus = "PARTIALLY_PAID";
-        }
-
-        await prisma.bill.update({
-          where: { id: bill.id },
-          data: {
-            totalAmount: newTotal,
-            remainingAmount: remaining,
-            paymentStatus,
-          },
-        });
-      }
-    }
-
     // ✅ Socket.IO notification
     try {
-      emitToBusinessRoom(businessId, "order_status_update", {
+      emitToBusinessRoom(businessId, SOCKET_EVENTS.ORDER_STATUS_UPDATE, {
         orderId: order.id,
         tableNumber: order.table.tableNumber,
         tableName: order.table.tableName,

@@ -193,6 +193,26 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         setTable(data.table);
         setCategories(data.categories || []);
         if (initial && data.categories?.length > 0) setActiveCategory(data.categories[0].id);
+
+        // ✅ Cart içindeki stoksuz kalan ürünleri otomatik temizle
+        setCart(prevCart => {
+          if (prevCart.length === 0) return prevCart;
+          const allProductsMap = new Map<string, Product>();
+          (data.categories || []).forEach((cat: Category) => {
+            (cat.products || []).forEach((p: Product) => allProductsMap.set(p.id, p));
+          });
+
+          const validCart = prevCart.filter(item => {
+            const updatedProd = allProductsMap.get(item.product.id);
+            if (!updatedProd) return false;
+            return updatedProd.isAvailable && updatedProd.stockStatus === "IN_STOCK";
+          });
+
+          if (validCart.length < prevCart.length) {
+            showToast("Stokta tükenen ürünler sepetinizden çıkarıldı.", "err");
+          }
+          return validCart;
+        });
         if (initial) {
           const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
           if (blockedHint) setOrderBlockedMsg(blockedHint);

@@ -29,14 +29,28 @@ const TABS = [
 
 type TabKey = typeof TABS[number]["key"];
 
+const REASON_OPTIONS = [
+  { code: "OUT_OF_STOCK", label: "Ürün stokta yok" },
+  { code: "CUSTOMER_CANCELLED", label: "Müşteri vazgeçti" },
+  { code: "WRONG_ORDER", label: "Yanlış sipariş" },
+  { code: "TABLE_NOT_VERIFIED", label: "Masa doğrulanamadı" },
+  { code: "BUSINESS_NOT_ACCEPTING", label: "İşletme sipariş almıyor" },
+  { code: "OTHER", label: "Diğer" },
+] as const;
+
+type ReasonCode = typeof REASON_OPTIONS[number]["code"];
+
 export default function AdminOrdersPage() {
   const { data: session } = useSession();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<TabKey>("all");
-  const [cancelReason, setCancelReason] = useState("");
+  
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedReasonCode, setSelectedReasonCode] = useState<ReasonCode | null>(null);
+  const [cancelReasonText, setCancelReasonText] = useState("");
+  const [selectedOutOfStockPids, setSelectedOutOfStockPids] = useState<string[]>([]);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,15 +70,87 @@ export default function AdminOrdersPage() {
     finally { setLoading(false); }
   };
 
+  const getUniqueOrderProducts = (order: any) => {
+    if (!order || !order.items) return [];
+    const map = new Map<string, string>();
+    order.items.forEach((item: any) => {
+      const pid = item.productId || item.product?.id;
+      if (pid) {
+        map.set(pid, item.productName || item.product?.name || "Bilinmeyen Ürün");
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  };
+
+  const handleSelectReasonCode = (code: ReasonCode) => {
+    setSelectedReasonCode(code);
+    if (code === "OUT_OF_STOCK" && selectedOrder) {
+      const prods = getUniqueOrderProducts(selectedOrder);
+      if (prods.length === 1) {
+        setSelectedOutOfStockPids([prods[0].id]);
+      } else {
+        setSelectedOutOfStockPids([]);
+      }
+    } else {
+      setSelectedOutOfStockPids([]);
+    }
+  };
+
+  const toggleOutOfStockPid = (pid: string) => {
+    setSelectedOutOfStockPids(prev =>
+      prev.includes(pid) ? prev.filter(id => id !== pid) : [...prev, pid]
+    );
+  };
+
+  const resetCancelState = () => {
+    setShowCancelModal(false);
+    setSelectedOrder(null);
+    setSelectedReasonCode(null);
+    setCancelReasonText("");
+    setSelectedOutOfStockPids([]);
+  };
+
   const handleCancelOrder = async () => {
-    if (!selectedOrder || !cancelReason.trim()) return;
+    if (!selectedOrder || !selectedReasonCode) return;
+
+    if (selectedReasonCode === "OUT_OF_STOCK" && selectedOutOfStockPids.length === 0) {
+      alert("Lütfen stok dışı kalan en az bir ürün seçin.");
+      return;
+    }
+    if (selectedReasonCode === "OTHER" && !cancelReasonText.trim()) {
+      alert("Lütfen iptal nedeni açıklamasını girin.");
+      return;
+    }
+
     setCancellingId(selectedOrder.id);
+    const selectedOption = REASON_OPTIONS.find(o => o.code === selectedReasonCode);
+    const reasonLabel = selectedOption?.label || selectedReasonCode;
+    const finalReason = selectedReasonCode === "OTHER"
+      ? cancelReasonText.trim()
+      : (cancelReasonText.trim() ? `${reasonLabel}: ${cancelReasonText.trim()}` : reasonLabel);
+
     try {
-      const res = await fetch(`/api/orders/${selectedOrder.id}?reason=${encodeURIComponent(cancelReason)}`, { method: "DELETE" });
-      if (res.ok) { fetchOrders(); setShowCancelModal(false); setCancelReason(""); setSelectedOrder(null); }
-      else { const d = await res.json(); alert(d.error || "İptal edilemedi"); }
-    } catch { alert("Bağlantı hatası"); }
-    finally { setCancellingId(null); }
+      const res = await fetch(`/api/admin/orders/${selectedOrder.id}/cancel`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reasonCode: selectedReasonCode,
+          cancelReason: finalReason,
+          outOfStockProductIds: selectedReasonCode === "OUT_OF_STOCK" ? selectedOutOfStockPids : null,
+        }),
+      });
+      if (res.ok) {
+        fetchOrders();
+        resetCancelState();
+      } else {
+        const d = await res.json();
+        alert(d.error || "İptal edilemedi");
+      }
+    } catch {
+      alert("Bağlantı hatası");
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   // Filtre mantığı — "Bekleyen Ödeme" = servis edilmiş ama ödenmemiş
@@ -151,32 +237,111 @@ export default function AdminOrdersPage() {
       )}
 
       {/* İptal Modal */}
-      {showCancelModal && selectedOrder && (
-        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 440 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Siparişi İptal Et</h3>
-            <div style={{ marginBottom: 16, padding: 12, background: "var(--bg-secondary)", borderRadius: 8 }}>
-              <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Masa:</strong> {selectedOrder.table?.tableName || `Masa ${selectedOrder.table?.tableNumber}`}</p>
-              <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Toplam:</strong> {Number(selectedOrder.totalPrice).toFixed(2)} ₺</p>
-              <p style={{ fontSize: 14 }}><strong>Durum:</strong> {statusLabels[selectedOrder.status]}</p>
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>İptal Nedeni *</label>
-              <textarea className="input" value={cancelReason} onChange={e => setCancelReason(e.target.value)}
-                placeholder="Örn: Müşteri vazgeçti, Ürün stokta yok..." style={{ height: 80, resize: "none" }} autoFocus />
-            </div>
-            <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#fca5a5" }}>
-              ⚠️ Bu işlem geri alınamaz.
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleCancelOrder} disabled={cancellingId === selectedOrder.id || !cancelReason.trim()} className="btn btn-danger" style={{ flex: 1, opacity: (!cancelReason.trim() || cancellingId) ? 0.5 : 1 }}>
-                {cancellingId === selectedOrder.id ? "İptal Ediliyor..." : "Siparişi İptal Et"}
-              </button>
-              <button onClick={() => setShowCancelModal(false)} className="btn btn-ghost">Vazgeç</button>
+      {showCancelModal && selectedOrder && (() => {
+        const uniqueProducts = getUniqueOrderProducts(selectedOrder);
+        const isSubmitting = cancellingId === selectedOrder.id;
+
+        let isSubmitDisabled = !selectedReasonCode || isSubmitting;
+        if (selectedReasonCode === "OUT_OF_STOCK" && selectedOutOfStockPids.length === 0) {
+          isSubmitDisabled = true;
+        }
+        if (selectedReasonCode === "OTHER" && !cancelReasonText.trim()) {
+          isSubmitDisabled = true;
+        }
+
+        return (
+          <div className="modal-overlay" onClick={() => !isSubmitting && resetCancelState()}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 440, width: "90vw" }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Siparişi İptal Et</h3>
+              <div style={{ marginBottom: 16, padding: 12, background: "var(--bg-secondary)", borderRadius: 8 }}>
+                <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Masa:</strong> {selectedOrder.table?.tableName || `Masa ${selectedOrder.table?.tableNumber}`}</p>
+                <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Toplam:</strong> {Number(selectedOrder.totalPrice).toFixed(2)} ₺</p>
+                <p style={{ fontSize: 14 }}><strong>Durum:</strong> {statusLabels[selectedOrder.status]}</p>
+              </div>
+
+              {/* Neden Seçenekleri */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {REASON_OPTIONS.map(opt => {
+                  const isSelected = selectedReasonCode === opt.code;
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => handleSelectReasonCode(opt.code)}
+                      style={{
+                        padding: "10px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
+                        border: `1.5px solid ${isSelected ? "#ef4444" : "var(--border-color)"}`,
+                        background: isSelected ? "rgba(239,68,68,0.08)" : "transparent",
+                        color: isSelected ? "#ef4444" : "var(--text-secondary)",
+                        cursor: "pointer", fontWeight: isSelected ? 600 : 400,
+                      }}
+                    >
+                      {isSelected ? "✓ " : ""}{opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* OUT_OF_STOCK Ürün Seçimi */}
+              {selectedReasonCode === "OUT_OF_STOCK" && (
+                <div style={{ marginBottom: 16, padding: 12, background: "rgba(245,158,11,0.08)", borderRadius: 10, border: "1px solid rgba(245,158,11,0.25)" }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#d97706", marginBottom: 8 }}>
+                    Stokta olmayan ürünü/ürünleri seçin:
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {uniqueProducts.map(p => (
+                      <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedOutOfStockPids.includes(p.id)}
+                          onChange={() => toggleOutOfStockPid(p.id)}
+                          style={{ width: 16, height: 16, accentColor: "#ef4444" }}
+                        />
+                        <span>{p.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 11, color: "#ef4444", marginTop: 8, fontWeight: 600 }}>
+                    ⚠️ Seçilen ürünler stokta yok olarak işaretlenecek ve müşteriler sipariş veremeyecektir.
+                  </p>
+                </div>
+              )}
+
+              {/* Açıklama alanı */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Açıklama {selectedReasonCode === "OTHER" ? "*" : "(Opsiyonel)"}
+                </label>
+                <textarea
+                  className="input"
+                  value={cancelReasonText}
+                  onChange={e => setCancelReasonText(e.target.value)}
+                  placeholder="İptal nedenini detaylandırın..."
+                  style={{ height: 70, resize: "none", width: "100%", fontSize: 13 }}
+                  autoFocus={selectedReasonCode === "OTHER"}
+                />
+              </div>
+
+              <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#fca5a5" }}>
+                ⚠️ Bu işlem geri alınamaz.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={isSubmitDisabled}
+                  className="btn btn-danger"
+                  style={{ flex: 1, opacity: isSubmitDisabled ? 0.5 : 1 }}
+                >
+                  {isSubmitting ? "İptal Ediliyor..." : "Siparişi İptal Et"}
+                </button>
+                <button onClick={resetCancelState} disabled={isSubmitting} className="btn btn-ghost">
+                  Vazgeç
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Liste */}
       {loading ? (
@@ -244,7 +409,7 @@ export default function AdminOrdersPage() {
                   Toplam: {Number(order.totalPrice).toFixed(2)} ₺
                 </span>
                 {!["CANCELLED", "SERVED", "REJECTED"].includes(order.status) && (
-                  <button onClick={() => { setSelectedOrder(order); setShowCancelModal(true); setCancelReason(""); }} className="btn btn-sm btn-danger" style={{ fontSize: 12 }}>
+                  <button onClick={() => { setSelectedOrder(order); setSelectedReasonCode(null); setCancelReasonText(""); setSelectedOutOfStockPids([]); setShowCancelModal(true); }} className="btn btn-sm btn-danger" style={{ fontSize: 12 }}>
                     ❌ İptal Et
                   </button>
                 )}

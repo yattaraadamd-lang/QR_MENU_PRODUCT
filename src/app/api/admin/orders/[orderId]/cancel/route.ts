@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
-import { OrderStatus, TableStatus } from "@prisma/client";
-import { emitToBusinessRoom } from "@/lib/socket-server";
+import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
+import { OrderCancelReasonCode } from "@prisma/client";
 
 // PUT /api/admin/orders/[orderId]/cancel - Admin sipariş iptal
 export async function PUT(
@@ -11,88 +10,54 @@ export async function PUT(
 ) {
   try {
     const params = await context.params;
-    
+
+    // ✅ Auth: Admin kontrolü
     const { error, response, session } = await requireAdmin();
     if (error) return response!;
 
     const businessId = getBusinessId(session);
+
+    // ✅ Request body
     const body = await request.json();
-    const { cancelReason } = body;
+    const { cancelReason, reasonCode, outOfStockProductIds } = body;
 
-    const order = await prisma.order.findFirst({
-      where: { id: params.orderId, businessId },
-      include: { table: true },
-    });
-
-    if (!order) {
+    // ✅ reasonCode validasyonu
+    const validReasonCodes = Object.values(OrderCancelReasonCode);
+    if (reasonCode && !validReasonCodes.includes(reasonCode)) {
       return NextResponse.json(
-        { error: "Sipariş bulunamadı" },
-        { status: 404 }
-      );
-    }
-
-    if (order.status === "CANCELLED" || order.status === "SERVED") {
-      return NextResponse.json(
-        { error: "Bu sipariş zaten tamamlanmış veya iptal edilmiş" },
+        { error: "Geçersiz iptal nedeni kodu.", code: "INVALID_CANCEL_REASON" },
         { status: 400 }
       );
     }
 
-    // Siparişi iptal et
-    const updatedOrder = await prisma.order.update({
-      where: { id: params.orderId },
-      data: {
-        status: OrderStatus.CANCELLED,
-        cancelReason: cancelReason || "Admin tarafından iptal edildi",
-        cancelledAt: new Date(),
-      },
-      include: {
-        items: { include: { product: true } },
-        table: true,
-      },
-    });
-
-    // Aynı masada başka aktif sipariş var mı?
-    const otherActiveOrders = await prisma.order.count({
-      where: {
-        tableId: order.tableId,
-        id: { not: params.orderId },
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
-      },
-    });
-
-    // ✅ Ödenmemiş servis edilmiş siparişleri de kontrol et
-    const unPaidServedOrders = await prisma.order.count({
-      where: {
-        tableId: order.tableId,
-        id: { not: params.orderId },
-        status: "SERVED",
-      },
-    });
-
-    // Başka aktif sipariş yoksa masa durumunu güncelle
-    if (otherActiveOrders === 0) {
-      // ✅ Ödenmemiş servis edilmiş sipariş varsa SERVED, yoksa OCCUPIED
-      const newTableStatus = unPaidServedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
-      
-      await prisma.table.update({
-        where: { id: order.tableId },
-        data: { status: newTableStatus },
+    // ✅ Merkezi servise delege et
+    try {
+      const result = await cancelOrderAndSyncState({
+        orderId: params.orderId,
+        businessId,
+        actorId: session!.user.id,
+        actorRole: "ADMIN",
+        targetStatus: "CANCELLED",
+        reasonCode: reasonCode || null,
+        reasonText: cancelReason || null,
+        outOfStockProductIds: outOfStockProductIds || null,
       });
+
+      return NextResponse.json({
+        message: "Sipariş iptal edildi",
+        order: result.order,
+        tableStatus: result.tableStatus,
+        stockUpdatedProductIds: result.stockUpdatedProductIds,
+      });
+    } catch (err) {
+      if (err instanceof OrderCancellationError) {
+        return NextResponse.json(
+          { error: err.message, code: err.code },
+          { status: err.statusCode }
+        );
+      }
+      throw err;
     }
-
-    // Socket.IO bildirimi
-    emitToBusinessRoom(businessId, "order_cancelled", {
-      orderId: order.id,
-      tableNumber: order.table.tableNumber,
-      tableName: order.table.tableName,
-      message: `${order.table.tableName || "Masa " + order.table.tableNumber} siparişi iptal edildi`,
-    });
-
-    return NextResponse.json({
-      message: "Sipariş iptal edildi",
-      order: updatedOrder,
-    });
   } catch (error) {
     console.error("Sipariş iptal hatası:", error);
     return NextResponse.json(

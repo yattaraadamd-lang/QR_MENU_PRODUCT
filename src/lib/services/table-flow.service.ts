@@ -613,6 +613,120 @@ export async function closeTable(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 7b. SİPARİŞ İPTALİ SONRASI MASA DURUMUNU HESAPLA (tableSessionId bazlı)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Sipariş iptali/reddi sonrası masanın doğru durumunu belirler.
+ * recalculateTableStatus'tan farkı: tableSessionId bazlı çalışır,
+ * eski oturumların siparişlerini hesaba katmaz.
+ *
+ * Karar sırası:
+ *   1. Aktif TableSession yoksa → EMPTY
+ *   2. PREPARING sipariş varsa → PREPARING
+ *   3. PENDING veya ACCEPTED sipariş varsa → HAS_ORDER
+ *   4. Aktif ödeme talebi + kalan borç varsa → PAYMENT_REQUESTED
+ *   5. SERVED + ödenmemiş sipariş veya Bill.remainingAmount > 0 → SERVED
+ *   6. Aktif oturum var ama ödenebilir sipariş kalmadı → OCCUPIED
+ *
+ * Masayı transaction içinde günceller ve hesaplanan durumu döndürür.
+ */
+export async function deriveTableStatusAfterOrderChange(
+  tx: TxClient,
+  opts: { tableId: string; tableSessionId?: string | null; businessId: string }
+): Promise<TableStatus> {
+  const { businessId, tableId, tableSessionId } = opts;
+
+  // 1. Aktif TableSession var mı?
+  const activeSession = await tx.tableSession.findFirst({
+    where: { tableId, businessId, status: "ACTIVE" },
+    include: { bill: true },
+  });
+
+  if (!activeSession) {
+    const table = await tx.table.findUnique({ where: { id: tableId } });
+    if (table && table.status !== TableStatus.EMPTY) {
+      await tx.table.update({
+        where: { id: tableId },
+        data: { status: TableStatus.EMPTY },
+      });
+    }
+    return TableStatus.EMPTY;
+  }
+
+  // Session scope — eski oturumları dahil etme
+  const sessionId = tableSessionId || activeSession.id;
+
+  // 2. Sipariş durumlarını session bazında grupla
+  const orderStatuses = await tx.order.groupBy({
+    by: ["status"],
+    where: {
+      tableSessionId: sessionId,
+      status: { notIn: ["CANCELLED", "REJECTED"] },
+    },
+    _count: true,
+  });
+
+  const statusMap: Record<string, number> = {};
+  orderStatuses.forEach((s) => {
+    statusMap[s.status] = s._count;
+  });
+
+  let computed: TableStatus;
+
+  if (statusMap["PREPARING"]) {
+    computed = TableStatus.PREPARING;
+  } else if (statusMap["PENDING"] || statusMap["ACCEPTED"]) {
+    computed = TableStatus.HAS_ORDER;
+  } else {
+    // Aktif ödeme talebi var mı?
+    const activePR = await tx.serviceRequest.count({
+      where: {
+        tableId,
+        businessId,
+        requestType: "PAYMENT_REQUEST",
+        status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] },
+      },
+    });
+    const pendingPayment = await tx.payment.count({
+      where: {
+        tableSessionId: sessionId,
+        status: { in: ["PENDING", "AWAITING_ADMIN_APPROVAL", "PROCESSING"] },
+      },
+    });
+
+    // Bill'in kalan borcunu kontrol et
+    const bill = activeSession.bill;
+    const hasRemainingDebt = bill && Number(bill.remainingAmount) > 0;
+
+    if ((activePR > 0 || pendingPayment > 0) && hasRemainingDebt) {
+      computed = TableStatus.PAYMENT_REQUESTED;
+    } else if (
+      statusMap["SERVED"] &&
+      hasRemainingDebt
+    ) {
+      computed = TableStatus.SERVED;
+    } else if (hasRemainingDebt && bill && bill.status === "OPEN") {
+      // Bill'de kalan borç var ama tüm siparişler iptal — borç eski ödemelerden
+      computed = TableStatus.OCCUPIED;
+    } else {
+      computed = TableStatus.OCCUPIED;
+    }
+  }
+
+  // Güncelle (gereksiz yazma yok)
+  const table = await tx.table.findUnique({ where: { id: tableId } });
+  if (table && table.status !== computed) {
+    await tx.table.update({
+      where: { id: tableId },
+      data: { status: computed },
+    });
+  }
+
+  return computed;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 8a. YARDIMCI: MASA DURUMUNU TRANSACTION İÇİNDEN YENİDEN HESAPLA
 // ═══════════════════════════════════════════════════════════════════════════
 

@@ -55,6 +55,7 @@ export function emitToBusinessRoom(
 export const SOCKET_EVENTS = {
   NEW_ORDER:            "new_order",
   ORDER_STATUS_UPDATE:  "order_status_update",
+  ORDER_CANCELLED:      "order_cancelled",
   CALL_WAITER:          "call_waiter",
   PAYMENT_REQUEST:      "payment_request",
   PAYMENT_COLLECTED:    "payment_collected",
@@ -65,6 +66,8 @@ export const SOCKET_EVENTS = {
   TABLE_STATUS_UPDATE:  "table_status_update",
   SESSION_AUTHORIZED:   "session_authorized",
   ORDER_REQUEST_UPDATE: "order_request_update",
+  PRODUCT_STOCK_UPDATED: "product_stock_updated",
+  BILL_UPDATED:          "bill_updated",
 } as const;
 
 export type SocketEvent = typeof SOCKET_EVENTS[keyof typeof SOCKET_EVENTS];

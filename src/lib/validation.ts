@@ -5,7 +5,7 @@
  */
 
 import { z } from "zod";
-import { OrderStatus, TableStatus, ServiceRequestType, RequestStatus, StockStatus } from "@prisma/client";
+import { OrderStatus, TableStatus, ServiceRequestType, RequestStatus, StockStatus, OrderCancelReasonCode } from "@prisma/client";
 
 // ============================================================================
 // Common Schemas
@@ -108,6 +108,8 @@ export const createOrderSchema = z.object({
 export const updateOrderStatusSchema = z.object({
   status: z.nativeEnum(OrderStatus),
   cancellationReason: z.string().max(500).optional().nullable(),
+  reasonCode: z.nativeEnum(OrderCancelReasonCode).optional().nullable(),
+  outOfStockProductIds: z.array(z.string().min(1).max(200)).max(100).optional().nullable(),
 });
 
 // ============================================================================

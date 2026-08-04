@@ -6,6 +6,16 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
 import { Check, X, ChefHat, UtensilsCrossed, Clock, AlertTriangle, Loader2, ClipboardList } from "lucide-react";
 
+type OrderItem = {
+  id?: string;
+  productId?: string;
+  product?: { id?: string; name: string };
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  customerNote: string | null;
+};
+
 type Order = {
   id: string;
   table: { tableNumber: string; tableName: string | null };
@@ -15,14 +25,19 @@ type Order = {
   createdAt: string;
   cancelReason: string | null;
   waiter: { id: string; name: string } | null;
-  items: Array<{
-    product: { name: string };
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    customerNote: string | null;
-  }>;
+  items: OrderItem[];
 };
+
+const REASON_OPTIONS = [
+  { code: "OUT_OF_STOCK", label: "Ürün stokta yok" },
+  { code: "CUSTOMER_CANCELLED", label: "Müşteri vazgeçti" },
+  { code: "WRONG_ORDER", label: "Yanlış sipariş" },
+  { code: "TABLE_NOT_VERIFIED", label: "Masa doğrulanamadı" },
+  { code: "BUSINESS_NOT_ACCEPTING", label: "İşletme sipariş almıyor" },
+  { code: "OTHER", label: "Diğer" },
+] as const;
+
+type ReasonCode = typeof REASON_OPTIONS[number]["code"];
 
 const STATUS_META: Record<string, { label: string; badge: string; color: string; icon: React.ReactNode }> = {
   PENDING:   { label: "Bekliyor",      badge: "badge-warning", color: "#f59e0b", icon: <Clock size={14} /> },
@@ -45,11 +60,16 @@ export default function WaiterOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("active");
-  const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
-  const [cancelModal, setCancelModal] = useState<{ id: string; tableName: string } | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [actionLoading, setActionLoading] = useState<string | null>(null); // orderId that's loading
+  
+  // Modal states
+  const [rejectModal, setRejectModal] = useState<Order | null>(null);
+  const [cancelModal, setCancelModal] = useState<Order | null>(null);
+  
+  const [selectedReasonCode, setSelectedReasonCode] = useState<ReasonCode | null>(null);
+  const [customReasonText, setCustomReasonText] = useState("");
+  const [selectedOutOfStockPids, setSelectedOutOfStockPids] = useState<string[]>([]);
+  
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -84,18 +104,35 @@ export default function WaiterOrdersPage() {
     };
   }, [session, fetchOrders]);
 
-  const updateStatus = async (orderId: string, status: string, reason?: string): Promise<boolean> => {
+  const updateStatus = async (
+    orderId: string,
+    status: string,
+    payloadExtra?: {
+      cancelReason?: string;
+      reasonCode?: ReasonCode | null;
+      outOfStockProductIds?: string[] | null;
+    }
+  ): Promise<boolean> => {
     setActionLoading(orderId);
     try {
       const res = await fetch(`/api/waiter/orders/${orderId}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, cancelReason: reason }),
+        body: JSON.stringify({
+          status,
+          cancelReason: payloadExtra?.cancelReason,
+          reasonCode: payloadExtra?.reasonCode,
+          outOfStockProductIds: payloadExtra?.outOfStockProductIds,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
         fetchOrders();
-        const labels: Record<string, string> = { ACCEPTED: "Sipariş kabul edildi", PREPARING: "Hazırlanmaya başlandı", SERVED: "Servis edildi" };
+        const labels: Record<string, string> = {
+          ACCEPTED: "Sipariş kabul edildi",
+          PREPARING: "Hazırlanmaya başlandı",
+          SERVED: "Servis edildi",
+        };
         if (labels[status]) toast.success(labels[status]);
         return true;
       } else {
@@ -110,88 +147,200 @@ export default function WaiterOrdersPage() {
     }
   };
 
-  const handleReject = async () => {
-    if (!rejectModal) return;
-    const ok = await updateStatus(rejectModal.id, "REJECTED", rejectReason || "Garson tarafından reddedildi");
-    if (ok) {
-      setRejectModal(null);
-      setRejectReason("");
-      toast.info("Sipariş reddedildi");
+  const resetModalState = () => {
+    setRejectModal(null);
+    setCancelModal(null);
+    setSelectedReasonCode(null);
+    setCustomReasonText("");
+    setSelectedOutOfStockPids([]);
+  };
+
+  const getUniqueOrderProducts = (order: Order) => {
+    const map = new Map<string, string>();
+    order.items.forEach(item => {
+      const pid = item.productId || item.product?.id;
+      if (pid) {
+        map.set(pid, item.productName || item.product?.name || "Bilinmeyen Ürün");
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  };
+
+  const handleSelectReasonCode = (order: Order, code: ReasonCode) => {
+    setSelectedReasonCode(code);
+    if (code === "OUT_OF_STOCK") {
+      const prods = getUniqueOrderProducts(order);
+      if (prods.length === 1) {
+        setSelectedOutOfStockPids([prods[0].id]);
+      } else {
+        setSelectedOutOfStockPids([]);
+      }
+    } else {
+      setSelectedOutOfStockPids([]);
     }
   };
 
-  const handleCancel = async () => {
-    if (!cancelModal) return;
-    const ok = await updateStatus(cancelModal.id, "CANCELLED", cancelReason || "Garson tarafından iptal edildi");
+  const toggleOutOfStockPid = (pid: string) => {
+    setSelectedOutOfStockPids(prev =>
+      prev.includes(pid) ? prev.filter(id => id !== pid) : [...prev, pid]
+    );
+  };
+
+  const handleConfirmCancelOrReject = async (targetStatus: "CANCELLED" | "REJECTED") => {
+    const currentModalOrder = targetStatus === "REJECTED" ? rejectModal : cancelModal;
+    if (!currentModalOrder || !selectedReasonCode) return;
+
+    if (selectedReasonCode === "OUT_OF_STOCK" && selectedOutOfStockPids.length === 0) {
+      toast.error("Lütfen en az bir stok dışı kalacak ürün seçin.");
+      return;
+    }
+
+    if (selectedReasonCode === "OTHER" && !customReasonText.trim()) {
+      toast.error("Lütfen iptal nedeni açıklamasını yazın.");
+      return;
+    }
+
+    const selectedOption = REASON_OPTIONS.find(o => o.code === selectedReasonCode);
+    const reasonLabel = selectedOption?.label || selectedReasonCode;
+    const finalReasonText = selectedReasonCode === "OTHER"
+      ? customReasonText.trim()
+      : (customReasonText.trim() ? `${reasonLabel}: ${customReasonText.trim()}` : reasonLabel);
+
+    const ok = await updateStatus(currentModalOrder.id, targetStatus, {
+      cancelReason: finalReasonText,
+      reasonCode: selectedReasonCode,
+      outOfStockProductIds: selectedReasonCode === "OUT_OF_STOCK" ? selectedOutOfStockPids : null,
+    });
+
     if (ok) {
-      setCancelModal(null);
-      setCancelReason("");
-      toast.info("Sipariş iptal edildi");
+      resetModalState();
+      toast.info(targetStatus === "REJECTED" ? "Sipariş reddedildi" : "Sipariş iptal edildi");
     }
   };
 
   const pendingCount = orders.filter(o => o.status === "PENDING").length;
 
+  const renderModalContent = (order: Order, isReject: boolean) => {
+    const uniqueProducts = getUniqueOrderProducts(order);
+    const isSubmitting = actionLoading === order.id;
+
+    let isSubmitDisabled = !selectedReasonCode || isSubmitting;
+    if (selectedReasonCode === "OUT_OF_STOCK" && selectedOutOfStockPids.length === 0) {
+      isSubmitDisabled = true;
+    }
+    if (selectedReasonCode === "OTHER" && !customReasonText.trim()) {
+      isSubmitDisabled = true;
+    }
+
+    return (
+      <div className="modal-overlay" onClick={() => !isSubmitting && resetModalState()}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 420, width: "90vw" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <AlertTriangle size={20} color="#ef4444" />
+            <h3 style={{ fontSize: 18, fontWeight: 700 }}>
+              {isReject ? "Siparişi Reddet" : "Siparişi İptal Et"}
+            </h3>
+          </div>
+          <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
+            <strong style={{ color: "var(--text-primary)" }}>{order.table?.tableName || `Masa ${order.table?.tableNumber}`}</strong> — Neden seçin:
+          </p>
+
+          {/* Reason code options */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {REASON_OPTIONS.map(opt => {
+              const isSelected = selectedReasonCode === opt.code;
+              return (
+                <button
+                  key={opt.code}
+                  type="button"
+                  onClick={() => handleSelectReasonCode(order, opt.code)}
+                  style={{
+                    padding: "10px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
+                    border: `1.5px solid ${isSelected ? "#ef4444" : "var(--border-color)"}`,
+                    background: isSelected ? "rgba(239,68,68,0.08)" : "transparent",
+                    color: isSelected ? "#ef4444" : "var(--text-secondary)",
+                    cursor: "pointer", fontWeight: isSelected ? 600 : 400,
+                  }}
+                >
+                  {isSelected ? "✓ " : ""}{opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* OUT_OF_STOCK Product selection */}
+          {selectedReasonCode === "OUT_OF_STOCK" && (
+            <div style={{ marginBottom: 16, padding: 12, background: "rgba(245,158,11,0.08)", borderRadius: 10, border: "1px solid rgba(245,158,11,0.25)" }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#d97706", marginBottom: 8 }}>
+                Stokta olmayan ürünü/ürünleri seçin:
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {uniqueProducts.map(p => (
+                  <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedOutOfStockPids.includes(p.id)}
+                      onChange={() => toggleOutOfStockPid(p.id)}
+                      style={{ width: 16, height: 16, accentColor: "#ef4444" }}
+                    />
+                    <span>{p.name}</span>
+                  </label>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: "#ef4444", marginTop: 8, fontWeight: 600 }}>
+                ⚠️ Seçilen ürünler stokta yok olarak işaretlenecek ve müşteriler sipariş veremeyecektir.
+              </p>
+            </div>
+          )}
+
+          {/* OTHER optional/required text */}
+          {selectedReasonCode === "OTHER" && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
+                Açıklama *
+              </label>
+              <textarea
+                className="input"
+                value={customReasonText}
+                onChange={e => setCustomReasonText(e.target.value)}
+                placeholder="İptal/red nedenini detaylandırın..."
+                style={{ height: 70, resize: "none", width: "100%", fontSize: 13 }}
+                autoFocus
+              />
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => handleConfirmCancelOrReject(isReject ? "REJECTED" : "CANCELLED")}
+              disabled={isSubmitDisabled}
+              className="btn btn-danger"
+              style={{ flex: 1, opacity: isSubmitDisabled ? 0.5 : 1 }}
+            >
+              {isSubmitting ? <><Loader2 size={14} className="animate-spin" /> İşleniyor...</> : (isReject ? "Siparişi Reddet" : "Siparişi İptal Et")}
+            </button>
+            <button
+              type="button"
+              onClick={resetModalState}
+              disabled={isSubmitting}
+              className="btn btn-ghost"
+            >
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       {/* Reject Modal */}
-      {rejectModal && (
-        <div className="modal-overlay" onClick={() => setRejectModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 360 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>Siparişi Reddet</h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>Red nedeni belirtin (opsiyonel):</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-              {["Ürün stokta yok", "Masa doğrulanamadı", "İşletme sipariş almıyor", "Diğer"].map(r => (
-                <button key={r} onClick={() => setRejectReason(r)} style={{
-                  padding: "9px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
-                  border: `1.5px solid ${rejectReason === r ? "var(--primary)" : "var(--border-color)"}`,
-                  background: rejectReason === r ? "var(--primary-glow)" : "transparent",
-                  color: rejectReason === r ? "var(--primary-light)" : "var(--text-secondary)",
-                  cursor: "pointer",
-                }}>{rejectReason === r ? "✓ " : ""}{r}</button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleReject} disabled={actionLoading === rejectModal.id} className="btn btn-danger" style={{ flex: 1 }}>
-                {actionLoading === rejectModal.id ? <><Loader2 size={14} className="animate-spin" /> İşleniyor...</> : "Reddet"}
-              </button>
-              <button onClick={() => setRejectModal(null)} className="btn btn-ghost">İptal</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {rejectModal && renderModalContent(rejectModal, true)}
 
       {/* Cancel Modal */}
-      {cancelModal && (
-        <div className="modal-overlay" onClick={() => { setCancelModal(null); setCancelReason(""); }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 360 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <AlertTriangle size={18} color="#ef4444" />
-              <h3 style={{ fontSize: 17, fontWeight: 700 }}>Siparişi İptal Et</h3>
-            </div>
-            <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
-              <strong style={{ color: "var(--text-primary)" }}>{cancelModal.tableName}</strong> — İptal nedeni belirtin:
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-              {["Müşteri vazgeçti", "Ürün stokta yok", "Yanlış sipariş", "Diğer"].map(r => (
-                <button key={r} onClick={() => setCancelReason(r)} style={{
-                  padding: "9px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
-                  border: `1.5px solid ${cancelReason === r ? "#ef4444" : "var(--border-color)"}`,
-                  background: cancelReason === r ? "rgba(239,68,68,0.08)" : "transparent",
-                  color: cancelReason === r ? "#fca5a5" : "var(--text-secondary)",
-                  cursor: "pointer",
-                }}>{cancelReason === r ? "✓ " : ""}{r}</button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleCancel} disabled={!cancelReason || actionLoading === cancelModal?.id} className="btn btn-danger" style={{ flex: 1, opacity: (!cancelReason || actionLoading === cancelModal?.id) ? 0.5 : 1 }}>
-                {actionLoading === cancelModal?.id ? "İşleniyor..." : "Siparişi İptal Et"}
-              </button>
-              <button onClick={() => { setCancelModal(null); setCancelReason(""); }} className="btn btn-ghost">Vazgeç</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {cancelModal && renderModalContent(cancelModal, false)}
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -309,7 +458,7 @@ export default function WaiterOrdersPage() {
                         <button onClick={() => updateStatus(order.id, "ACCEPTED")} disabled={isLoading} className="btn btn-sm btn-success" style={{ flex: 1, gap: 4 }}>
                           {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Kabul Et
                         </button>
-                        <button onClick={() => setRejectModal({ id: order.id })} disabled={isLoading} className="btn btn-sm btn-danger" style={{ flex: 1, gap: 4 }}>
+                        <button onClick={() => setRejectModal(order)} disabled={isLoading} className="btn btn-sm btn-danger" style={{ flex: 1, gap: 4 }}>
                           <X size={14} /> Reddet
                         </button>
                       </>
@@ -320,7 +469,7 @@ export default function WaiterOrdersPage() {
                           {isLoading ? <Loader2 size={14} className="animate-spin" /> : <ChefHat size={14} />} Hazırlanıyor
                         </button>
                         <button
-                          onClick={() => setCancelModal({ id: order.id, tableName: order.table?.tableName || `Masa ${order.table?.tableNumber}` })}
+                          onClick={() => setCancelModal(order)}
                           disabled={isLoading}
                           className="btn btn-sm btn-ghost"
                           style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
@@ -335,7 +484,7 @@ export default function WaiterOrdersPage() {
                           {isLoading ? <Loader2 size={14} className="animate-spin" /> : <UtensilsCrossed size={14} />} Servis Edildi
                         </button>
                         <button
-                          onClick={() => setCancelModal({ id: order.id, tableName: order.table?.tableName || `Masa ${order.table?.tableNumber}` })}
+                          onClick={() => setCancelModal(order)}
                           disabled={isLoading}
                           className="btn btn-sm btn-ghost"
                           style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
