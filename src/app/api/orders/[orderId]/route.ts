@@ -62,7 +62,6 @@ export async function PATCH(
     } else if (status === OrderStatus.SERVED) {
       if (otherActiveOrders === 0) {
         tableStatus = TableStatus.SERVED;
-<<<<<<< HEAD
       } else {
         tableStatus = TableStatus.PREPARING;
       }
@@ -81,20 +80,6 @@ export async function PATCH(
         // Diğer aktif siparişler var, masa durumunu değiştirme
         tableStatus = TableStatus.HAS_ORDER;
       }
-=======
-        break;
-      case OrderStatus.CANCELLED:
-        // ✅ İptal durumunda başka SERVED sipariş var mı kontrol et
-        const servedOrders = await prisma.order.count({
-          where: {
-            tableId: order.tableId,
-            id: { not: orderId },
-            status: "SERVED",
-          },
-        });
-        tableStatus = servedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
-        break;
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
     }
 
     await prisma.table.update({
@@ -163,7 +148,6 @@ export async function DELETE(
       },
     });
 
-<<<<<<< HEAD
     // ✅ Masa durumunu güncelle — SERVED ödenmemiş sipariş varsa masa kapanmamalı
     const otherActiveOrders = await prisma.order.count({
       where: {
@@ -171,23 +155,6 @@ export async function DELETE(
         id: { not: orderId },
         status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
       },
-=======
-    // ✅ İptal sonrası masa durumunu kontrol et
-    const servedOrders = await prisma.order.count({
-      where: {
-        tableId: order.tableId,
-        id: { not: orderId },
-        status: "SERVED",
-      },
-    });
-
-    // Masa durumunu güncelle
-    const newTableStatus = servedOrders > 0 ? TableStatus.SERVED : TableStatus.OCCUPIED;
-    
-    await prisma.table.update({
-      where: { id: order.tableId },
-      data: { status: newTableStatus },
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
     });
 
     if (otherActiveOrders === 0) {

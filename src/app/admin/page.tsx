@@ -59,30 +59,9 @@ export default function AdminDashboardPage() {
   const fmt = (v: number) => hideRevenue ? "••••" : new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(v);
 
   if (loading) return (
-<<<<<<< HEAD
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 12, color: "var(--text-secondary)" }}>
       <Loader2 size={20} className="animate-spin" color="var(--primary)" />
       Yükleniyor...
-=======
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: 300,
-      gap: 14,
-      color: "var(--text-secondary)",
-      flexDirection: "column",
-    }}>
-      <span className="animate-spin" style={{
-        display: "inline-block",
-        width: 28,
-        height: 28,
-        border: "3px solid var(--border-color)",
-        borderTopColor: "var(--primary)",
-        borderRadius: "50%",
-      }} />
-      <span style={{ fontSize: 14, fontWeight: 500 }}>Dashboard yükleniyor...</span>
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
     </div>
   );
 
@@ -133,17 +112,8 @@ export default function AdminDashboardPage() {
             Hoş geldiniz, {session?.user.name} 👋
           </p>
         </div>
-<<<<<<< HEAD
         <button onClick={toggleRevenue} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
           {hideRevenue ? <><Eye size={14} /> Ciroyu Göster</> : <><EyeOff size={14} /> Ciroyu Gizle</>}
-=======
-        <button
-          onClick={toggleRevenue}
-          className="btn btn-ghost btn-sm"
-          style={{ gap: 6 }}
-        >
-          {hideRevenue ? "👁️ Ciroyu Göster" : "🙈 Ciroyu Gizle"}
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
         </button>
       </div>
 
@@ -164,7 +134,6 @@ export default function AdminDashboardPage() {
             overflow: "hidden",
             transition: "all 0.2s",
           }}>
-<<<<<<< HEAD
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: k.color, borderRadius: "14px 14px 0 0" }} />
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: k.bg,
@@ -172,39 +141,6 @@ export default function AdminDashboardPage() {
               color: k.color, marginBottom: 10,
             }}>{k.icon}</div>
             <p style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-=======
-            {/* Accent bar */}
-            <div style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 3,
-              background: k.color,
-              borderRadius: "14px 14px 0 0",
-            }} />
-            <div style={{
-              width: 40,
-              height: 40,
-              borderRadius: 11,
-              background: k.bg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 20,
-              marginBottom: 12,
-            }}>
-              {k.icon}
-            </div>
-            <p style={{
-              fontSize: 11,
-              color: "var(--text-secondary)",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: 6,
-            }}>
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
               {k.label}
             </p>
             <p style={{
@@ -231,7 +167,6 @@ export default function AdminDashboardPage() {
       >
         {/* Recent Orders */}
         <div className="card" style={{ overflow: "hidden" }}>
-<<<<<<< HEAD
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ fontSize: 15, fontWeight: 700 }}>Son Siparişler</h3>
             <Link href="/admin/orders" style={{ color: "var(--primary-light)", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
@@ -242,36 +177,6 @@ export default function AdminDashboardPage() {
             <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
               <ClipboardList size={36} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 8px" }} />
               <p style={{ fontSize: 13 }}>Henüz sipariş yok</p>
-=======
-          <div style={{
-            padding: "16px 20px",
-            borderBottom: "1px solid var(--border-subtle)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 10,
-          }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Son Siparişler</h3>
-            <Link href="/admin/orders" style={{
-              color: "var(--primary-light)",
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: "none",
-              transition: "color 0.15s",
-            }}>
-              Tümünü Gör →
-            </Link>
-          </div>
-          {recentOrders.length === 0 ? (
-            <div style={{
-              padding: "48px 20px",
-              textAlign: "center",
-              color: "var(--text-secondary)",
-            }}>
-              <div style={{ fontSize: 40, marginBottom: 10 }}>📭</div>
-              <p style={{ fontSize: 14 }}>Henüz sipariş yok</p>
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
             </div>
           ) : (
             recentOrders.map((order) => (
@@ -326,24 +231,9 @@ export default function AdminDashboardPage() {
               textDecoration: "none",
               transition: "all 0.2s",
               color: "var(--text-primary)",
-<<<<<<< HEAD
             }}>
               <span style={{ color: q.color }}>{q.icon}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{q.label}</span>
-=======
-            }}
-            className="hover:border-[var(--primary)] hover:shadow-md"
-            >
-              <span style={{ fontSize: 26 }}>{q.icon}</span>
-              <span style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--text-secondary)",
-                textAlign: "center",
-              }}>
-                {q.label}
-              </span>
->>>>>>> 1c180c9b6435330c9599466643bfd3610b268fc2
             </Link>
           ))}
         </div>
