@@ -4,7 +4,7 @@ services:
     env: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && npx prisma migrate resolve --rolled-back 20260513115229_add_v1_1_0_features && npx prisma migrate deploy && npx prisma generate && npm run build
+    buildCommand: npm install && npx prisma db push --accept-data-loss && npx prisma generate && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
