@@ -26,7 +26,7 @@ try {
   execSync('npx prisma generate', { stdio: 'inherit', env: process.env });
 
   console.log('🏗️ 4. Building Next.js application...');
-  execSync('npm run build', { stdio: 'inherit', env: process.env });
+  execSync('npx next build', { stdio: 'inherit', env: process.env });
 
   console.log('✅ Render build completed successfully!');
 } catch (error) {
