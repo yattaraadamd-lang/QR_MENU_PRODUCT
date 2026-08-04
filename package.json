@@ -6,7 +6,7 @@
     "dev": "node server.js",
     "dev:next": "next dev",
     "build": "prisma generate && next build",
-    "render-build": "npm install && npm run db:deploy && npm run build",
+    "render-build": "npm install && npx prisma migrate resolve --rolled-back 20260513115229_add_v1_1_0_features && npm run db:deploy && npm run build",
     "start": "node server.js",
     "lint": "next lint",
     "db:generate": "prisma generate",
