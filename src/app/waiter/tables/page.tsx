@@ -37,6 +37,7 @@ export default function WaiterTablesPage() {
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("CASH");
   const [payNote, setPayNote] = useState("");
+  const [receivedAmount, setReceivedAmount] = useState(""); // ✅ Nakit ödemede müşteriden alınan tutar
   const [paying, setPaying] = useState(false);
 
   // Masa kapatma modalı
@@ -95,6 +96,27 @@ export default function WaiterTablesPage() {
 
   const handlePay = async () => {
     if (!selectedTable?.activeSession || !payAmount || !payMethod) return;
+
+    const amount = parseFloat(payAmount);
+    const received = payMethod === "CASH" ? parseFloat(receivedAmount) : null;
+
+    // ✅ Frontend validations
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert("Geçerli bir ödeme tutarı girin.");
+      return;
+    }
+
+    if (payMethod === "CASH") {
+      if (!Number.isFinite(received) || received! <= 0) {
+        alert("Müşteriden alınan nakit tutarını girin.");
+        return;
+      }
+      if (received! < amount) {
+        alert(`Alınan nakit (${received!.toFixed(2)} ₺) ödeme tutarından (${amount.toFixed(2)} ₺) az olamaz.`);
+        return;
+      }
+    }
+
     setPaying(true);
     setActionLoadingTableId(selectedTable.id);
     try {
@@ -103,15 +125,19 @@ export default function WaiterTablesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tableSessionId: selectedTable.activeSession.id,
-          amount: parseFloat(payAmount),
+          amount,
           method: payMethod,
+          receivedAmount: received, // ✅ Nakit için alınan tutar
           note: payNote || null,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setPayModal(false);
-        setPayAmount(""); setPayNote(""); setPayMethod("CASH");
+        setPayAmount("");
+        setReceivedAmount(""); // ✅ Clear received amount
+        setPayNote("");
+        setPayMethod("CASH");
         // ✅ Detayı yenile — API'den güncel veri al
         const r2 = await fetch(`/api/bills/${selectedTable.activeSession.id}`);
         const d2 = await r2.json();
@@ -373,47 +399,114 @@ export default function WaiterTablesPage() {
       )}
 
       {/* ── Ödeme Alma Modalı ─────────────────────────────────────────────── */}
-      {payModal && (
-        <div className="modal-overlay" onClick={() => setPayModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 380 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
-              {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
-              {sessionDetail && <span style={{ color: "#ef4444", fontWeight: 700 }}> · Kalan: {fmt(sessionDetail.remainingAmount)} ₺</span>}
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tutar (₺) *</label>
-                <input className="input" type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0.00" autoFocus style={{ fontSize: 18, fontWeight: 700 }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödeme Yöntemi *</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {PAYMENT_METHODS.map(m => (
-                    <button key={m.value} onClick={() => setPayMethod(m.value)} style={{
-                      padding: "10px 12px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-                      border: `2px solid ${payMethod === m.value ? "var(--primary)" : "var(--border-color)"}`,
-                      background: payMethod === m.value ? "var(--primary-glow)" : "transparent",
-                      color: payMethod === m.value ? "var(--primary-light)" : "var(--text-secondary)",
-                      cursor: "pointer",
-                    }}>{m.label}</button>
-                  ))}
+      {payModal && (() => {
+        const dueAmount = parseFloat(payAmount) || 0;
+        const received = parseFloat(receivedAmount) || 0;
+        const change = payMethod === "CASH" && received > 0 ? received - dueAmount : 0;
+
+        return (
+          <div className="modal-overlay" onClick={() => setPayModal(false)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 400 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
+              <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
+                {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
+                {sessionDetail && <span style={{ color: "#ef4444", fontWeight: 700 }}> · Kalan: {fmt(sessionDetail.remainingAmount)} ₺</span>}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödenecek Tutar (₺) *</label>
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={payAmount}
+                    onChange={e => setPayAmount(e.target.value)}
+                    placeholder="0.00"
+                    autoFocus
+                    style={{ fontSize: 18, fontWeight: 700 }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödeme Yöntemi *</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {PAYMENT_METHODS.map(m => (
+                      <button key={m.value} onClick={() => {
+                        setPayMethod(m.value);
+                        if (m.value !== "CASH") setReceivedAmount(""); // ✅ Clear received amount for non-cash
+                      }} style={{
+                        padding: "10px 12px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+                        border: `2px solid ${payMethod === m.value ? "var(--primary)" : "var(--border-color)"}`,
+                        background: payMethod === m.value ? "var(--primary-glow)" : "transparent",
+                        color: payMethod === m.value ? "var(--primary-light)" : "var(--text-secondary)",
+                        cursor: "pointer",
+                      }}>{m.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ✅ Nakit için alınan tutar alanı */}
+                {payMethod === "CASH" && (
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Müşteriden Alınan Nakit (₺) *
+                    </label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={receivedAmount}
+                      onChange={e => setReceivedAmount(e.target.value)}
+                      placeholder={dueAmount > 0 ? dueAmount.toFixed(2) : "250.00"}
+                      style={{ fontSize: 18, fontWeight: 700 }}
+                    />
+                    {/* ✅ Para üstü hesaplama ve gösterim */}
+                    {received > 0 && (
+                      <div style={{
+                        marginTop: 12,
+                        padding: "12px 16px",
+                        borderRadius: 10,
+                        background: change >= 0 ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
+                        border: `1px solid ${change >= 0 ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+                      }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Para Üstü</span>
+                          <span style={{ fontSize: 18, fontWeight: 800, color: change >= 0 ? "#10b981" : "#ef4444" }}>
+                            {change >= 0 ? `${change.toFixed(2)} ₺` : "⚠️ Yetersiz"}
+                          </span>
+                        </div>
+                        {change >= 0 && dueAmount > 0 && (
+                          <div style={{ fontSize: 11, color: "var(--text-secondary)", paddingTop: 6, borderTop: "1px solid var(--border-subtle)" }}>
+                            Ciroya yansıyacak: <span style={{ fontWeight: 700, color: "var(--primary-light)" }}>{dueAmount.toFixed(2)} ₺</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Not (opsiyonel)</label>
+                  <input className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
                 </div>
               </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Not (opsiyonel)</label>
-                <input className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
+              <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+                <button
+                  onClick={handlePay}
+                  disabled={paying || !payAmount || parseFloat(payAmount) <= 0 || (payMethod === "CASH" && (!receivedAmount || parseFloat(receivedAmount) < parseFloat(payAmount)))}
+                  className="btn btn-success"
+                  style={{ flex: 1, opacity: (paying || !payAmount || parseFloat(payAmount) <= 0 || (payMethod === "CASH" && (!receivedAmount || parseFloat(receivedAmount) < parseFloat(payAmount)))) ? 0.5 : 1 }}
+                >
+                  {paying ? "İşleniyor..." : "Ödemeyi Onayla"}
+                </button>
+                <button onClick={() => { setPayModal(false); setReceivedAmount(""); }} className="btn btn-ghost">İptal</button>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-              <button onClick={handlePay} disabled={paying || !payAmount || parseFloat(payAmount) <= 0} className="btn btn-success" style={{ flex: 1 }}>
-                {paying ? "İşleniyor..." : "Ödemeyi Onayla"}
-              </button>
-              <button onClick={() => setPayModal(false)} className="btn btn-ghost">İptal</button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Masa Kapatma Modalı ───────────────────────────────────────────── */}
       {closeModal && (
