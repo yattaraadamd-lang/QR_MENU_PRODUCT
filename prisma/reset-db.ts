@@ -3,6 +3,23 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
+  // ✅ SECURITY: Production safety guard
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "❌ SECURITY: reset-db.ts CANNOT run in production! " +
+      "This script deletes ALL data. Use only in development/test."
+    );
+  }
+
+  // Extra safety: detect production database URLs
+  const dbUrl = process.env.DATABASE_URL || "";
+  if (dbUrl.includes("supabase.co") || dbUrl.includes("render.com") || dbUrl.includes("neon.tech")) {
+    throw new Error(
+      "❌ SECURITY: DATABASE_URL appears to be a production/cloud database. " +
+      "reset-db.ts is blocked. Use a local database for testing."
+    );
+  }
+
   console.log("🗑️  Veritabanı temizleniyor...\n");
 
   // Bağımlılık sırasına göre sil

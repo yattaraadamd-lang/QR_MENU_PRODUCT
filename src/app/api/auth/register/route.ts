@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
+import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -9,92 +11,72 @@ export const dynamic = "force-dynamic";
  * 🔒 SECURITY FIX P0-02: Atomic invite consumption + strengthened validation
  * 
  * CHANGES:
+ * - Zod strict schema for all inputs
  * - Transaction-based atomic invite consumption (race condition fix)
+ * - Invite code hash comparison (matches P0-01 hash storage)
  * - Strengthened password policy (12+ chars, common password check)
  * - Email === password validation
  * - bcrypt max length check (72 chars)
  * - Generic error messages (email enumeration prevention)
  * - Mandatory expiry validation
- * - Rate limiting TODO (needs Redis)
  */
 
 // ✅ Geçici/sahte mail servisleri engellendi
 const BLOCKED_DOMAINS = [
-  "mailinator.com",
-  "10minutemail.com",
-  "tempmail.com",
-  "guerrillamail.com",
-  "yopmail.com",
-  "fakeinbox.com",
-  "trashmail.com",
-  "throwam.com",
-  "maildrop.cc",
-  "dispostable.com",
-  "sharklasers.com",
-  "guerrillamailblock.com",
-  "grr.la",
-  "spam4.me",
-  "discard.email",
+  "mailinator.com", "10minutemail.com", "tempmail.com",
+  "guerrillamail.com", "yopmail.com", "fakeinbox.com",
+  "trashmail.com", "throwam.com", "maildrop.cc",
+  "dispostable.com", "sharklasers.com", "guerrillamailblock.com",
+  "grr.la", "spam4.me", "discard.email",
 ];
 
-// ✅ E-posta format regex
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+// ✅ Common weak passwords (12+ chars)
+const COMMON_PASSWORDS = [
+  "123456789012", "password1234", "qwerty123456", "admin1234567",
+  "welcome12345", "letmein12345", "monkey123456", "dragon123456",
+  "master123456", "sunshine1234", "iloveyou1234", "princess1234",
+  "password12345", "123456789abc", "abcdefgh1234",
+];
+
+// ✅ Zod strict schema
+const registerSchema = z.object({
+  name: z.string().trim().min(2, "İsim en az 2 karakter olmalıdır").max(100, "İsim en fazla 100 karakter olabilir"),
+  email: z.string().email("Geçerli bir e-posta adresi giriniz").max(255),
+  password: z.string()
+    .min(12, "Şifre en az 12 karakter olmalıdır")
+    .max(72, "Şifre en fazla 72 karakter olabilir"),
+  phone: z.string().max(20).optional().nullable(),
+  inviteCode: z.string().min(1, "Davet kodu zorunludur").max(200),
+}).strict(); // ✅ Reject unknown fields
+
+/**
+ * Hash an invite code for lookup (must match the hash used in creation).
+ */
+function hashInviteCode(rawCode: string): string {
+  return crypto.createHash("sha256").update(rawCode).digest("hex");
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, password, phone, inviteCode } = body;
-
-    // ✅ E-postayı normalize et
-    const email = typeof body.email === "string"
-      ? body.email.trim().toLowerCase()
-      : "";
-
-    // Temel alan kontrolü
-    if (!name || !email || !password || !inviteCode) {
-      return NextResponse.json(
-        { error: "Tüm alanlar zorunludur" },
-        { status: 400 }
-      );
+    
+    // ✅ Zod strict validation
+    const parseResult = registerSchema.safeParse(body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0]?.message || "Geçersiz veri";
+      return NextResponse.json({ error: firstError }, { status: 400 });
     }
-
-    // ✅ İsim uzunluğu
-    if (String(name).trim().length < 2) {
-      return NextResponse.json(
-        { error: "İsim en az 2 karakter olmalıdır" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ E-posta format kontrolü
-    if (!EMAIL_REGEX.test(email)) {
-      return NextResponse.json(
-        { error: "Geçerli bir e-posta adresi giriniz" },
-        { status: 400 }
-      );
-    }
+    
+    const { name, password, phone, inviteCode } = parseResult.data;
+    
+    // ✅ Email normalization: trim + lowercase
+    const email = parseResult.data.email.trim().toLowerCase();
 
     // ✅ Geçici/sahte domain kontrolü
     const domain = email.split("@")[1];
     if (BLOCKED_DOMAINS.includes(domain)) {
       return NextResponse.json(
         { error: "Geçici veya sahte e-posta adresleri kullanılamaz" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ P0-02 FIX: Şifre minimum 12 karakter (strengthened from 8)
-    if (String(password).length < 12) {
-      return NextResponse.json(
-        { error: "Şifre en az 12 karakter olmalıdır" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ P0-02 FIX: Şifre maksimum 72 karakter (bcrypt limitation)
-    if (String(password).length > 72) {
-      return NextResponse.json(
-        { error: "Şifre en fazla 72 karakter olabilir" },
         { status: 400 }
       );
     }
@@ -110,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ P0-02 FIX: Email and password must not be the same
-    if (email.toLowerCase() === String(password).toLowerCase()) {
+    if (email.toLowerCase() === password.toLowerCase()) {
       return NextResponse.json(
         { error: "Şifre e-posta adresiniz ile aynı olamaz" },
         { status: 400 }
@@ -118,17 +100,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ P0-02 FIX: Check common weak passwords
-    const commonPasswords = [
-      "123456789012", "password1234", "qwerty123456", "admin1234567",
-      "welcome12345", "letmein12345", "monkey123456", "dragon123456",
-      "master123456", "sunshine1234", "iloveyou1234", "princess1234",
-    ];
-    if (commonPasswords.includes(String(password).toLowerCase())) {
+    if (COMMON_PASSWORDS.includes(password.toLowerCase())) {
       return NextResponse.json(
         { error: "Bu şifre çok yaygın kullanılıyor. Lütfen daha güçlü bir şifre seçin." },
         { status: 400 }
       );
     }
+
+    // ✅ Hash the invite code for database lookup (matches P0-01 hash storage)
+    const inviteCodeHash = hashInviteCode(inviteCode);
 
     // ✅ P0-02 FIX: Atomic transaction for invite consumption + user creation
     const result = await prisma.$transaction(async (tx) => {
@@ -143,58 +123,47 @@ export async function POST(request: NextRequest) {
 
       // 2. Atomic invite consumption - fetch + lock with conditional update
       // This prevents race condition: only ONE request will succeed
+      // ✅ SECURITY: Compare against hashed invite code
       const consumeResult = await tx.waiterInvite.updateMany({
         where: {
-          inviteCode,
+          inviteCode: inviteCodeHash, // ✅ Hash comparison
           isUsed: false, // ✅ CRITICAL: Only consume if not used
         },
         data: {
           isUsed: true,
           usedAt: new Date(),
-          // Note: usedByUserId will be set after user creation
         },
       });
 
       // If updateMany affected 0 rows, invite was already used or doesn't exist
       if (consumeResult.count === 0) {
-        // Fetch to determine exact reason
-        const invite = await tx.waiterInvite.findUnique({
-          where: { inviteCode },
-        });
-
-        if (!invite) {
-          throw new Error("INVITE_NOT_FOUND");
-        }
-        if (invite.isUsed) {
-          throw new Error("INVITE_ALREADY_USED");
-        }
-        // Should not reach here, but safety fallback
-        throw new Error("INVITE_CONSUME_FAILED");
+        // ✅ Generic error - don't reveal whether code exists or was used
+        throw new Error("INVITE_INVALID");
       }
 
-      // 3. Now fetch the consumed invite to get businessId
-      const invite = await tx.waiterInvite.findUnique({
-        where: { inviteCode },
+      // 3. Fetch the consumed invite to get businessId
+      const invite = await tx.waiterInvite.findFirst({
+        where: { inviteCode: inviteCodeHash },
       });
 
       if (!invite) {
-        throw new Error("INVITE_NOT_FOUND_AFTER_CONSUME");
+        throw new Error("INVITE_INVALID");
       }
 
-      // ✅ P0-02 FIX: Mandatory expiry check (invite.expiresAt is now required in creation)
+      // ✅ P0-02 FIX: Mandatory expiry check
       if (!invite.expiresAt || new Date() > invite.expiresAt) {
-        // Rollback transaction - invite should not have been consumable
+        // Rollback - expired invite should not be consumable
         throw new Error("INVITE_EXPIRED");
       }
 
-      // 4. Hash password (bcrypt is sync-safe in transaction)
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // 4. Hash password
+      const hashedPassword = await bcrypt.hash(password, 12); // ✅ cost factor 12
 
       // 5. Create user
       const user = await tx.user.create({
         data: {
           businessId: invite.businessId,
-          name: String(name).trim(),
+          name: name.trim(),
           email,
           password: hashedPassword,
           phone: phone || null,
@@ -205,9 +174,7 @@ export async function POST(request: NextRequest) {
       // 6. Update invite with user ID
       await tx.waiterInvite.update({
         where: { id: invite.id },
-        data: {
-          usedByUserId: user.id,
-        },
+        data: { usedByUserId: user.id },
       });
 
       return {
@@ -216,17 +183,11 @@ export async function POST(request: NextRequest) {
         email: user.email,
       };
     }, {
-      maxWait: 5000, // Max time to wait for transaction slot
-      timeout: 10000, // Max transaction execution time
+      maxWait: 5000,
+      timeout: 10000,
     });
 
-    // ✅ TODO: Audit log (outside transaction for performance)
-    // await createAuditLog({
-    //   action: "USER_REGISTERED",
-    //   entityType: "User",
-    //   entityId: result.id,
-    //   inviteCode: inviteCode,
-    // });
+    // ✅ TODO: Audit log (Phase 7)
 
     return NextResponse.json(
       {
@@ -246,22 +207,16 @@ export async function POST(request: NextRequest) {
     const errorMessage = (error as any)?.message;
 
     if (errorMessage === "EMAIL_EXISTS") {
+      // ✅ Generic: don't reveal that email exists
       return NextResponse.json(
         { error: "Kayıt işlemi tamamlanamadı. Lütfen bilgilerinizi kontrol edin." },
         { status: 400 }
       );
     }
 
-    if (errorMessage === "INVITE_NOT_FOUND" || errorMessage === "INVITE_CONSUME_FAILED") {
+    if (errorMessage === "INVITE_INVALID") {
       return NextResponse.json(
-        { error: "Geçersiz davet kodu" },
-        { status: 400 }
-      );
-    }
-
-    if (errorMessage === "INVITE_ALREADY_USED") {
-      return NextResponse.json(
-        { error: "Bu davet kodu daha önce kullanılmış" },
+        { error: "Geçersiz veya kullanılmış davet kodu." },
         { status: 400 }
       );
     }

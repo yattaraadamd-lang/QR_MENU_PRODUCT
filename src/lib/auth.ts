@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma } from "./prisma";
 
 /**
@@ -42,12 +43,20 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          // ✅ SECURITY: Email normalization
+          const normalizedEmail = credentials.email.trim().toLowerCase();
+
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email },
+            where: { email: normalizedEmail },
             include: { business: true },
           });
 
-          if (!user || !user.isActive) {
+          if (!user || !user.isActive || user.deletedAt) {
+            // ✅ SECURITY: Constant-time-ish behavior — still hash even if user not found
+            // This reduces timing difference between "user exists" and "user doesn't exist"
+            if (!user) {
+              await bcrypt.hash(credentials.password, 10);
+            }
             return null;
           }
 
@@ -93,9 +102,8 @@ export const authOptions: NextAuthOptions = {
         session.user.businessName = token.businessName as string;
       }
       
-      // ✅ P0-03 FIX: Create a simple access token for socket authentication
-      // This is a base64-encoded JSON with user auth info
-      // Server will verify this by checking user in database
+      // ✅ SECURITY FIX: HMAC-signed socket access token
+      // Format: base64(payload) + "." + hex(HMAC-SHA256(payload, secret))
       const socketAuthPayload = {
         userId: token.id,
         businessId: token.businessId,
@@ -103,8 +111,19 @@ export const authOptions: NextAuthOptions = {
         iat: Math.floor(Date.now() / 1000),
       };
       
-      // Simple encoding (server will validate against database)
-      session.accessToken = Buffer.from(JSON.stringify(socketAuthPayload)).toString('base64');
+      const payload = Buffer.from(JSON.stringify(socketAuthPayload)).toString('base64');
+      const secret = process.env.NEXTAUTH_SECRET;
+      
+      if (secret) {
+        const signature = crypto
+          .createHmac("sha256", secret)
+          .update(payload)
+          .digest("hex");
+        session.accessToken = `${payload}.${signature}`;
+      } else {
+        // Fallback for development (unsigned — socket-auth.ts accepts this with legacy path)
+        session.accessToken = payload;
+      }
       
       return session;
     },
@@ -114,6 +133,8 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60, // ✅ SECURITY: 8 hour max session age
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
+

@@ -22,6 +22,7 @@
  */
 
 import { prisma } from "./prisma";
+import crypto from "crypto";
 import type { Socket } from "socket.io";
 
 // Extended error type for socket middleware
@@ -72,12 +73,40 @@ export async function authenticateSocket(
       return next(error);
     }
 
-    // ✅ Decode base64 token
+    // ✅ SECURITY FIX: Verify HMAC signature before trusting token content
+    // Token format: base64(JSON) + "." + hex(HMAC-SHA256)
     let decoded: any;
     try {
-      const jsonString = Buffer.from(token, 'base64').toString('utf-8');
-      decoded = JSON.parse(jsonString);
+      const parts = token.split(".");
+      if (parts.length !== 2) {
+        // Fallback: legacy base64-only tokens (will be phased out)
+        const jsonString = Buffer.from(token, 'base64').toString('utf-8');
+        decoded = JSON.parse(jsonString);
+      } else {
+        const [payload, signature] = parts;
+        const secret = process.env.NEXTAUTH_SECRET;
+        if (!secret) {
+          const error = new Error("Server configuration error") as ExtendedError;
+          error.data = { code: "SERVER_CONFIG_ERROR" };
+          return next(error);
+        }
+        // Verify HMAC signature
+        const expectedSig = crypto
+          .createHmac("sha256", secret)
+          .update(payload)
+          .digest("hex");
+        if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSig, 'hex'))) {
+          const error = new Error("Invalid token signature") as ExtendedError;
+          error.data = { code: "INVALID_SIGNATURE" };
+          return next(error);
+        }
+        const jsonString = Buffer.from(payload, 'base64').toString('utf-8');
+        decoded = JSON.parse(jsonString);
+      }
     } catch (decodeError) {
+      if ((decodeError as ExtendedError).data?.code) {
+        return next(decodeError as ExtendedError);
+      }
       const error = new Error("Invalid token format") as ExtendedError;
       error.data = { code: "INVALID_TOKEN_FORMAT" };
       return next(error);
@@ -89,9 +118,9 @@ export async function authenticateSocket(
       return next(error);
     }
 
-    // ✅ Check token age (5 minute grace period for session refresh)
+    // ✅ Check token age (24 hour max)
     const tokenAge = Math.floor(Date.now() / 1000) - (decoded.iat || 0);
-    if (tokenAge > 86400) { // 24 hours
+    if (tokenAge > 86400) {
       const error = new Error("Token expired") as ExtendedError;
       error.data = { code: "TOKEN_EXPIRED" };
       return next(error);

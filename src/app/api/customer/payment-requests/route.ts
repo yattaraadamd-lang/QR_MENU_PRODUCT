@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { requestPayment } from "@/lib/services/table-flow.service";
-import { validateCustomerActionSession } from "@/lib/security/validate-customer-session";
+import { validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
     }
 
-    // ✅ GÜVENLIK: CustomerSession doğrulama
-    const sessionCheck = await validateCustomerActionSession(request);
+    // ✅ P0-05 FIX: SECURITY - Require AUTHORIZED session, not VIEW_ONLY
+    // Payment requests must come from a garson-approved session
+    const sessionCheck = await validateAuthorizedTableSession(request);
     if (!sessionCheck.ok) {
       return NextResponse.json({ error: sessionCheck.error }, { status: sessionCheck.status });
     }

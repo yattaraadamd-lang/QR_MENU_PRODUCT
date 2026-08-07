@@ -23,6 +23,37 @@ const { Server } = require("socket.io");
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
 
+// ─── SECURITY: Production fail-fast for critical secrets ──────────────
+if (!dev) {
+  const REQUIRED_SECRETS = [
+    'NEXTAUTH_SECRET',
+    'DATABASE_URL',
+  ];
+  const RECOMMENDED_SECRETS = [
+    'CUSTOMER_DEVICE_HMAC_SECRET',
+    'NEXT_PUBLIC_APP_URL',
+  ];
+
+  const missing = REQUIRED_SECRETS.filter(key => !process.env[key]);
+  if (missing.length > 0) {
+    console.error(`❌ FATAL: Missing required environment variables: ${missing.join(', ')}`);
+    console.error('   Server cannot start without these secrets.');
+    process.exit(1);
+  }
+
+  // Check for placeholder/weak NEXTAUTH_SECRET
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (secret && (secret.length < 32 || secret === 'changeme' || secret === 'secret')) {
+    console.error('❌ FATAL: NEXTAUTH_SECRET is too short or a placeholder value.');
+    process.exit(1);
+  }
+
+  const missingRecommended = RECOMMENDED_SECRETS.filter(key => !process.env[key]);
+  if (missingRecommended.length > 0) {
+    console.warn(`⚠️  WARNING: Missing recommended environment variables: ${missingRecommended.join(', ')}`);
+  }
+}
+
 // Render ve benzeri platform'larda hostname "0.0.0.0" olmalı
 const hostname = dev ? "localhost" : "0.0.0.0";
 
@@ -35,10 +66,13 @@ app.prepare().then(() => {
     handle(req, res, parsedUrl);
   });
 
-  // ─── CORS: production'da NEXT_PUBLIC_APP_URL'yi kullan ──────────────
-  const allowedOrigins = process.env.NEXT_PUBLIC_APP_URL
-    ? [process.env.NEXT_PUBLIC_APP_URL, "http://localhost:3000"]
-    : ["http://localhost:3000"];
+  // ─── CORS: production'da YALNIZ NEXT_PUBLIC_APP_URL'yi kullan ──────────────
+  // ✅ SECURITY: localhost origin production'da dahil edilmez
+  const allowedOrigins = dev
+    ? ["http://localhost:3000", ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : [])]
+    : process.env.NEXT_PUBLIC_APP_URL
+      ? [process.env.NEXT_PUBLIC_APP_URL]
+      : [];
 
   const io = new Server(httpServer, {
     cors: {
@@ -160,14 +194,10 @@ app.prepare().then(() => {
       console.log(`> Ready on http://${hostname}:${port} [${process.env.NODE_ENV || "development"}]`);
       console.log(`> Socket.IO server active with authentication`);
       
-      // ✅ Production readiness checks
-      if (process.env.NODE_ENV === "production") {
-        if (!process.env.NEXTAUTH_SECRET) {
-          console.error("⚠️  WARNING: NEXTAUTH_SECRET not set - socket authentication will fail!");
-        }
-        if (!process.env.NEXT_PUBLIC_APP_URL) {
-          console.error("⚠️  WARNING: NEXT_PUBLIC_APP_URL not set - CORS may be misconfigured!");
-        }
+      // ✅ Production readiness checks (non-fatal at this point — fatal checks are above)
+      if (!dev) {
+        console.log('🔒 Production security checks passed');
+        console.log(`   CORS origins: ${allowedOrigins.join(', ') || '(none — all origins blocked!)')}`); 
       }
     });
 });

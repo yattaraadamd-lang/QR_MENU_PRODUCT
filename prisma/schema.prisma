@@ -581,3 +581,28 @@ enum SubscriptionStatus {
   CANCELLED
   EXPIRED
 }
+
+// ─── Audit Log (Append-only) ────────────────────────────────────────────────
+model AuditLog {
+  id            String   @id @default(cuid())
+  businessId    String?
+  actorUserId   String?
+  actorRole     String?
+  action        String
+  entityType    String?
+  entityId      String?
+  requestId     String?
+  ipHash        String?
+  userAgentInfo String?
+  beforeJson    Json?
+  afterJson     Json?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([action, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+

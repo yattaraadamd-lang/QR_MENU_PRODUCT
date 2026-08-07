@@ -12,11 +12,19 @@ export const dynamic = "force-dynamic";
  * - Added requireAdmin() authentication
  * - businessId from session (not client)
  * - CSPRNG-generated invite codes (128-bit entropy)
+ * - Invite code stored as SHA-256 hash in database
+ * - Raw code returned ONLY in creation response
  * - Mandatory expiry (7 days)
  * - Single-use enforcement
- * - Rate limiting TODO (needs Redis)
- * - Audit logging TODO
  */
+
+/**
+ * Hash an invite code for storage. Raw code is never persisted.
+ */
+function hashInviteCode(rawCode: string): string {
+  return crypto.createHash("sha256").update(rawCode).digest("hex");
+}
+
 export async function POST(request: NextRequest) {
   try {
     // ✅ P0-01 FIX: Require ADMIN authentication
@@ -40,7 +48,10 @@ export async function POST(request: NextRequest) {
 
     // ✅ P0-01 FIX: Generate cryptographically secure invite code
     // 128-bit entropy = 32 hex characters = ~10^38 possibilities
-    const secureCode = `inv_${crypto.randomBytes(16).toString("hex")}`;
+    const rawCode = `inv_${crypto.randomBytes(16).toString("hex")}`;
+    
+    // ✅ SECURITY: Store ONLY the hash in database
+    const codeHash = hashInviteCode(rawCode);
 
     // ✅ P0-01 FIX: Mandatory expiry (7 days from now)
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -49,23 +60,23 @@ export async function POST(request: NextRequest) {
     const invite = await prisma.waiterInvite.create({
       data: {
         businessId,
-        inviteCode: secureCode,
+        inviteCode: codeHash, // ✅ Hash stored, not raw code
         isUsed: false,
         expiresAt,
       },
       select: {
         id: true,
-        inviteCode: true,
         expiresAt: true,
         createdAt: true,
-        // ❌ Don't return businessId to avoid enumeration
+        // ❌ Don't return businessId or inviteCode hash
       },
     });
 
-    // ✅ TODO: Audit log
+    // ✅ TODO: Audit log (Phase 7)
     // await createAuditLog({
     //   businessId,
     //   actorUserId: session!.user.id,
+    //   actorRole: session!.user.role,
     //   action: "INVITE_CREATED",
     //   entityType: "WaiterInvite",
     //   entityId: invite.id,
@@ -75,7 +86,7 @@ export async function POST(request: NextRequest) {
       {
         message: "Davet kodu oluşturuldu",
         invite: {
-          inviteCode: invite.inviteCode,
+          inviteCode: rawCode, // ✅ Raw code returned ONLY here, ONCE
           expiresAt: invite.expiresAt,
         },
       },
