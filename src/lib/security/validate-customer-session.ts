@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
 
 export type CustomerSessionValidationSuccess = {
   ok: true;
@@ -16,6 +17,7 @@ export type CustomerSessionValidationSuccess = {
     closedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
+    deviceKeyHash: string | null;
     table: any;
     business: any;
     tableSession: any;
@@ -33,6 +35,17 @@ export type CustomerSessionValidationResult =
   | CustomerSessionValidationSuccess
   | CustomerSessionValidationError;
 
+// ✅ SECURITY: lastSeenAt throttle interval (5 minutes)
+// Prevents write amplification from updating on every single request
+const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
+
+/**
+ * Hash a raw session token for database lookup.
+ */
+function hashSessionToken(rawToken: string): string {
+  return crypto.createHash("sha256").update(rawToken).digest("hex");
+}
+
 /**
  * Validates a basic view session — active, not expired, table/business match.
  * Does NOT check authorization status.
@@ -41,19 +54,22 @@ export type CustomerSessionValidationResult =
 export async function validateViewSession(
   req: Request
 ): Promise<CustomerSessionValidationResult> {
-  const sessionToken = req.headers.get("x-session-token");
+  const rawToken = req.headers.get("x-session-token");
 
-  if (!sessionToken) {
+  if (!rawToken) {
     return {
       ok: false,
       status: 403,
       error: "Aktif müşteri oturumu bulunamadı. Lütfen QR kodu okutun.",
-      code: "VIEW_ONLY_SESSION",
+      code: "NO_SESSION_TOKEN",
     };
   }
 
+  // ✅ SECURITY: Hash the raw token for database lookup
+  const tokenHash = hashSessionToken(rawToken);
+
   const customerSession = await prisma.customerSession.findUnique({
-    where: { sessionToken },
+    where: { sessionToken: tokenHash },
     include: {
       table: true,
       business: true,
@@ -66,7 +82,7 @@ export async function validateViewSession(
       ok: false,
       status: 403,
       error: "Müşteri oturumu bulunamadı. Lütfen QR kodu tekrar okutun.",
-      code: "VIEW_ONLY_SESSION",
+      code: "SESSION_NOT_FOUND",
     };
   }
 
@@ -94,8 +110,18 @@ export async function validateViewSession(
     }
   }
 
+  // ✅ Check business is active
+  if (!customerSession.business || !customerSession.business.isActive) {
+    return {
+      ok: false,
+      status: 403,
+      error: "İşletme şu anda hizmet vermiyor.",
+      code: "BUSINESS_INACTIVE",
+    };
+  }
+
   if (customerSession.status !== "ACTIVE") {
-    const code = customerSession.status === "REVOKED" ? "SESSION_REVOKED" : "VIEW_ONLY_SESSION";
+    const code = customerSession.status === "REVOKED" ? "SESSION_REVOKED" : "SESSION_INACTIVE";
     return {
       ok: false,
       status: 403,
@@ -116,7 +142,7 @@ export async function validateViewSession(
       ok: false,
       status: 403,
       error: "Müşteri oturumunun süresi dolmuş. Lütfen QR kodu tekrar okutun.",
-      code: "VIEW_ONLY_SESSION",
+      code: "SESSION_EXPIRED",
     };
   }
 
@@ -133,14 +159,19 @@ export async function validateViewSession(
       ok: false,
       status: 403,
       error: "Bu masa aktif değil veya silinmiş.",
+      code: "TABLE_INACTIVE",
     };
   }
 
-  // Update last seen
-  await prisma.customerSession.update({
-    where: { id: customerSession.id },
-    data: { lastSeenAt: new Date() },
-  });
+  // ✅ SECURITY: Throttled lastSeenAt update (every 5 minutes max)
+  const timeSinceLastSeen = Date.now() - customerSession.lastSeenAt.getTime();
+  if (timeSinceLastSeen > LAST_SEEN_THROTTLE_MS) {
+    // Fire and forget — don't block the response
+    prisma.customerSession.update({
+      where: { id: customerSession.id },
+      data: { lastSeenAt: new Date() },
+    }).catch(() => { /* non-critical */ });
+  }
 
   return {
     ok: true,
@@ -227,12 +258,7 @@ export async function validateAuthorizedTableSession(
   return viewResult;
 }
 
-/**
- * Legacy compatibility — maps to validateViewSession for backward compatibility.
- * Callers should migrate to validateViewSession or validateAuthorizedTableSession.
- */
-export async function validateCustomerActionSession(
-  req: Request
-): Promise<CustomerSessionValidationResult> {
-  return validateViewSession(req);
-}
+// ✅ P0-05 FIX: Legacy alias REMOVED
+// validateCustomerActionSession was incorrectly mapping to validateViewSession,
+// allowing VIEW_ONLY sessions to perform payment requests.
+// Callers must now explicitly use validateViewSession or validateAuthorizedTableSession.

@@ -1,7 +1,42 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 
-const HMAC_SECRET = process.env.CUSTOMER_DEVICE_HMAC_SECRET || "default-dev-secret-change-in-production";
+// ✅ P0-04 FIX: Fail-fast if HMAC secret is missing or weak in production
+function getHMACSecret(): string {
+  const secret = process.env.CUSTOMER_DEVICE_HMAC_SECRET;
+  
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("CUSTOMER_DEVICE_HMAC_SECRET environment variable is required in production");
+    }
+    // Development fallback
+    console.warn("⚠️  Using development HMAC secret. DO NOT use in production!");
+    return "dev-only-secret-do-not-use-in-production";
+  }
+
+  // Reject known placeholder secrets
+  const FORBIDDEN_SECRETS = [
+    "default-dev-secret-change-in-production",
+    "change-me",
+    "changeme",
+    "secret",
+    "password",
+    "dev-only-secret-do-not-use-in-production",
+  ];
+
+  if (FORBIDDEN_SECRETS.includes(secret.toLowerCase())) {
+    throw new Error("CUSTOMER_DEVICE_HMAC_SECRET cannot use placeholder value");
+  }
+
+  // Require minimum 32 bytes (64 hex chars or equivalent)
+  if (secret.length < 32) {
+    throw new Error("CUSTOMER_DEVICE_HMAC_SECRET must be at least 32 characters");
+  }
+
+  return secret;
+}
+
+const HMAC_SECRET = getHMACSecret();
 
 /**
  * HMAC-SHA256 ile cihaz anahtarını hashle.

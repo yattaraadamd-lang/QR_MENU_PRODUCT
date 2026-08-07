@@ -39,5 +39,5 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-prisma/migrations/
+# ✅ SECURITY: prisma/migrations/ is tracked by Git (required for prisma migrate deploy)
 !.env.example

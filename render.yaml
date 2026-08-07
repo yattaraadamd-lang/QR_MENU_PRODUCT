@@ -21,4 +21,7 @@ services:
         sync: false
       - key: NEXT_PUBLIC_APP_URL
         sync: false
+      - key: CUSTOMER_DEVICE_HMAC_SECRET
+        sync: false
+        # IMPORTANT: Must be at least 32 random bytes (e.g. openssl rand -base64 32)
     healthCheckPath: /api/health

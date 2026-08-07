@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
 
 // POST /api/customer/orders
 export async function POST(request: NextRequest) {
+  let body: any;
   try {
-    const body = await request.json();
+    body = await request.json();
     const { items, note, idempotencyKey } = body;
 
     if (!items || items.length === 0) {
@@ -50,13 +51,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ İdempotency check
+    // ✅ P0-10 FIX: Idempotency check with tenant+session scope
+    // Prevent cross-tenant data leakage by scoping to businessId + customerSessionId
     if (idempotencyKey) {
-      const existingOrder = await prisma.order.findUnique({
-        where: { idempotencyKey },
+      if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8 || idempotencyKey.length > 128) {
+        return NextResponse.json(
+          { error: "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır." },
+          { status: 400 }
+        );
+      }
+
+      const existingOrder = await prisma.order.findFirst({
+        where: {
+          idempotencyKey,
+          businessId, // ✅ Tenant scope
+          customerSessionId: customerSession.id, // ✅ Session scope
+        },
         include: { items: { include: { product: true } }, table: true },
       });
+      
       if (existingOrder) {
+        // ✅ Security: Verify ownership before returning data
+        if (existingOrder.businessId !== businessId || existingOrder.customerSessionId !== customerSession.id) {
+          return NextResponse.json(
+            { error: "Bu sipariş bu oturuma ait değil." },
+            { status: 403 }
+          );
+        }
+
         return NextResponse.json({
           message: "Sipariş zaten gönderilmiş.",
           order: existingOrder,
@@ -278,20 +300,47 @@ export async function POST(request: NextRequest) {
       status: "PENDING"
     }, { status: 201 });
   } catch (error: any) {
-    // Idempotency key conflict
+    // ✅ P0-10 FIX: Idempotency key conflict with tenant scope
     if (error?.code === "P2002" && error?.meta?.target?.includes("idempotencyKey")) {
-      const existingOrder = await prisma.order.findFirst({
-        where: { idempotencyKey: error?.meta?.target },
-      });
-      if (existingOrder) {
-        return NextResponse.json({
-          message: "Sipariş zaten gönderilmiş.",
-          order: existingOrder,
-          status: existingOrder.status,
-        }, { status: 200 });
-      }
+      // ✅ SECURITY FIX: Use cached body variables instead of re-reading request.json()
+      // (request body stream is already consumed — calling json() again throws)
+      try {
+        const sessionToken = request.headers.get("x-session-token");
+        if (sessionToken) {
+          const crypto = await import("crypto");
+          const tokenHash = crypto.createHash("sha256").update(sessionToken).digest("hex");
+          const customerSession = await prisma.customerSession.findUnique({
+            where: { sessionToken: tokenHash },
+          });
+          if (customerSession) {
+            const existingOrder = await prisma.order.findFirst({
+              where: {
+                idempotencyKey: body.idempotencyKey, // ✅ Use cached body
+                businessId: customerSession.businessId, // ✅ Tenant scope from session
+                customerSessionId: customerSession.id, // ✅ Session scope
+              },
+            });
+            if (existingOrder) {
+              return NextResponse.json({
+                message: "Sipariş zaten gönderilmiş.",
+                order: existingOrder,
+                status: existingOrder.status,
+              }, { status: 200 });
+            }
+          }
+        }
+      } catch { /* fallback to generic error */ }
+      
+      return NextResponse.json(
+        { error: "Sipariş oluşturulamadı. Lütfen tekrar deneyin." },
+        { status: 409 }
+      );
     }
-    console.error("Sipariş oluşturma hatası:", error);
+    console.error("Sipariş oluşturma hatası:", {
+      code: error?.code,
+      message: error?.message,
+      // ❌ DO NOT log full error object
+    });
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });
   }
 }

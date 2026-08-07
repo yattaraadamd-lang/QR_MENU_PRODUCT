@@ -4,7 +4,21 @@ import { v4 as uuidv4 } from "uuid";
 
 const prisma = new PrismaClient();
 
+// ✅ P0-08 FIX: Production safety guard
+function checkProductionSafety() {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "❌ SECURITY: Demo seed cannot run in production environment. " +
+      "Use environment-specific seed with strong passwords."
+    );
+  }
+  console.warn("⚠️  Running DEMO seed with weak passwords - development only!");
+}
+
 async function main() {
+  // ✅ P0-08 FIX: Fail-fast in production
+  checkProductionSafety();
+
   console.log("🌱 Seed başlatılıyor...");
 
   // İşletme oluştur
@@ -24,6 +38,10 @@ async function main() {
   });
 
   console.log("✅ İşletme oluşturuldu:", business.name);
+
+  // ✅ P0-08 FIX: Warn about weak passwords
+  console.warn("⚠️  Creating users with WEAK demo passwords (admin123, garson123)");
+  console.warn("⚠️  These passwords are PUBLIC and INSECURE - development only!");
 
   // Admin kullanıcı oluştur
   const hashedPassword = await bcrypt.hash("admin123", 10);
@@ -357,11 +375,11 @@ async function main() {
   console.log("─────────────────────────────────");
   console.log("Admin giriş bilgileri:");
   console.log("  E-posta: admin@demo.com");
-  console.log("  Şifre:   admin123");
+  console.log("  Şifre:   (check prisma/seed.ts source for dev password)");
   console.log("\nGarson giriş bilgileri:");
   console.log("  E-posta: garson@demo.com");
-  console.log("  Şifre:   garson123");
-  console.log("\nGarson davet kodları: GARSON001, GARSON002");
+  console.log("  Şifre:   (check prisma/seed.ts source for dev password)");
+  console.log("\nGarson davet kodları: (check prisma/seed.ts source)");
   console.log("Demo işletme slug: demo-kafe");
   console.log("─────────────────────────────────");
 }

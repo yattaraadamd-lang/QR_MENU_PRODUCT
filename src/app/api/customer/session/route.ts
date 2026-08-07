@@ -1,11 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import { generateDeviceKey, hashDeviceKey, checkDeviceBlock } from "@/lib/security/device-block";
 
 export const dynamic = "force-dynamic";
 
 const DEVICE_COOKIE_NAME = "customer_device_id";
+
+/**
+ * 🔒 SECURITY FIX P0-06/P0-07: Secure customer session management
+ * 
+ * CHANGES:
+ * - Session token: 256-bit CSPRNG (crypto.randomBytes(32))
+ * - Token stored as SHA-256 hash in database
+ * - Raw token returned ONLY on creation
+ * - Device binding enforced on token reuse
+ * - Cache-Control: no-store on all responses
+ * - Token NEVER in URL query parameters
+ */
+
+/**
+ * Hash a session token for database storage/lookup.
+ */
+function hashSessionToken(rawToken: string): string {
+  return crypto.createHash("sha256").update(rawToken).digest("hex");
+}
+
+/**
+ * Generate a cryptographically secure session token (256-bit).
+ */
+function generateSessionToken(): string {
+  return `cs_${crypto.randomBytes(32).toString("hex")}`;
+}
+
+/**
+ * Add security headers to response.
+ */
+function addSecurityHeaders(res: NextResponse): NextResponse {
+  res.headers.set("Cache-Control", "no-store, private");
+  res.headers.set("Pragma", "no-cache");
+  return res;
+}
 
 /**
  * POST /api/customer/session
@@ -23,8 +58,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { businessId, tableId, qrToken, existingToken } = body;
 
-    if (!businessId || !tableId) {
-      return NextResponse.json({ error: "Geçersiz oturum bilgileri" }, { status: 400 });
+    if (!businessId || !tableId || typeof businessId !== "string" || typeof tableId !== "string") {
+      return addSecurityHeaders(
+        NextResponse.json({ error: "Geçersiz oturum bilgileri" }, { status: 400 })
+      );
     }
 
     // ─── Masa kontrolü
@@ -33,9 +70,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!table) {
-      return NextResponse.json(
-        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
-        { status: 404 }
+      return addSecurityHeaders(
+        NextResponse.json(
+          { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
+          { status: 404 }
+        )
       );
     }
 
@@ -53,22 +92,22 @@ export async function POST(request: NextRequest) {
     // ─── Cihaz engeli kontrolü
     const isBlocked = await checkDeviceBlock(businessId, deviceKeyHash);
     if (isBlocked) {
-      // Engelli cihaz menüyü görüntüleyebilir ama session oluşturamaz
-      const res = NextResponse.json(
-        {
-          error: "Bu cihazın bu işletmede işlem yapması engellendi.",
-          code: "CUSTOMER_DEVICE_BLOCKED",
-          viewOnly: true,
-        },
-        { status: 403 }
+      const res = addSecurityHeaders(
+        NextResponse.json(
+          {
+            error: "Bu cihazın bu işletmede işlem yapması engellendi.",
+            code: "CUSTOMER_DEVICE_BLOCKED",
+            viewOnly: true,
+          },
+          { status: 403 }
+        )
       );
-      // Cookie'yi yine de set et (cihaz tanınsın)
       if (isNewDevice) {
         res.cookies.set(DEVICE_COOKIE_NAME, rawDeviceKey, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
-          maxAge: 365 * 24 * 60 * 60, // 1 yıl
+          maxAge: 365 * 24 * 60 * 60,
           path: "/",
         });
       }
@@ -76,9 +115,12 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Mevcut token yeniden kullanımı (aynı cihaz sayfa yenilerse)
-    if (existingToken) {
+    if (existingToken && typeof existingToken === "string") {
+      // ✅ SECURITY: Hash the token for database lookup
+      const existingTokenHash = hashSessionToken(existingToken);
+
       const existing = await prisma.customerSession.findUnique({
-        where: { sessionToken: existingToken },
+        where: { sessionToken: existingTokenHash },
       });
 
       if (
@@ -88,6 +130,20 @@ export async function POST(request: NextRequest) {
         existing.status === "ACTIVE" &&
         existing.expiresAt > new Date()
       ) {
+        // ✅ P0-06 FIX: Validate device binding
+        if (existing.deviceKeyHash && existing.deviceKeyHash !== deviceKeyHash) {
+          return addSecurityHeaders(
+            NextResponse.json(
+              {
+                error: "Bu oturum farklı bir cihaza ait. Güvenlik nedeniyle reddedildi.",
+                code: "SESSION_DEVICE_MISMATCH",
+                sessionToken: null,
+              },
+              { status: 403 }
+            )
+          );
+        }
+
         // deviceKeyHash'i güncelle (eski session'larda olmayabilir)
         if (!existing.deviceKeyHash && deviceKeyHash) {
           await prisma.customerSession.update({
@@ -96,12 +152,14 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        const res = NextResponse.json({
-          sessionToken: existing.sessionToken,
-          expiresAt: existing.expiresAt.toISOString(),
-          authorizationStatus: existing.authorizationStatus,
-          message: "Mevcut oturum kullanılıyor",
-        });
+        const res = addSecurityHeaders(
+          NextResponse.json({
+            sessionToken: existingToken, // ✅ Return the raw token the client already has
+            expiresAt: existing.expiresAt.toISOString(),
+            authorizationStatus: existing.authorizationStatus,
+            message: "Mevcut oturum kullanılıyor",
+          })
+        );
 
         if (isNewDevice) {
           res.cookies.set(DEVICE_COOKIE_NAME, rawDeviceKey, {
@@ -118,22 +176,26 @@ export async function POST(request: NextRequest) {
 
     // ─── Yeni session oluşturmak için qrToken ZORUNLU
     if (!qrToken || qrToken !== table.qrToken) {
-      return NextResponse.json({
-        sessionToken: null,
-        viewOnly: true,
-        message: "Sipariş vermek için QR kodu tekrar okutun.",
-      });
+      return addSecurityHeaders(
+        NextResponse.json({
+          sessionToken: null,
+          viewOnly: true,
+          message: "Sipariş vermek için QR kodu tekrar okutun.",
+        })
+      );
     }
 
     // ─── Benzersiz VIEW_ONLY CustomerSession oluştur (2 saatlik)
-    const sessionToken = `cs_${uuidv4()}`;
+    // ✅ SECURITY: 256-bit CSPRNG token
+    const rawToken = generateSessionToken();
+    const tokenHash = hashSessionToken(rawToken);
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
     await prisma.customerSession.create({
       data: {
         businessId,
         tableId,
-        sessionToken,
+        sessionToken: tokenHash, // ✅ Store HASH, not raw token
         status: "ACTIVE",
         authorizationStatus: "VIEW_ONLY",
         deviceKeyHash,
@@ -141,14 +203,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const res = NextResponse.json({
-      sessionToken,
-      expiresAt: expiresAt.toISOString(),
-      authorizationStatus: "VIEW_ONLY",
-      message: "Menü görüntüleme oturumu oluşturuldu",
-    });
+    const res = addSecurityHeaders(
+      NextResponse.json({
+        sessionToken: rawToken, // ✅ Raw token returned ONLY here, ONCE
+        expiresAt: expiresAt.toISOString(),
+        authorizationStatus: "VIEW_ONLY",
+        message: "Menü görüntüleme oturumu oluşturuldu",
+      })
+    );
 
-    // Cookie set et
     if (isNewDevice) {
       res.cookies.set(DEVICE_COOKIE_NAME, rawDeviceKey, {
         httpOnly: true,
@@ -161,45 +224,64 @@ export async function POST(request: NextRequest) {
 
     return res;
   } catch (error) {
-    console.error("Oturum oluşturma hatası:", error);
-    return NextResponse.json({ error: "Oturum oluşturulurken bir hata oluştu" }, { status: 500 });
+    console.error("Oturum oluşturma hatası:", {
+      // ❌ DO NOT log tokens or device keys
+      code: (error as any)?.code,
+    });
+    return addSecurityHeaders(
+      NextResponse.json({ error: "Oturum oluşturulurken bir hata oluştu" }, { status: 500 })
+    );
   }
 }
 
 /**
- * GET /api/customer/session?token=xxx — Token doğrula + yetki durumu döndür
+ * GET /api/customer/session
+ * 
+ * ✅ P0-07 FIX: Token from header only (never URL query)
+ * Token doğrula + yetki durumu döndür
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get("token");
+    // ✅ P0-07 FIX: Read token from header instead of URL query
+    const rawToken = request.headers.get("x-session-token");
 
-    if (!token) {
-      return NextResponse.json(
-        { valid: false, error: "Token gerekli" },
-        { status: 400 }
+    if (!rawToken) {
+      return addSecurityHeaders(
+        NextResponse.json(
+          { valid: false, error: "x-session-token header gerekli" },
+          { status: 400 }
+        )
       );
     }
 
+    // ✅ SECURITY: Hash token for database lookup
+    const tokenHash = hashSessionToken(rawToken);
+
     const session = await prisma.customerSession.findUnique({
-      where: { sessionToken: token },
+      where: { sessionToken: tokenHash },
     });
 
     if (!session) {
-      return NextResponse.json({ valid: false, error: "Geçersiz oturum" });
+      return addSecurityHeaders(
+        NextResponse.json({ valid: false, error: "Geçersiz oturum" })
+      );
     }
 
     if (session.status === "REVOKED") {
-      return NextResponse.json({
-        valid: false,
-        authorizationStatus: "REVOKED",
-        error: "Bu oturum iptal edilmiş.",
-        code: "SESSION_REVOKED",
-      });
+      return addSecurityHeaders(
+        NextResponse.json({
+          valid: false,
+          authorizationStatus: "REVOKED",
+          error: "Bu oturum iptal edilmiş.",
+          code: "SESSION_REVOKED",
+        })
+      );
     }
 
     if (session.status !== "ACTIVE") {
-      return NextResponse.json({ valid: false, error: "Oturum aktif değil" });
+      return addSecurityHeaders(
+        NextResponse.json({ valid: false, error: "Oturum aktif değil" })
+      );
     }
 
     if (new Date() > session.expiresAt) {
@@ -207,19 +289,28 @@ export async function GET(request: NextRequest) {
         where: { id: session.id },
         data: { status: "EXPIRED" },
       });
-      return NextResponse.json({ valid: false, error: "Oturum süresi doldu" });
+      return addSecurityHeaders(
+        NextResponse.json({ valid: false, error: "Oturum süresi doldu" })
+      );
     }
 
-    return NextResponse.json({
-      valid: true,
-      authorizationStatus: session.authorizationStatus,
-      tableSessionId: session.tableSessionId,
-    });
+    return addSecurityHeaders(
+      NextResponse.json({
+        valid: true,
+        authorizationStatus: session.authorizationStatus,
+        tableSessionId: session.tableSessionId,
+      })
+    );
   } catch (error) {
-    console.error("Token doğrulama hatası:", error);
-    return NextResponse.json(
-      { valid: false, error: "Doğrulama hatası" },
-      { status: 500 }
+    console.error("Token doğrulama hatası:", {
+      code: (error as any)?.code,
+      // ❌ DO NOT log tokens
+    });
+    return addSecurityHeaders(
+      NextResponse.json(
+        { valid: false, error: "Doğrulama hatası" },
+        { status: 500 }
+      )
     );
   }
 }
