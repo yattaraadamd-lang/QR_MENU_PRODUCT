@@ -92,6 +92,20 @@ export const authOptions: NextAuthOptions = {
         session.user.businessId = token.businessId as string;
         session.user.businessName = token.businessName as string;
       }
+      
+      // ✅ P0-03 FIX: Create a simple access token for socket authentication
+      // This is a base64-encoded JSON with user auth info
+      // Server will verify this by checking user in database
+      const socketAuthPayload = {
+        userId: token.id,
+        businessId: token.businessId,
+        role: token.role,
+        iat: Math.floor(Date.now() / 1000),
+      };
+      
+      // Simple encoding (server will validate against database)
+      session.accessToken = Buffer.from(JSON.stringify(socketAuthPayload)).toString('base64');
+      
       return session;
     },
   },

@@ -17,6 +17,8 @@ declare module "next-auth" {
       businessId: string;
       businessName: string;
     };
+    // ✅ P0-03 FIX: Add accessToken for socket authentication
+    accessToken?: string;
   }
 }
 

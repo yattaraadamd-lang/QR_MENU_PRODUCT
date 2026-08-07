@@ -93,11 +93,16 @@ export default function WaiterOrdersPage() {
     }
   }, [session, fetchOrders]);
 
+  // ✅ P0-03 FIX: Socket connection with authentication
   useEffect(() => {
-    if (!session?.user.businessId) return;
-    const socket = connectToBusinessRoom(session.user.businessId, fetchOrders);
+    if (!session?.user.businessId || !session?.accessToken) return;
+
+    // ✅ Connect with authenticated token
+    const socket = connectToBusinessRoom(session.accessToken, fetchOrders);
+    
     socket.on("new_order", fetchOrders);
     socket.on("order_status_update", fetchOrders);
+    
     return () => {
       socket.off("new_order", fetchOrders);
       socket.off("order_status_update", fetchOrders);
