@@ -197,7 +197,7 @@ app.prepare().then(() => {
       // ✅ Production readiness checks (non-fatal at this point — fatal checks are above)
       if (!dev) {
         console.log('🔒 Production security checks passed');
-        console.log(`   CORS origins: ${allowedOrigins.join(', ') || '(none — all origins blocked!)')}`); 
+        console.log(`   CORS origins: ${allowedOrigins.join(', ') || '(none — all origins blocked!)'}`); 
       }
     });
 });
