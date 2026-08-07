@@ -92,10 +92,11 @@ app.prepare().then(() => {
 
   // ✅ P0-03 FIX: Authentication middleware
   // This runs BEFORE any socket events, validating JWT and user
+  // ✅ PRODUCTION FIX: Use CommonJS runtime module instead of TypeScript
+  const { authenticateSocket } = require("./src/lib/socket-auth-runtime.cjs");
+  
   io.use(async (socket, next) => {
     try {
-      // Import authentication middleware (dynamic to avoid circular deps)
-      const { authenticateSocket } = require("./src/lib/socket-auth.ts");
       await authenticateSocket(socket, next);
     } catch (error) {
       console.error("[Socket] Middleware error:", error);
