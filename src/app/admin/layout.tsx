@@ -4,6 +4,8 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
+import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import {
   LayoutDashboard,
@@ -47,17 +49,7 @@ const groups: Record<string, string> = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
-  const pathname = usePathname();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { counts } = useBadgeCounts(8000);
-
-  const badgeMap: Record<string, number> = {
-    "/admin/orders": counts.orders,
-    "/admin/requests": counts.requests,
-    "/admin/pending-payments": counts.payments,
-    "/admin/tables": counts.payments,
-  };
 
   if (session?.user.role !== "ADMIN") {
     return (
@@ -75,6 +67,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
     );
   }
+
+  return (
+    <NotificationSoundProvider>
+      <AdminContent>{children}</AdminContent>
+    </NotificationSoundProvider>
+  );
+}
+
+function AdminContent({ children }: { children: React.ReactNode }) {
+  const { data: session } = useSession();
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { counts } = useBadgeCounts(8000);
+
+  const badgeMap: Record<string, number> = {
+    "/admin/orders": counts.orders,
+    "/admin/requests": counts.requests,
+    "/admin/pending-payments": counts.payments,
+    "/admin/tables": counts.payments,
+  };
 
   const initials = session?.user.name?.slice(0, 2).toUpperCase() || "AD";
   const grouped = Object.entries(groups);
@@ -111,25 +123,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         className="lg-left-0"
       >
         <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                boxShadow: "0 4px 12px var(--primary-glow)",
-              }}
-            >
-              <QrCode size={18} color="white" />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  boxShadow: "0 4px 12px var(--primary-glow)",
+                }}
+              >
+                <QrCode size={18} color="white" />
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em" }}>QR Menü</p>
+                <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 1 }}>Admin Paneli</p>
+              </div>
             </div>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em" }}>QR Menü</p>
-              <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 1 }}>Admin Paneli</p>
+
+            {/* Admin Header Notification Panel Button */}
+            <div className="lg-hidden" style={{ display: "none" }}>
+              <NotificationPanel />
             </div>
           </div>
 
@@ -288,41 +307,47 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       <main style={{ flex: 1, marginLeft: 0, minWidth: 0 }} className="lg-ml-260">
+        {/* Top Header bar for Desktop + Mobile */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "12px 16px",
+            padding: "12px 20px",
             borderBottom: "1px solid var(--border-color)",
             background: "var(--bg-secondary)",
             position: "sticky",
             top: 0,
             zIndex: 30,
           }}
-          className="lg-hidden"
         >
-          <button
-            onClick={() => setSidebarOpen(true)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--text-primary)",
-              cursor: "pointer",
-              padding: 4,
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <Menu size={22} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-primary)",
+                cursor: "pointer",
+                padding: 4,
+                display: "flex",
+                alignItems: "center",
+              }}
+              className="lg-hidden"
+            >
+              <Menu size={22} />
+            </button>
 
-          <span style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-            <QrCode size={18} color="var(--primary)" />
-            QR Menü
-          </span>
+            <span className="lg-hidden" style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+              <QrCode size={18} color="var(--primary)" />
+              QR Menü
+            </span>
+          </div>
 
-          <div style={{ width: 30 }} />
+          {/* Real-time Notification Panel Button in Top Header Bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <NotificationPanel />
+          </div>
         </div>
 
         <div style={{ padding: "24px 20px", maxWidth: 1280, margin: "0 auto" }}>

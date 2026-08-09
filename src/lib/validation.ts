@@ -133,14 +133,14 @@ export const updateServiceRequestSchema = z.object({
 export const createStaffSchema = z.object({
   name: z.string().min(1).max(100),
   email: emailSchema,
-  password: z.string().min(6).max(100),
+  password: z.string().min(12, "Şifre en az 12 karakter olmalıdır").max(72, "Şifre en fazla 72 karakter olabilir"),
   role: z.enum(["ADMIN", "WAITER"]),
 });
 
 export const updateStaffSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   email: emailSchema.optional(),
-  password: z.string().min(6).max(100).optional(),
+  password: z.string().min(12, "Şifre en az 12 karakter olmalıdır").max(72, "Şifre en fazla 72 karakter olabilir").optional(),
   isActive: z.boolean().optional(),
 });
 

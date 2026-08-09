@@ -3,10 +3,10 @@
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { NotificationSoundProvider, useNotificationSound } from "@/contexts/NotificationSoundContext";
+import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
+import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
-import { ClipboardList, Bell, CreditCard, Table2, Volume2, VolumeX, LogOut, QrCode, X } from "lucide-react";
+import { ClipboardList, Bell, CreditCard, Table2, LogOut, QrCode } from "lucide-react";
 
 const NAV = [
   { href: "/waiter",          label: "Siparişler", icon: <ClipboardList size={22} /> },
@@ -42,8 +42,6 @@ export default function WaiterLayout({ children }: { children: React.ReactNode }
 function WaiterContent({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const { soundEnabled, enableSound, newNotification, notifications, clearNotification, clearAll } = useNotificationSound();
-  const [showNotifPanel, setShowNotifPanel] = useState(false);
   const { counts } = useBadgeCounts(8000);
 
   const badgeMap: Record<string, number> = {
@@ -53,37 +51,8 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
     "/waiter/tables":   counts.payments,
   };
 
-  const unreadCount = notifications.length;
-
-  const notifColors: Record<string, string> = {
-    new_order: "#f59e0b",
-    call_waiter: "#ef4444",
-    payment_request: "#8b5cf6",
-    help_request: "#3b82f6",
-    service_request: "#10b981",
-  };
-
-  function timeAgo(d: Date) {
-    const s = Math.floor((Date.now() - d.getTime()) / 1000);
-    if (s < 60) return `${s}sn`;
-    if (s < 3600) return `${Math.floor(s / 60)}dk`;
-    return `${Math.floor(s / 3600)}sa`;
-  }
-
-  const initials = session?.user.name?.slice(0, 2).toUpperCase() || "G";
-
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary)", paddingBottom: 72 }}>
-      {/* Notification toast */}
-      {newNotification && (
-        <div className="toast animate-slide-down" style={{
-          background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-          color: "white", top: 68, zIndex: 60,
-        }}>
-          {newNotification}
-        </div>
-      )}
-
       {/* Top bar */}
       <div style={{
         background: "var(--bg-secondary)",
@@ -112,97 +81,15 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {!soundEnabled ? (
-            <button onClick={enableSound} className="btn btn-sm animate-pulse-glow" style={{
-              background: "#f59e0b", color: "white", border: "none", fontSize: 11, gap: 4,
-            }}>
-              <Volume2 size={14} /> Sesi Aç
-            </button>
-          ) : (
-            <span style={{ fontSize: 11, color: "#6ee7b7", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-              Ses Aktif
-            </span>
-          )}
-
-          {/* Notification button */}
-          <button
-            onClick={() => setShowNotifPanel(!showNotifPanel)}
-            style={{
-              position: "relative", border: "none",
-              cursor: "pointer", padding: 6, borderRadius: 8,
-              background: showNotifPanel ? "var(--bg-hover)" : "transparent",
-              color: "var(--text-secondary)",
-              display: "flex", alignItems: "center",
-            }}
-          >
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <span style={{
-                position: "absolute", top: 0, right: 0,
-                background: "#ef4444", color: "white",
-                borderRadius: 99, fontSize: 9, fontWeight: 800,
-                padding: "1px 4px", minWidth: 16, textAlign: "center",
-                lineHeight: "14px",
-              }}>{unreadCount > 9 ? "9+" : unreadCount}</span>
-            )}
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Integrated Premium Notification System (Bell + Sound Control + Toast + Glassmorphism Panel) */}
+          <NotificationPanel />
 
           <button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="btn btn-ghost btn-sm btn-icon" title="Çıkış Yap" style={{ color: "var(--text-secondary)" }}>
             <LogOut size={18} />
           </button>
         </div>
       </div>
-
-      {/* Notification Panel */}
-      {showNotifPanel && (
-        <div style={{
-          position: "fixed", top: 56, right: 0, left: 0, zIndex: 40,
-          background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-color)",
-          maxHeight: "50vh", overflowY: "auto",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-        }}>
-          <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-subtle)" }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Bildirimler {unreadCount > 0 && `(${unreadCount})`}</span>
-            {unreadCount > 0 && (
-              <button onClick={clearAll} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 12, cursor: "pointer" }}>
-                Tümünü Temizle
-              </button>
-            )}
-          </div>
-          {notifications.length === 0 ? (
-            <div style={{ padding: "24px 14px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>
-              Bildirim yok
-            </div>
-          ) : (
-            notifications.map(n => (
-              <div key={n.id} style={{
-                display: "flex", alignItems: "flex-start", gap: 10,
-                padding: "10px 14px", borderBottom: "1px solid var(--border-subtle)",
-                background: "var(--bg-card)",
-              }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                  background: notifColors[n.type] ? `${notifColors[n.type]}18` : "var(--primary-glow)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 18,
-                }}>{n.icon}</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: notifColors[n.type] || "var(--primary-light)" }}>{n.title}</p>
-                    <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0, marginLeft: 8 }}>{timeAgo(n.createdAt)}</span>
-                  </div>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{n.message}</p>
-                </div>
-                <button onClick={() => clearNotification(n.id)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 2, flexShrink: 0, display: "flex", alignItems: "center" }}>
-                  <X size={14} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
 
       {/* Content */}
       <div style={{ padding: "16px 14px" }}>

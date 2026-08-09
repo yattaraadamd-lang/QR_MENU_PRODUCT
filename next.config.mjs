@@ -43,6 +43,22 @@ const nextConfig = {
             key: "Cross-Origin-Opener-Policy",
             value: "same-origin",
           },
+          {
+            // ✅ CSP: Report-only mode for safe rollout
+            // Gradually tighten by moving to Content-Security-Policy once violations are analyzed
+            key: "Content-Security-Policy-Report-Only",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in",
+              "connect-src 'self' wss: ws: https://*.supabase.co",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join("; "),
+          },
         ],
       },
       {

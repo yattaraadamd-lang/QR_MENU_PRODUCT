@@ -160,6 +160,22 @@ export function playSoundEffect(type: string) {
   }
 }
 
+// ─── XSS-safe text sanitizer ──────────────────────────────────────────────────
+function sanitizeText(str: unknown): string {
+  if (typeof str !== "string") return "";
+  return str
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .substring(0, 500); // Max length
+}
+
+// ─── Deduplication window (ms) ────────────────────────────────────────────────
+const DEDUP_WINDOW_MS = 3000;
+
+// ─── Auto-expiry (30 minutes) ─────────────────────────────────────────────────
+const AUTO_EXPIRY_MS = 30 * 60 * 1000;
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function NotificationSoundProvider({
   children,
@@ -171,6 +187,7 @@ export function NotificationSoundProvider({
   const [newNotification, setNewNotification] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const soundEnabledRef = useRef(false);
+  const recentNotifKeys = useRef<Map<string, number>>(new Map());
 
   // Ses tercihini session storage'dan geri yükle
   useEffect(() => {
@@ -190,6 +207,24 @@ export function NotificationSoundProvider({
     sessionStorage.setItem("waiterSoundEnabled", "true");
   }, []);
 
+  // ✅ SECURITY: Deduplication — prevent duplicate notifications from same event
+  const isDuplicate = useCallback((type: string, tableNumber?: string): boolean => {
+    const key = `${type}:${tableNumber || "?"}`;
+    const now = Date.now();
+    const lastSeen = recentNotifKeys.current.get(key);
+    if (lastSeen && now - lastSeen < DEDUP_WINDOW_MS) {
+      return true;
+    }
+    recentNotifKeys.current.set(key, now);
+    // Cleanup old keys
+    for (const [k, t] of recentNotifKeys.current) {
+      if (now - t > DEDUP_WINDOW_MS * 2) {
+        recentNotifKeys.current.delete(k);
+      }
+    }
+    return false;
+  }, []);
+
   const addNotification = useCallback((item: NotificationItem) => {
     setNotifications((prev) => [item, ...prev].slice(0, 30));
   }, []);
@@ -205,6 +240,17 @@ export function NotificationSoundProvider({
     setTimeout(() => setNewNotification(null), 5000);
   }, []);
 
+  // ✅ Auto-expiry: Remove notifications older than 30 minutes
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - AUTO_EXPIRY_MS;
+      setNotifications((prev) =>
+        prev.filter((n) => new Date(n.createdAt).getTime() > cutoff)
+      );
+    }, 60000); // Check every minute
+    return () => clearInterval(timer);
+  }, []);
+
   // ─── Socket bağlantısı ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!session?.user.businessId) return;
@@ -218,7 +264,6 @@ export function NotificationSoundProvider({
     const businessId = session.user.businessId;
 
     // connectToBusinessRoom: reconnect sonrası otomatik odaya tekrar katılır
-    // onReconnect: layout'ta badge refresh tetiklemek için
     const socket = connectToBusinessRoom(businessId);
 
     // ─── Event handler factory ──────────────────────────────────────────────
@@ -233,9 +278,13 @@ export function NotificationSoundProvider({
         // businessId izolasyonu — başka işletme verisi yanlışlıkla gelirse yoksay
         if (data._businessId && data._businessId !== businessId) return;
 
+        // ✅ SECURITY: Deduplication
+        const tableNum = data.tableNumber as string | undefined;
+        if (isDuplicate(type, tableNum)) return;
+
         const tableLabel =
-          (data.tableName as string) ||
-          `Masa ${(data.tableNumber as string) || "?"}`;
+          sanitizeText(data.tableName) ||
+          `Masa ${sanitizeText(data.tableNumber) || "?"}`;
 
         // Ses çal
         if (soundEnabledRef.current) {
@@ -259,9 +308,9 @@ export function NotificationSoundProvider({
           icon,
           title,
           message:
-            (data.message as string) ||
+            sanitizeText(data.message) ||
             `${tableLabel} ${title.toLowerCase()}`,
-          tableNumber: data.tableNumber as string | undefined,
+          tableNumber: tableNum,
           tableName: data.tableName as string | undefined,
           createdAt: new Date(),
         };
@@ -294,7 +343,7 @@ export function NotificationSoundProvider({
         socket.off(event, fn)
       );
     };
-  }, [session, addNotification, showToast]);
+  }, [session, addNotification, showToast, isDuplicate]);
 
   return (
     <NotificationSoundContext.Provider

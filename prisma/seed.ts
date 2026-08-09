@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole, TableStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 
 const prisma = new PrismaClient();
@@ -13,6 +14,13 @@ function checkProductionSafety() {
     );
   }
   console.warn("⚠️  Running DEMO seed with weak passwords - development only!");
+}
+
+/**
+ * Hash an invite code for storage (matches P0-01 creation flow).
+ */
+function hashInviteCode(rawCode: string): string {
+  return crypto.createHash("sha256").update(rawCode).digest("hex");
 }
 
 async function main() {
@@ -39,9 +47,8 @@ async function main() {
 
   console.log("✅ İşletme oluşturuldu:", business.name);
 
-  // ✅ P0-08 FIX: Warn about weak passwords
-  console.warn("⚠️  Creating users with WEAK demo passwords (admin123, garson123)");
-  console.warn("⚠️  These passwords are PUBLIC and INSECURE - development only!");
+  // ✅ P0-08 FIX: Warn about weak passwords (don't log the actual passwords)
+  console.warn("⚠️  Creating users with WEAK demo passwords - development only!");
 
   // Admin kullanıcı oluştur
   const hashedPassword = await bcrypt.hash("admin123", 10);
@@ -78,226 +85,47 @@ async function main() {
   console.log("✅ Garson oluşturuldu:", waiter.email);
 
   // Kategoriler oluştur
-  const catSicakIcecekler = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { id: "cat-sicak-icecek" },
     update: {},
-    create: {
-      id: "cat-sicak-icecek",
-      businessId: business.id,
-      name: "Sıcak İçecekler",
-      icon: "☕",
-      sortOrder: 1,
-      isActive: true,
-    },
+    create: { id: "cat-sicak-icecek", businessId: business.id, name: "Sıcak İçecekler", icon: "☕", sortOrder: 1, isActive: true },
   });
-
-  const catSogukIcecekler = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { id: "cat-soguk-icecek" },
     update: {},
-    create: {
-      id: "cat-soguk-icecek",
-      businessId: business.id,
-      name: "Soğuk İçecekler",
-      icon: "🥤",
-      sortOrder: 2,
-      isActive: true,
-    },
+    create: { id: "cat-soguk-icecek", businessId: business.id, name: "Soğuk İçecekler", icon: "🥤", sortOrder: 2, isActive: true },
   });
-
-  const catYiyecekler = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { id: "cat-yiyecek" },
     update: {},
-    create: {
-      id: "cat-yiyecek",
-      businessId: business.id,
-      name: "Yiyecekler",
-      icon: "🍽️",
-      sortOrder: 3,
-      isActive: true,
-    },
+    create: { id: "cat-yiyecek", businessId: business.id, name: "Yiyecekler", icon: "🍽️", sortOrder: 3, isActive: true },
   });
-
-  const catTatlilar = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { id: "cat-tatli" },
     update: {},
-    create: {
-      id: "cat-tatli",
-      businessId: business.id,
-      name: "Tatlılar",
-      icon: "🍰",
-      sortOrder: 4,
-      isActive: true,
-    },
+    create: { id: "cat-tatli", businessId: business.id, name: "Tatlılar", icon: "🍰", sortOrder: 4, isActive: true },
   });
 
   console.log("✅ Kategoriler oluşturuldu");
 
   // Ürünler oluştur
   const products = [
-    // Sıcak İçecekler
-    {
-      id: "prod-turk-kahvesi",
-      name: "Türk Kahvesi",
-      description: "Geleneksel Türk kahvesi, ince öğütülmüş kahve çekirdeği ile hazırlanır",
-      ingredients: "Kahve çekirdeği, su",
-      allergens: null,
-      price: 45,
-      categoryId: "cat-sicak-icecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-latte",
-      name: "Latte",
-      description: "Espresso üzerine buharla ısıtılmış süt",
-      ingredients: "Espresso, süt",
-      allergens: "Süt ürünleri",
-      price: 65,
-      categoryId: "cat-sicak-icecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-cay",
-      name: "Çay",
-      description: "Demlik çay, Rize çayı",
-      ingredients: "Çay",
-      allergens: null,
-      price: 15,
-      categoryId: "cat-sicak-icecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-cappuccino",
-      name: "Cappuccino",
-      description: "Espresso, buharla ısıtılmış süt ve süt köpüğü",
-      ingredients: "Espresso, süt",
-      allergens: "Süt ürünleri",
-      price: 70,
-      categoryId: "cat-sicak-icecek",
-      isPopular: false,
-    },
-    {
-      id: "prod-sicak-cikolata",
-      name: "Sıcak Çikolata",
-      description: "Gerçek çikolata ile hazırlanan sıcak çikolata",
-      ingredients: "Çikolata, süt, şeker",
-      allergens: "Süt ürünleri",
-      price: 55,
-      categoryId: "cat-sicak-icecek",
-      isPopular: false,
-    },
-    // Soğuk İçecekler
-    {
-      id: "prod-ayran",
-      name: "Ayran",
-      description: "Taze yapılmış soğuk ayran",
-      ingredients: "Yoğurt, su, tuz",
-      allergens: "Süt ürünleri",
-      price: 20,
-      categoryId: "cat-soguk-icecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-limonata",
-      name: "Limonata",
-      description: "Taze sıkılmış ev yapımı limonata",
-      ingredients: "Limon, su, şeker, nane",
-      allergens: null,
-      price: 35,
-      categoryId: "cat-soguk-icecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-ice-tea",
-      name: "Ice Tea",
-      description: "Soğuk çay, şeftali aromalı",
-      ingredients: "Çay, şeftali aroması, şeker",
-      allergens: null,
-      price: 30,
-      categoryId: "cat-soguk-icecek",
-      isPopular: false,
-    },
-    // Yiyecekler
-    {
-      id: "prod-tost",
-      name: "Tost",
-      description: "Kaşarlı karışık tost",
-      ingredients: "Tost ekmeği, kaşar peyniri, domates, salatalık",
-      allergens: "Gluten, Süt ürünleri",
-      price: 60,
-      categoryId: "cat-yiyecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-hamburger",
-      name: "Hamburger",
-      description: "El yapımı köfte, taze sebzeler ve özel sos ile",
-      ingredients: "Dana kıyma, marul, domates, soğan, turşu, hamburger ekmeği",
-      allergens: "Gluten",
-      price: 120,
-      categoryId: "cat-yiyecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-izgara-kofte",
-      name: "Izgara Köfte",
-      description: "Özel baharatlarla hazırlanmış el yapımı köfte",
-      ingredients: "Dana kıyma, soğan, maydanoz, baharatlar",
-      allergens: "Gluten",
-      price: 130,
-      categoryId: "cat-yiyecek",
-      isPopular: true,
-    },
-    {
-      id: "prod-tavuk-sis",
-      name: "Tavuk Şiş",
-      description: "Marine edilmiş tavuk göğsü şiş",
-      ingredients: "Tavuk göğsü, zeytinyağı, limon, baharatlar",
-      allergens: null,
-      price: 110,
-      categoryId: "cat-yiyecek",
-      isPopular: false,
-    },
-    {
-      id: "prod-karisik-pizza",
-      name: "Karışık Pizza",
-      description: "Bol malzemeli karışık pizza",
-      ingredients: "Un, domates sosu, mozzarella, sucuk, mantar, biber",
-      allergens: "Gluten, Süt ürünleri",
-      price: 150,
-      categoryId: "cat-yiyecek",
-      isPopular: false,
-    },
-    // Tatlılar
-    {
-      id: "prod-cheesecake",
-      name: "Cheesecake",
-      description: "New York usulü klasik cheesecake",
-      ingredients: "Krem peynir, bisküvi, tereyağı, şeker",
-      allergens: "Gluten, Süt ürünleri",
-      price: 85,
-      categoryId: "cat-tatli",
-      isPopular: true,
-    },
-    {
-      id: "prod-sutlac",
-      name: "Sütlaç",
-      description: "Fırında pişirilmiş geleneksel sütlaç",
-      ingredients: "Süt, pirinç, şeker, vanilya",
-      allergens: "Süt ürünleri",
-      price: 55,
-      categoryId: "cat-tatli",
-      isPopular: true,
-    },
-    {
-      id: "prod-baklava",
-      name: "Baklava",
-      description: "Antep fıstıklı ev yapımı baklava",
-      ingredients: "Yufka, tereyağı, antep fıstığı, şerbet",
-      allergens: "Gluten, Fındık",
-      price: 75,
-      categoryId: "cat-tatli",
-      isPopular: false,
-    },
+    { id: "prod-turk-kahvesi", name: "Türk Kahvesi", description: "Geleneksel Türk kahvesi", ingredients: "Kahve çekirdeği, su", allergens: null, price: 45, categoryId: "cat-sicak-icecek", isPopular: true },
+    { id: "prod-latte", name: "Latte", description: "Espresso üzerine buharla ısıtılmış süt", ingredients: "Espresso, süt", allergens: "Süt ürünleri", price: 65, categoryId: "cat-sicak-icecek", isPopular: true },
+    { id: "prod-cay", name: "Çay", description: "Demlik çay, Rize çayı", ingredients: "Çay", allergens: null, price: 15, categoryId: "cat-sicak-icecek", isPopular: true },
+    { id: "prod-cappuccino", name: "Cappuccino", description: "Espresso, buharla ısıtılmış süt ve süt köpüğü", ingredients: "Espresso, süt", allergens: "Süt ürünleri", price: 70, categoryId: "cat-sicak-icecek", isPopular: false },
+    { id: "prod-sicak-cikolata", name: "Sıcak Çikolata", description: "Gerçek çikolata ile hazırlanan sıcak çikolata", ingredients: "Çikolata, süt, şeker", allergens: "Süt ürünleri", price: 55, categoryId: "cat-sicak-icecek", isPopular: false },
+    { id: "prod-ayran", name: "Ayran", description: "Taze yapılmış soğuk ayran", ingredients: "Yoğurt, su, tuz", allergens: "Süt ürünleri", price: 20, categoryId: "cat-soguk-icecek", isPopular: true },
+    { id: "prod-limonata", name: "Limonata", description: "Taze sıkılmış ev yapımı limonata", ingredients: "Limon, su, şeker, nane", allergens: null, price: 35, categoryId: "cat-soguk-icecek", isPopular: true },
+    { id: "prod-ice-tea", name: "Ice Tea", description: "Soğuk çay, şeftali aromalı", ingredients: "Çay, şeftali aroması, şeker", allergens: null, price: 30, categoryId: "cat-soguk-icecek", isPopular: false },
+    { id: "prod-tost", name: "Tost", description: "Kaşarlı karışık tost", ingredients: "Tost ekmeği, kaşar peyniri, domates, salatalık", allergens: "Gluten, Süt ürünleri", price: 60, categoryId: "cat-yiyecek", isPopular: true },
+    { id: "prod-hamburger", name: "Hamburger", description: "El yapımı köfte, taze sebzeler ve özel sos ile", ingredients: "Dana kıyma, marul, domates, soğan, turşu, hamburger ekmeği", allergens: "Gluten", price: 120, categoryId: "cat-yiyecek", isPopular: true },
+    { id: "prod-izgara-kofte", name: "Izgara Köfte", description: "Özel baharatlarla hazırlanmış el yapımı köfte", ingredients: "Dana kıyma, soğan, maydanoz, baharatlar", allergens: "Gluten", price: 130, categoryId: "cat-yiyecek", isPopular: true },
+    { id: "prod-tavuk-sis", name: "Tavuk Şiş", description: "Marine edilmiş tavuk göğsü şiş", ingredients: "Tavuk göğsü, zeytinyağı, limon, baharatlar", allergens: null, price: 110, categoryId: "cat-yiyecek", isPopular: false },
+    { id: "prod-karisik-pizza", name: "Karışık Pizza", description: "Bol malzemeli karışık pizza", ingredients: "Un, domates sosu, mozzarella, sucuk, mantar, biber", allergens: "Gluten, Süt ürünleri", price: 150, categoryId: "cat-yiyecek", isPopular: false },
+    { id: "prod-cheesecake", name: "Cheesecake", description: "New York usulü klasik cheesecake", ingredients: "Krem peynir, bisküvi, tereyağı, şeker", allergens: "Gluten, Süt ürünleri", price: 85, categoryId: "cat-tatli", isPopular: true },
+    { id: "prod-sutlac", name: "Sütlaç", description: "Fırında pişirilmiş geleneksel sütlaç", ingredients: "Süt, pirinç, şeker, vanilya", allergens: "Süt ürünleri", price: 55, categoryId: "cat-tatli", isPopular: true },
+    { id: "prod-baklava", name: "Baklava", description: "Antep fıstıklı ev yapımı baklava", ingredients: "Yufka, tereyağı, antep fıstığı, şerbet", allergens: "Gluten, Fındık", price: 75, categoryId: "cat-tatli", isPopular: false },
   ];
 
   for (const product of products) {
@@ -321,74 +149,58 @@ async function main() {
 
   console.log("✅ Ürünler oluşturuldu (" + products.length + " adet)");
 
-  // Masalar oluştur (QR token ile)
-  const tableNames = [
-    "Masa 1", "Masa 2", "Masa 3", "Masa 4",
-    "Bahçe 1", "Bahçe 2", "Teras 1", "Teras 2",
-    "VIP 1", "VIP 2"
-  ];
-
+  // Masalar oluştur
+  const tableNames = ["Masa 1","Masa 2","Masa 3","Masa 4","Bahçe 1","Bahçe 2","Teras 1","Teras 2","VIP 1","VIP 2"];
   for (let i = 0; i < tableNames.length; i++) {
     const tableNumber = `${i + 1}`;
     const qrToken = `qr_${business.slug}_${tableNumber}_${uuidv4().slice(0, 8)}`;
-
     await prisma.table.upsert({
-      where: {
-        businessId_tableNumber: {
-          businessId: business.id,
-          tableNumber,
-        },
-      },
-      update: {
-        tableName: tableNames[i],
-        qrToken: undefined, // don't overwrite existing tokens
-      },
-      create: {
-        businessId: business.id,
-        tableNumber,
-        tableName: tableNames[i],
-        status: TableStatus.EMPTY,
-        qrToken,
-      },
+      where: { businessId_tableNumber: { businessId: business.id, tableNumber } },
+      update: { tableName: tableNames[i], qrToken: undefined },
+      create: { businessId: business.id, tableNumber, tableName: tableNames[i], status: TableStatus.EMPTY, qrToken },
     });
   }
-
   console.log("✅ " + tableNames.length + " masa oluşturuldu");
 
-  // Davet kodları oluştur
-  const inviteCodes = ["DEMO2024", "GARSON001", "GARSON002"];
-  for (const code of inviteCodes) {
-    await prisma.waiterInvite.upsert({
-      where: { inviteCode: code },
-      update: {},
-      create: {
-        businessId: business.id,
-        inviteCode: code,
-        isUsed: code === "DEMO2024", // İlk kodu kullanılmış olarak işaretle
-      },
+  // ✅ P0-08 FIX: Generate CSPRNG invite codes and store as SHA-256 hashes
+  // Matches the P0-01 invite creation flow in /api/staff/invite
+  const rawInviteCodes: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const rawCode = `inv_${crypto.randomBytes(16).toString("hex")}`;
+    const codeHash = hashInviteCode(rawCode);
+    rawInviteCodes.push(rawCode);
+
+    const existing = await prisma.waiterInvite.findFirst({
+      where: { inviteCode: codeHash },
     });
+
+    if (!existing) {
+      await prisma.waiterInvite.create({
+        data: {
+          businessId: business.id,
+          inviteCode: codeHash, // ✅ Store HASH, not raw code
+          isUsed: false,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        },
+      });
+    }
   }
 
-  console.log("✅ Davet kodları oluşturuldu: " + inviteCodes.join(", "));
+  console.log("✅ Davet kodları oluşturuldu (hash'lenmiş — " + rawInviteCodes.length + " adet)");
 
   console.log("\n🎉 Seed tamamlandı!");
   console.log("─────────────────────────────────");
-  console.log("Admin giriş bilgileri:");
-  console.log("  E-posta: admin@demo.com");
-  console.log("  Şifre:   (check prisma/seed.ts source for dev password)");
-  console.log("\nGarson giriş bilgileri:");
-  console.log("  E-posta: garson@demo.com");
-  console.log("  Şifre:   (check prisma/seed.ts source for dev password)");
-  console.log("\nGarson davet kodları: (check prisma/seed.ts source)");
-  console.log("Demo işletme slug: demo-kafe");
+  console.log("Admin: admin@demo.com");
+  console.log("Garson: garson@demo.com");
+  console.log("Şifre:  (check prisma/seed.ts source for dev password)");
+  console.log("\n📋 Garson davet kodları (hash'lenmiş olarak DB'de):");
+  rawInviteCodes.forEach((code, i) => {
+    console.log(`  Davet #${i + 1}: ${code}`);
+  });
+  console.log("  ⚠️  Bu kodlar yalnız bu çıktıda gösterilir, DB'de hash olarak saklanır.");
   console.log("─────────────────────────────────");
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(async () => { await prisma.$disconnect(); });

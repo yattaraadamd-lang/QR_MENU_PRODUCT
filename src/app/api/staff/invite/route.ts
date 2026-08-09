@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -72,15 +73,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // ✅ TODO: Audit log (Phase 7)
-    // await createAuditLog({
-    //   businessId,
-    //   actorUserId: session!.user.id,
-    //   actorRole: session!.user.role,
-    //   action: "INVITE_CREATED",
-    //   entityType: "WaiterInvite",
-    //   entityId: invite.id,
-    // });
+    // ✅ SECURITY: Audit log — invite creation
+    createAuditLog({
+      businessId,
+      actorUserId: session!.user.id,
+      actorRole: session!.user.role,
+      action: AuditActions.INVITE_CREATED,
+      entityType: "WaiterInvite",
+      entityId: invite.id,
+    });
 
     return NextResponse.json(
       {

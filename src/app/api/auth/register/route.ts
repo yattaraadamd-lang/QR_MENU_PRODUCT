@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 
 export const dynamic = "force-dynamic";
 
@@ -181,13 +182,22 @@ export async function POST(request: NextRequest) {
         id: user.id,
         name: user.name,
         email: user.email,
+        businessId: invite.businessId,
       };
     }, {
       maxWait: 5000,
       timeout: 10000,
     });
 
-    // ✅ TODO: Audit log (Phase 7)
+    // ✅ SECURITY: Audit log — user registration
+    createAuditLog({
+      businessId: result.businessId,
+      actorUserId: result.id,
+      actorRole: "WAITER",
+      action: AuditActions.USER_REGISTERED,
+      entityType: "User",
+      entityId: result.id,
+    });
 
     return NextResponse.json(
       {
