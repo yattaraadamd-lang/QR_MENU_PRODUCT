@@ -483,7 +483,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       }
 
       // ✅ FIX: Canonical status'u önce kontrol et — local state stale olabilir
-      let effectiveAuthStatus = authStatus;
+      // Explicit AuthStatus annotation — TS narrows authStatus after the early return guard,
+      // but serverSession.status can be any AuthStatus value including REVOKED.
+      let effectiveAuthStatus: AuthStatus = authStatus;
       try {
         const serverSession = await fetchCanonicalSessionStatus(token);
         if (serverSession.ok && serverSession.status) {
@@ -495,6 +497,16 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           effectiveAuthStatus = serverSession.status;
           if (effectiveAuthStatus !== authStatus) {
             setAuthStatus(effectiveAuthStatus);
+          }
+
+          // Canonical durumda REVOKED veya TABLE_ALREADY_CLAIMED ise engelle
+          if (effectiveAuthStatus === "REVOKED") {
+            showToast("Oturumunuz iptal edilmiş. Personelden yardım isteyin.", "err");
+            return;
+          }
+          if (effectiveAuthStatus === "TABLE_ALREADY_CLAIMED") {
+            showToast("Bu masa başka bir aktif oturuma ait. Personelden yardım isteyin.", "err");
+            return;
           }
         } else if (serverSession.code === "SESSION_REVOKED") {
           setAuthStatus("REVOKED");
