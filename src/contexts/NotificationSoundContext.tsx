@@ -261,10 +261,14 @@ export function NotificationSoundProvider({
     )
       return;
 
+    // ✅ FIX: accessToken yoksa socket bağlantısı başlatma
+    const accessToken = (session as any).accessToken;
+    if (!accessToken) return;
+
     const businessId = session.user.businessId;
 
     // connectToBusinessRoom: reconnect sonrası otomatik odaya tekrar katılır
-    const socket = connectToBusinessRoom(businessId);
+    const socket = connectToBusinessRoom(accessToken);
 
     // ─── Event handler factory ──────────────────────────────────────────────
     const handle =

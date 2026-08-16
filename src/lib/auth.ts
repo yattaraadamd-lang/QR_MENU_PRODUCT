@@ -121,7 +121,10 @@ export const authOptions: NextAuthOptions = {
           .digest("hex");
         session.accessToken = `${payload}.${signature}`;
       } else {
-        // Fallback for development (unsigned — socket-auth.ts accepts this with legacy path)
+        // ⚠️ NEXTAUTH_SECRET missing — socket auth will reject unsigned tokens.
+        // Assign payload so the session callback doesn't break,
+        // but socket connections will fail until the secret is configured.
+        console.warn("[Auth] NEXTAUTH_SECRET is not set. Socket authentication will fail.");
         session.accessToken = payload;
       }
       

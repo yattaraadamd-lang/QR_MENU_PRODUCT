@@ -64,8 +64,9 @@ export async function authenticateSocket(
   next: (err?: ExtendedError) => void
 ) {
   try {
-    // Extract token from handshake auth or query
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    // ✅ SECURITY FIX: Only accept token from auth, NOT query
+    // Query string tokens can leak in logs/referrers
+    const token = socket.handshake.auth?.token;
 
     if (!token || typeof token !== "string") {
       const error = new Error("Authentication required") as ExtendedError;
@@ -78,31 +79,39 @@ export async function authenticateSocket(
     let decoded: any;
     try {
       const parts = token.split(".");
+
+      // ✅ SECURITY FIX: Require signed tokens only (no unsigned fallback)
       if (parts.length !== 2) {
-        // Fallback: legacy base64-only tokens (will be phased out)
-        const jsonString = Buffer.from(token, 'base64').toString('utf-8');
-        decoded = JSON.parse(jsonString);
-      } else {
-        const [payload, signature] = parts;
-        const secret = process.env.NEXTAUTH_SECRET;
-        if (!secret) {
-          const error = new Error("Server configuration error") as ExtendedError;
-          error.data = { code: "SERVER_CONFIG_ERROR" };
-          return next(error);
-        }
-        // Verify HMAC signature
-        const expectedSig = crypto
-          .createHmac("sha256", secret)
-          .update(payload)
-          .digest("hex");
-        if (!crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSig, 'hex'))) {
-          const error = new Error("Invalid token signature") as ExtendedError;
-          error.data = { code: "INVALID_SIGNATURE" };
-          return next(error);
-        }
-        const jsonString = Buffer.from(payload, 'base64').toString('utf-8');
-        decoded = JSON.parse(jsonString);
+        const error = new Error("Invalid token format - signature required") as ExtendedError;
+        error.data = { code: "INVALID_TOKEN_FORMAT" };
+        return next(error);
       }
+
+      const [payload, signature] = parts;
+      const secret = process.env.NEXTAUTH_SECRET;
+      if (!secret) {
+        const error = new Error("Server configuration error") as ExtendedError;
+        error.data = { code: "SERVER_CONFIG_ERROR" };
+        return next(error);
+      }
+
+      // Verify HMAC signature with timing-safe comparison
+      const expectedSig = crypto
+        .createHmac("sha256", secret)
+        .update(payload)
+        .digest("hex");
+
+      const actual = Buffer.from(signature, "hex");
+      const expected = Buffer.from(expectedSig, "hex");
+
+      if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
+        const error = new Error("Invalid token signature") as ExtendedError;
+        error.data = { code: "INVALID_SIGNATURE" };
+        return next(error);
+      }
+
+      const jsonString = Buffer.from(payload, 'base64').toString('utf-8');
+      decoded = JSON.parse(jsonString);
     } catch (decodeError) {
       if ((decodeError as ExtendedError).data?.code) {
         return next(decodeError as ExtendedError);

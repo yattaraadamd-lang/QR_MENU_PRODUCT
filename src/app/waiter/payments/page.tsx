@@ -40,7 +40,9 @@ export default function WaiterPaymentsPage() {
 
   useEffect(() => {
     if (!session?.user.businessId) return;
-    const socket = connectToBusinessRoom(session.user.businessId, fetchPayments);
+    const accessToken = (session as any).accessToken;
+    if (!accessToken) return;
+    const socket = connectToBusinessRoom(accessToken, fetchPayments);
     socket.on("payment_request", fetchPayments);
     socket.on("payment_approval_requested", fetchPayments);
     socket.on("payment_approved", fetchPayments);

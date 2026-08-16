@@ -64,7 +64,9 @@ export default function WaiterRequestsPage() {
   // ✅ Socket.IO
   useEffect(() => {
     if (!session?.user.businessId) return;
-    const socket = connectToBusinessRoom(session.user.businessId, fetchRequests);
+    const accessToken = (session as any).accessToken;
+    if (!accessToken) return;
+    const socket = connectToBusinessRoom(accessToken, fetchRequests);
     const events = ["call_waiter", "payment_request", "help_request", "service_request", "order_request_update", "table_opened"];
     events.forEach((ev) => socket.on(ev, fetchRequests));
     return () => {

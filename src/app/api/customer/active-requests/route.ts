@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { hashCustomerSessionToken } from "@/lib/customer-session-utils";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/customer/active-requests — Token ile korunan müşteri talep durumu
 export async function GET(request: NextRequest) {
+  const securityHeaders = {
+    "Cache-Control": "private, no-store",
+    Pragma: "no-cache",
+  };
+
   try {
-    const sessionToken = request.headers.get("x-session-token");
+    const rawToken = request.headers.get("x-session-token");
     const { searchParams } = new URL(request.url);
     const tableId = searchParams.get("tableId");
     const businessId = searchParams.get("businessId");
 
     if (!tableId || !businessId) {
-      return NextResponse.json({ activeRequests: {} });
+      return NextResponse.json({ activeRequests: {} }, { headers: securityHeaders });
     }
 
     // ✅ Token varsa sadece o oturumun taleplerini döndür
     let customerSessionId: string | null = null;
-    if (sessionToken) {
+    if (rawToken) {
+      // ✅ FIX: Hash the raw token before database lookup
+      const tokenHash = hashCustomerSessionToken(rawToken);
+
       const customerSession = await prisma.customerSession.findUnique({
-        where: { sessionToken },
+        where: { sessionToken: tokenHash },
         select: { id: true, tableId: true, businessId: true, status: true },
       });
 
@@ -77,9 +86,9 @@ export async function GET(request: NextRequest) {
       if (activeRequests["PAYMENT_REQUEST"]) activeRequests["CALL_WAITER_BLOCKED"] = true;
     }
 
-    return NextResponse.json({ activeRequests, requestDetails });
+    return NextResponse.json({ activeRequests, requestDetails }, { headers: securityHeaders });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ activeRequests: {} });
+    return NextResponse.json({ activeRequests: {} }, { headers: securityHeaders });
   }
 }

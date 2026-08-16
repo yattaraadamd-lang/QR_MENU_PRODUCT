@@ -69,7 +69,9 @@ export default function WaiterTablesPage() {
   // ✅ Socket.IO — masa durumu değişikliklerini anında yansıt
   useEffect(() => {
     if (!session?.user.businessId) return;
-    const socket = connectToBusinessRoom(session.user.businessId, fetchTables);
+    const accessToken = (session as any).accessToken;
+    if (!accessToken) return;
+    const socket = connectToBusinessRoom(accessToken, fetchTables);
     const events = ["table_status_update", "table_opened", "request_status_update", "payment_collected"];
     events.forEach((ev) => socket.on(ev, fetchTables));
     return () => {

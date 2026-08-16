@@ -260,6 +260,10 @@ export async function POST(
         tableSession: result.tableSession,
         bill: result.bill,
         isNew: true,
+        // Staff UI bilgisi — müşteri auth kaynağı olarak kullanılmamalı
+        authorizationStatus: "AUTHORIZED",
+        customerSessionId: serviceRequest.customerSessionId,
+        tableSessionId: result.tableSession.id,
       },
       { status: 201 }
     );

@@ -57,10 +57,15 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
   const [pendingRequestExpiresAt, setPendingRequestExpiresAt] = useState<string | null>(null);
 
+  // ✅ Canonical session hydration — UI butonu canonical durum öğrenilmeden aktif olmaz
+  const [sessionStateHydrated, setSessionStateHydrated] = useState(false);
+
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const categoryTabsRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const authPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Guard: prevent multiple concurrent canonical sync requests
+  const syncInFlightRef = useRef(false);
 
   const showToast = (msg: string, type: "ok" | "err" = "ok") => {
     setToast({ msg, type });
@@ -84,25 +89,36 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     const existingToken = stored || oldStored;
 
     if (existingToken) {
-      // Token geçerli mi kontrol et
+      // ✅ FIX: Token doğrulamayı canonical status endpoint ile yap (URL query değil header)
       try {
-        const checkRes = await fetch(`/api/customer/session?token=${existingToken}`);
+        const checkRes = await fetch("/api/customer/session/status", {
+          headers: { "x-session-token": existingToken },
+          cache: "no-store",
+        });
         const checkData = await checkRes.json();
         if (checkData.valid) {
-          // Yeni anahtara taşı
-          localStorage.setItem(storageKey, existingToken);
-          sessionStorage.removeItem("qr_session_token");
-          localStorage.removeItem("qr_session_token");
+          // Route-table eşleşme kontrolü
+          if (checkData.businessId !== resolvedParams.businessId || checkData.tableId !== tableId) {
+            // Başka masaya ait token — kullanma
+            localStorage.removeItem(storageKey);
+          } else {
+            // Yeni anahtara taşı
+            localStorage.setItem(storageKey, existingToken);
+            sessionStorage.removeItem("qr_session_token");
+            localStorage.removeItem("qr_session_token");
 
-          setSessionToken(existingToken);
-          setOrderBlockedMsg(null);
-          if (checkData.authorizationStatus) {
-            setAuthStatus(checkData.authorizationStatus);
+            setSessionToken(existingToken);
+            setOrderBlockedMsg(null);
+            if (checkData.authorizationStatus) {
+              setAuthStatus(checkData.authorizationStatus as AuthStatus);
+            }
+            setSessionStateHydrated(true);
+            return existingToken;
           }
-          return existingToken;
         } else if (checkData.code === "SESSION_REVOKED") {
           setAuthStatus("REVOKED");
           localStorage.removeItem(storageKey);
+          setSessionStateHydrated(true);
         }
       } catch { /* devam et */ }
     }
@@ -110,6 +126,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     const qrToken = sessionStorage.getItem("qr_token");
     if (!qrToken) {
       setOrderBlockedMsg("Sipariş vermek için masadaki QR kodu okutmanız gerekir.");
+      setSessionStateHydrated(true);
       return null;
     }
 
@@ -132,57 +149,114 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         setSessionToken(sd.sessionToken);
         setOrderBlockedMsg(null);
         if (sd.authorizationStatus) {
-          setAuthStatus(sd.authorizationStatus);
+          setAuthStatus(sd.authorizationStatus as AuthStatus);
         }
+        setSessionStateHydrated(true);
         return sd.sessionToken;
       }
       const msg = sd.message || sd.error || "Sipariş vermek için masadaki QR kodu tekrar okutun.";
       setOrderBlockedMsg(msg);
+      setSessionStateHydrated(true);
       return null;
     } catch {
       setOrderBlockedMsg("Oturum oluşturulamadı. Lütfen QR kodu tekrar okutun.");
+      setSessionStateHydrated(true);
       return null;
     }
   }, [resolvedParams.businessId]);
 
-  // ✅ Yetki durumu polling
-  const pollAuthStatus = useCallback(async () => {
-    if (!sessionToken) return;
-    try {
-      const res = await fetch(`/api/customer/session?token=${sessionToken}`);
+  // ✅ Canonical session status helper — tek canonical okuma noktası
+  const fetchCanonicalSessionStatus = useCallback(
+    async (token: string) => {
+      const res = await fetch("/api/customer/session/status", {
+        method: "GET",
+        headers: { "x-session-token": token },
+        cache: "no-store",
+      });
       const data = await res.json();
-      if (data.valid && data.authorizationStatus) {
-        const newStatus = data.authorizationStatus as AuthStatus;
-        setAuthStatus(newStatus);
-        // Yetki alınca polling'i durdur
-        if (newStatus === "AUTHORIZED" && authPollingRef.current) {
-          clearInterval(authPollingRef.current);
-          authPollingRef.current = null;
-          setVerificationCode(null);
-          showToast("Masanız açıldı! Siparişinizi gönderebilirsiniz. ✅");
-        }
-      } else if (data.code === "SESSION_REVOKED") {
-        setAuthStatus("REVOKED");
-        if (authPollingRef.current) {
-          clearInterval(authPollingRef.current);
-          authPollingRef.current = null;
-        }
-      }
-    } catch { /* sessiz */ }
-  }, [sessionToken]);
-
-  // PENDING durumunda polling başlat
-  useEffect(() => {
-    if (authStatus === "PENDING" && sessionToken) {
-      authPollingRef.current = setInterval(pollAuthStatus, 3000);
-      return () => {
-        if (authPollingRef.current) {
-          clearInterval(authPollingRef.current);
-          authPollingRef.current = null;
-        }
+      return {
+        ok: res.ok,
+        status: data.authorizationStatus as AuthStatus | undefined,
+        tableSessionId: data.tableSessionId as string | undefined,
+        customerSessionId: data.customerSessionId as string | undefined,
+        businessId: data.businessId as string | undefined,
+        tableId: data.tableId as string | undefined,
+        orderRequestStatus: data.orderRequestStatus as string | null | undefined,
+        code: data.code as string | undefined,
       };
-    }
-  }, [authStatus, sessionToken, pollAuthStatus]);
+    },
+    []
+  );
+
+  // ✅ PENDING durumunda canonical polling (1.5 s)
+  useEffect(() => {
+    if (authStatus !== "PENDING" || !sessionToken) return;
+
+    let cancelled = false;
+
+    const sync = async () => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      try {
+        const result = await fetchCanonicalSessionStatus(sessionToken);
+        if (cancelled) return;
+
+        if (result.status === "AUTHORIZED") {
+          setAuthStatus("AUTHORIZED");
+          setVerificationCode(null);
+          setPendingRequestExpiresAt(null);
+          showToast("Masanız açıldı! Siparişinizi gönderebilirsiniz. ✅");
+        } else if (result.status === "REVOKED") {
+          setAuthStatus("REVOKED");
+        }
+      } catch { /* network error — next poll will retry */ }
+      finally { syncInFlightRef.current = false; }
+    };
+
+    sync();
+    const timer = window.setInterval(sync, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [authStatus, sessionToken, fetchCanonicalSessionStatus]);
+
+  // ✅ window focus / visibilitychange / online — anlık canonical sync
+  useEffect(() => {
+    if (!sessionToken) return;
+
+    const instantSync = () => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      fetchCanonicalSessionStatus(sessionToken)
+        .then((result) => {
+          if (result.status && result.status !== authStatus) {
+            setAuthStatus(result.status);
+            if (result.status === "AUTHORIZED") {
+              setVerificationCode(null);
+              setPendingRequestExpiresAt(null);
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => { syncInFlightRef.current = false; });
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") instantSync();
+    };
+
+    window.addEventListener("focus", instantSync);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("online", instantSync);
+
+    return () => {
+      window.removeEventListener("focus", instantSync);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("online", instantSync);
+    };
+  }, [sessionToken, authStatus, fetchCanonicalSessionStatus]);
 
   const fetchMenu = useCallback(async (initial = false) => {
     try {
@@ -217,16 +291,52 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
           if (blockedHint) setOrderBlockedMsg(blockedHint);
 
-          // Masa bazlı localStorage'dan token al
+          // ✅ Masa bazlı localStorage'dan token al + canonical status ile hydrate
           const storageKey = `qr_session_${data.business.id}_${data.table.id}`;
           const storedToken = localStorage.getItem(storageKey) || sessionStorage.getItem("qr_session_token");
           if (storedToken) {
-            setSessionToken(storedToken);
-            setOrderBlockedMsg(null);
-            sessionStorage.removeItem("qr_order_blocked_msg");
-            // Taşı
-            localStorage.setItem(storageKey, storedToken);
-            sessionStorage.removeItem("qr_session_token");
+            // ✅ FIX: Önce canonical status endpoint ile doğrula, sonra state güncelle
+            try {
+              const canonRes = await fetch("/api/customer/session/status", {
+                headers: { "x-session-token": storedToken },
+                cache: "no-store",
+              });
+              const canonData = await canonRes.json();
+              if (canonData.valid) {
+                // Route-table eşleşme kontrolü
+                if (canonData.businessId !== resolvedParams.businessId || canonData.tableId !== data.table.id) {
+                  // Başka masaya ait token — kullanma
+                  localStorage.removeItem(storageKey);
+                  await ensureCustomerSession(data.table.id);
+                } else {
+                  setSessionToken(storedToken);
+                  setOrderBlockedMsg(null);
+                  sessionStorage.removeItem("qr_order_blocked_msg");
+                  localStorage.setItem(storageKey, storedToken);
+                  sessionStorage.removeItem("qr_session_token");
+                  if (canonData.authorizationStatus) {
+                    setAuthStatus(canonData.authorizationStatus as AuthStatus);
+                  }
+                  // Pending ORDER_REQUEST varsa verificationCode'u koru
+                  if (canonData.orderRequestStatus === "PENDING" || canonData.orderRequestStatus === "SEEN") {
+                    setAuthStatus("PENDING");
+                  }
+                  setSessionStateHydrated(true);
+                }
+              } else if (canonData.code === "SESSION_REVOKED") {
+                setAuthStatus("REVOKED");
+                localStorage.removeItem(storageKey);
+                setSessionStateHydrated(true);
+              } else {
+                // Token geçersiz — yeni oturum oluştur
+                localStorage.removeItem(storageKey);
+                await ensureCustomerSession(data.table.id);
+              }
+            } catch {
+              // Network error — tokeni koru, sonra tekrar dene
+              setSessionToken(storedToken);
+              setSessionStateHydrated(true);
+            }
           } else {
             await ensureCustomerSession(data.table.id);
           }
@@ -236,17 +346,10 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       }
     } catch { if (initial) setSessionError("Bağlantı hatası."); }
     finally { if (initial) setLoading(false); }
-  }, [resolvedParams.businessId, resolvedParams.tableNumber, ensureCustomerSession]);
+  }, [resolvedParams.businessId, resolvedParams.tableNumber, ensureCustomerSession]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchMenu(true); }, [fetchMenu]);
   useEffect(() => { const iv = setInterval(() => fetchMenu(false), 5000); return () => clearInterval(iv); }, [fetchMenu]);
-
-  // İlk yükleme sonrası yetki durumu kontrol et
-  useEffect(() => {
-    if (sessionToken) {
-      pollAuthStatus();
-    }
-  }, [sessionToken, pollAuthStatus]);
 
   const checkActiveRequests = useCallback(async () => {
     if (!table?.id || !business?.id) return;
@@ -330,6 +433,36 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   const cartTotal = cart.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
+  // ✅ Tek gerçek sipariş gönderme fonksiyonu — yalnız AUTHORIZED durumda çağrılır
+  const sendActualOrder = async (token: string): Promise<boolean> => {
+    const r = await fetch("/api/customer/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-session-token": token },
+      body: JSON.stringify({
+        items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null })),
+        note: orderNote || null,
+        idempotencyKey: `ord_${uuidv4()}`,
+      }),
+    });
+    if (r.ok) {
+      setCart([]);
+      setOrderNote("");
+      setShowCartMobile(false);
+      showToast("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳");
+      return true;
+    }
+    const d = await r.json();
+    if (d.code === "CUSTOMER_DEVICE_BLOCKED") {
+      showToast("Bu cihazın bu işletmede işlem yapması engellendi.", "err");
+    } else if (d.code === "SESSION_NOT_AUTHORIZED_FOR_TABLE" || d.code === "SESSION_REVOKED") {
+      setAuthStatus("REVOKED");
+      showToast("Oturumunuz sonlanmış. Personelden yardım isteyin.", "err");
+    } else {
+      showToast(d.error || "Sipariş gönderilemedi", "err");
+    }
+    return false;
+  };
+
   // ✅ Yetkiye göre ana sipariş aksiyonu
   const submitOrder = async () => {
     if (!cart.length || !business || !table) return;
@@ -349,8 +482,46 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         return;
       }
 
-      if (authStatus === "VIEW_ONLY") {
-        // ✅ İlk basış: ORDER_REQUEST oluştur (sepet verileri ile)
+      // ✅ FIX: Canonical status'u önce kontrol et — local state stale olabilir
+      let effectiveAuthStatus = authStatus;
+      try {
+        const serverSession = await fetchCanonicalSessionStatus(token);
+        if (serverSession.ok && serverSession.status) {
+          // Route-table eşleşme kontrolü
+          if (serverSession.businessId !== resolvedParams.businessId || serverSession.tableId !== table.id) {
+            showToast("Oturum farklı masaya ait. Lütfen QR kodu tekrar okutun.", "err");
+            return;
+          }
+          effectiveAuthStatus = serverSession.status;
+          if (effectiveAuthStatus !== authStatus) {
+            setAuthStatus(effectiveAuthStatus);
+          }
+        } else if (serverSession.code === "SESSION_REVOKED") {
+          setAuthStatus("REVOKED");
+          showToast("Oturumunuz iptal edilmiş. Personelden yardım isteyin.", "err");
+          return;
+        } else if (serverSession.code === "SESSION_EXPIRED" || serverSession.code === "SESSION_NOT_FOUND") {
+          showToast("Oturum süresi dolmuş. QR kodu tekrar okutun.", "err");
+          return;
+        }
+      } catch {
+        // Network error — local state ile devam et
+      }
+
+      // ── AUTHORIZED: Aynı tıklamada gerçek siparişi gönder
+      if (effectiveAuthStatus === "AUTHORIZED") {
+        await sendActualOrder(token);
+        return;
+      }
+
+      // ── PENDING: Zaten bekliyor, ikinci ORDER_REQUEST oluşturma
+      if (effectiveAuthStatus === "PENDING") {
+        showToast("Garson onayı bekleniyor. Lütfen bekleyin.", "err");
+        return;
+      }
+
+      // ── VIEW_ONLY: ORDER_REQUEST oluştur (sepet verileri ile)
+      if (effectiveAuthStatus === "VIEW_ONLY") {
         const r = await fetch("/api/customer/service-requests", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-session-token": token },
@@ -377,6 +548,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           if (d.serviceRequest?.expiresAt) {
             setPendingRequestExpiresAt(d.serviceRequest.expiresAt);
           }
+          // ✅ Sepet korunur — ORDER_REQUEST ile temizleme
           showToast("Sipariş talebiniz oluşturuldu. Garson onayı bekleniyor.", "ok");
         } else if (d.code === "CUSTOMER_DEVICE_BLOCKED") {
           showToast("Bu cihazın bu işletmede işlem yapması engellendi.", "err");
@@ -388,47 +560,26 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           if (d.serviceRequest?.verificationCode) setVerificationCode(d.serviceRequest.verificationCode);
           showToast("Bekleyen talebiniz var. Garson onayı bekleniyor.", "err");
         } else if (d.code === "SESSION_ALREADY_AUTHORIZED") {
-          setAuthStatus("AUTHORIZED");
-          showToast("Masanız açık! Tekrar basarak siparişinizi gönderebilirsiniz.", "ok");
+          // ✅ FIX: Canonical doğrula + aynı tıklamada sipariş gönder
+          try {
+            const recheck = await fetchCanonicalSessionStatus(token);
+            if (recheck.ok && recheck.status === "AUTHORIZED") {
+              setAuthStatus("AUTHORIZED");
+              await sendActualOrder(token);
+            } else {
+              setAuthStatus("AUTHORIZED");
+              showToast("Masanız açık! Siparişi Gönder butonuna basın.", "ok");
+            }
+          } catch {
+            setAuthStatus("AUTHORIZED");
+            showToast("Masanız açık! Siparişi Gönder butonuna basın.", "ok");
+          }
         } else {
           showToast(d.error || "Talep gönderilemedi", "err");
         }
         return;
       }
 
-      if (authStatus === "PENDING") {
-        showToast("Garson onayı bekleniyor. Lütfen bekleyin.", "err");
-        return;
-      }
-
-      if (authStatus === "AUTHORIZED") {
-        // ✅ Yetkili: Gerçek sipariş oluştur
-        const r = await fetch("/api/customer/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-session-token": token },
-          body: JSON.stringify({
-            items: cart.map(i => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null })),
-            note: orderNote || null,
-            idempotencyKey: `ord_${uuidv4()}`,
-          }),
-        });
-        if (r.ok) {
-          setCart([]);
-          setOrderNote("");
-          setShowCartMobile(false);
-          showToast("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳");
-        } else {
-          const d = await r.json();
-          if (d.code === "CUSTOMER_DEVICE_BLOCKED") {
-            showToast("Bu cihazın bu işletmede işlem yapması engellendi.", "err");
-          } else if (d.code === "SESSION_NOT_AUTHORIZED_FOR_TABLE" || d.code === "SESSION_REVOKED") {
-            setAuthStatus("REVOKED");
-            showToast("Oturumunuz sonlanmış. Personelden yardım isteyin.", "err");
-          } else {
-            showToast(d.error || "Sipariş gönderilemedi", "err");
-          }
-        }
-      }
     } catch { showToast("Bağlantı hatası", "err"); }
     finally { setSubmitting(false); }
   };
@@ -533,6 +684,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
 
   // ✅ Sipariş butonunun duruma göre metni ve etkinliği
   const getOrderButtonProps = () => {
+    // Canonical durum henüz bilinmiyor → buton disabled
+    if (!sessionStateHydrated) {
+      return { label: "⏳ Oturum kontrol ediliyor...", isDisabled: true };
+    }
+
     const isDisabled = authStatus === "REVOKED" || authStatus === "TABLE_ALREADY_CLAIMED" || authStatus === "PENDING";
     let label = "Sipariş Ver";
 
