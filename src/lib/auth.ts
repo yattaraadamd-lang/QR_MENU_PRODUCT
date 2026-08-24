@@ -3,30 +3,21 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "./prisma";
+import { checkRateLimit, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
 
 /**
- * SECURITY NOTE: Rate Limiting for Login
- * 
- * NextAuth doesn't provide built-in rate limiting for the authorize callback.
- * For production, implement one of these solutions:
- * 
- * 1. Middleware-based rate limiting (recommended):
- *    - Use @upstash/ratelimit with Redis
- *    - Apply to /api/auth/callback/credentials route
- * 
- * 2. Database-based tracking:
- *    - Track failed login attempts in database
- *    - Lock account after N failed attempts
- *    - Implement exponential backoff
- * 
- * 3. Edge/CDN level:
- *    - Cloudflare Rate Limiting
- *    - Vercel Edge Config
- * 
- * Current implementation: Basic in-memory rate limiting is available
- * in src/lib/rate-limit.ts but needs to be integrated at the route level.
- * 
- * TODO: Implement production-grade login rate limiting before deployment
+ * 🔒 SECURITY FIX P0: Login Rate Limiting
+ *
+ * Rate limiting is now integrated directly into the authorize callback using
+ * the in-memory sliding-window limiter from unified-rate-limit.ts.
+ *
+ * Current: In-memory rate limiting (5 attempts / 15 min per email).
+ *          Single-instance protection only — does not share state across processes.
+ *
+ * For stronger protection at scale, consider:
+ *   - Redis-based rate limiting (@upstash/ratelimit)
+ *   - Edge/CDN level (Cloudflare, Render)
+ *   - Database-based failed attempt tracking with account lockout
  */
 
 export const authOptions: NextAuthOptions = {
@@ -45,6 +36,29 @@ export const authOptions: NextAuthOptions = {
         try {
           // ✅ SECURITY: Email normalization
           const normalizedEmail = credentials.email.trim().toLowerCase();
+
+          // ✅ P0 FIX: Rate limit login attempts by email
+          // FAIL-CLOSED: if checkRateLimit throws, deny the attempt
+          try {
+            const rl = await checkRateLimit(
+              `login:${normalizedEmail}`,
+              UNIFIED_RATE_LIMITS.LOGIN
+            );
+            if (!rl.allowed) {
+              const waitMinutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60000));
+              throw new Error(
+                `Çok fazla giriş denemesi. Lütfen ${waitMinutes} dakika sonra tekrar deneyin.`
+              );
+            }
+          } catch (rateLimitError: any) {
+            // If the error is our rate limit message, re-throw it
+            if (rateLimitError.message?.includes("giriş denemesi")) {
+              throw rateLimitError;
+            }
+            // Otherwise: fail-closed — reject unknown rate limit errors
+            console.error("[Auth] Rate limit check failed — failing closed:", rateLimitError);
+            throw new Error("Giriş işlemi şu anda kullanılamıyor. Lütfen tekrar deneyin.");
+          }
 
           const user = await prisma.user.findUnique({
             where: { email: normalizedEmail },
@@ -78,6 +92,13 @@ export const authOptions: NextAuthOptions = {
           businessName: user.business.name,
         };
         } catch (error) {
+          // Re-throw rate limit errors so NextAuth surfaces them
+          if (error instanceof Error && error.message.includes("giriş denemesi")) {
+            throw error;
+          }
+          if (error instanceof Error && error.message.includes("kullanılamıyor")) {
+            throw error;
+          }
           console.error("Auth error:", error);
           return null;
         }

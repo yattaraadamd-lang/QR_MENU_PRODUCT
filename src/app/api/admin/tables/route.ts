@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateBody, createTableSchema } from "@/lib/validation";
 import { v4 as uuidv4 } from "uuid";
+import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,15 @@ export async function POST(request: NextRequest) {
 
     const businessId = getBusinessIdFromSession(authResult.session);
     const body = await request.json();
+
+    // 🔒 Plan Quota Enforcement
+    const quotaCheck = await checkPlanQuota(businessId, "TABLE");
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        { error: quotaCheck.error || "Masa oluşturma paket limitine ulaşıldı." },
+        { status: 403 }
+      );
+    }
 
     // Validation
     const validation = validateBody(createTableSchema, body);

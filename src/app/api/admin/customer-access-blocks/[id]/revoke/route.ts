@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/tenant";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 
 // PATCH /api/admin/customer-access-blocks/[id]/revoke — Cihaz engelini kaldır
 export async function PATCH(
@@ -64,6 +65,18 @@ export async function PATCH(
 
     // NOT: Eski REVOKED müşteri oturumu aktif edilmez.
     // Kullanıcı QR'ı yeniden okuttuğunda yeni VIEW_ONLY oturum alır.
+
+    createAuditLog({
+      businessId,
+      actorUserId: userId,
+      actorRole: "ADMIN",
+      action: AuditActions.DEVICE_UNBLOCKED,
+      entityType: "CustomerAccessBlock",
+      entityId: updatedBlock.id,
+      metadata: {
+        note,
+      },
+    });
 
     return NextResponse.json({
       message: "Cihaz engeli başarıyla kaldırıldı.",

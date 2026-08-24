@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus, TableStatus } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth-helpers";
+import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
 
+/**
+ * 🔒 P0-09 FIX: Order Detail API — Auth + Tenant Isolation
+ *
+ * PREVIOUSLY: Used getAuthSession() without enforcing auth.
+ * No tenant check — anyone with an orderId could modify any order.
+ *
+ * NOW: requireWaiterOrAdmin(), businessId from session.
+ * Order ownership verified against session businessId.
+ */
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    // ✅ P0-09 FIX: Require waiter or admin authentication
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response!;
+
+    const businessId = getBusinessId(session);
     const params = await context.params;
     const { orderId } = params;
-    const session = await getAuthSession();
     const body = await request.json();
-    const { status, waiterId, cancelReason, reasonCode, outOfStockProductIds } = body;
+    const { status, cancelReason, reasonCode, outOfStockProductIds } = body;
 
     if (!status) {
       return NextResponse.json(
@@ -22,9 +35,10 @@ export async function PATCH(
       );
     }
 
-    const existingOrder = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, businessId: true },
+    // ✅ P0-09 FIX: Verify order belongs to authenticated user's business
+    const existingOrder = await prisma.order.findFirst({
+      where: { id: orderId, businessId },
+      select: { id: true, businessId: true, tableId: true },
     });
 
     if (!existingOrder) {
@@ -34,9 +48,8 @@ export async function PATCH(
       );
     }
 
-    const businessId = existingOrder.businessId;
-    const actorId = session?.user?.id || waiterId || "SYSTEM";
-    const actorRole = (session?.user?.role as any) || "WAITER";
+    const actorId = session.user.id;
+    const actorRole = session.user.role;
 
     // İptal / Red durumu
     if (status === OrderStatus.CANCELLED || status === OrderStatus.REJECTED) {
@@ -70,9 +83,11 @@ export async function PATCH(
     }
 
     // Normal durum güncellemeleri
-    const updateData: any = { status };
-    if (waiterId) {
-      updateData.waiterId = waiterId;
+    const updateData: Record<string, unknown> = { status };
+
+    // ✅ P0-09 FIX: waiterId from session, not from body (prevents IDOR)
+    if (status === OrderStatus.ACCEPTED || status === OrderStatus.PREPARING) {
+      updateData.waiterId = session.user.id;
     }
 
     const order = await prisma.order.update({
@@ -134,7 +149,7 @@ export async function PATCH(
       order,
     });
   } catch (error) {
-    console.error("Sipariş güncelleme hatası:", error);
+    console.error("[ORDER_UPDATE_ERROR]", error);
     return NextResponse.json(
       { error: "Sipariş güncellenirken bir hata oluştu" },
       { status: 500 }
@@ -148,17 +163,22 @@ export async function DELETE(
   context: { params: Promise<{ orderId: string }> }
 ) {
   try {
+    // ✅ P0-09 FIX: Require waiter or admin authentication
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response!;
+
+    const businessId = getBusinessId(session);
     const params = await context.params;
     const { orderId } = params;
-    const session = await getAuthSession();
     const { searchParams } = new URL(request.url);
     const cancelReason = searchParams.get("reason") || "İptal edildi";
     const reasonCode = (searchParams.get("reasonCode") as any) || null;
     const rawStockPids = searchParams.get("outOfStockProductIds");
     const outOfStockProductIds = rawStockPids ? rawStockPids.split(",").filter(Boolean) : null;
 
-    const existingOrder = await prisma.order.findUnique({
-      where: { id: orderId },
+    // ✅ P0-09 FIX: Verify order belongs to authenticated user's business
+    const existingOrder = await prisma.order.findFirst({
+      where: { id: orderId, businessId },
       select: { id: true, businessId: true },
     });
 
@@ -169,9 +189,8 @@ export async function DELETE(
       );
     }
 
-    const businessId = existingOrder.businessId;
-    const actorId = session?.user?.id || "SYSTEM";
-    const actorRole = (session?.user?.role as any) || "ADMIN";
+    const actorId = session.user.id;
+    const actorRole = session.user.role;
 
     try {
       const result = await cancelOrderAndSyncState({
@@ -201,7 +220,7 @@ export async function DELETE(
       throw err;
     }
   } catch (error) {
-    console.error("Sipariş iptal hatası:", error);
+    console.error("[ORDER_DELETE_ERROR]", error);
     return NextResponse.json(
       { error: "Sipariş iptal edilirken bir hata oluştu" },
       { status: 500 }

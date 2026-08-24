@@ -1,17 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { TableStatus } from "@prisma/client";
+import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { openTable } from "@/lib/services/table-flow.service";
 
+/**
+ * 🔒 P0-09 FIX: Table Detail API — Auth + Tenant Isolation
+ *
+ * PREVIOUSLY: No authentication, businessId from request body.
+ * Anyone could update any business's table status.
+ *
+ * NOW: requireWaiterOrAdmin(), businessId from session.
+ * Ownership verified before mutation.
+ */
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ tableId: string }> }
 ) {
   try {
+    // ✅ P0-09 FIX: Require authentication
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response!;
+
+    const businessId = getBusinessId(session);
     const params = await context.params;
     const { tableId } = params;
     const body = await request.json();
-    const { status, businessId } = body;
+    const { status } = body;
 
     if (!status) {
       return NextResponse.json(
@@ -20,8 +35,18 @@ export async function PATCH(
       );
     }
 
+    // ✅ P0-09 FIX: Verify table belongs to authenticated user's business
+    const currentTable = await prisma.table.findFirst({
+      where: { id: tableId, businessId },
+      select: { id: true, status: true },
+    });
+
+    if (!currentTable) {
+      return NextResponse.json({ error: "Masa bulunamadı" }, { status: 404 });
+    }
+
     // ✅ "OCCUPIED" isteği gelirse → merkezi openTable kullan (session + bill oluşturulur)
-    if (status === "OCCUPIED" && businessId) {
+    if (status === "OCCUPIED") {
       try {
         const result = await openTable(tableId, businessId);
         const table = await prisma.table.findUnique({ where: { id: tableId } });
@@ -41,15 +66,6 @@ export async function PATCH(
     }
 
     // ✅ Diğer durum güncellemeleri — geçiş kontrolü
-    const currentTable = await prisma.table.findUnique({
-      where: { id: tableId },
-      select: { status: true },
-    });
-
-    if (!currentTable) {
-      return NextResponse.json({ error: "Masa bulunamadı" }, { status: 404 });
-    }
-
     // Geçerli durum geçişleri
     const VALID_TRANSITIONS: Record<string, string[]> = {
       EMPTY:             ["OCCUPIED"],

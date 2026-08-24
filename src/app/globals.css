@@ -387,7 +387,7 @@ select.input { cursor: pointer; }
   border-color: #EFEBE9;
 }
 
-/* ─── Landing Page theme (açık, modern SaaS) ─────────────────────────────── */
+/* ─── Landing Page theme ─────────────────────────────────────────────────── */
 .landing-theme {
   --bg-primary:     #F8FAFC;
   --bg-secondary:   #FFFFFF;
@@ -462,7 +462,7 @@ select.input { cursor: pointer; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   NOTIFICATION SYSTEM — Premium UI
+   NOTIFICATION SYSTEM — Premium UI (iOS-compatible)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ─── Panel overlay ─────────────────────────────────────────────────────────── */
@@ -577,6 +577,7 @@ select.input { cursor: pointer; }
 .notification-card[data-type="payment_request"]::before { --notif-color: #6366F1; }
 .notification-card[data-type="help_request"]::before { --notif-color: #EF4444; }
 .notification-card[data-type="service_request"]::before { --notif-color: #3B82F6; }
+.notification-card[data-type="order_request_update"]::before { --notif-color: #F97316; }
 
 /* ─── Icon badge ────────────────────────────────────────────────────────────── */
 .notification-icon {
@@ -592,6 +593,7 @@ select.input { cursor: pointer; }
 .notification-card[data-type="payment_request"] .notification-icon { --notif-bg: rgba(99, 102, 241, 0.12); }
 .notification-card[data-type="help_request"] .notification-icon { --notif-bg: rgba(239, 68, 68, 0.12); }
 .notification-card[data-type="service_request"] .notification-icon { --notif-bg: rgba(59, 130, 246, 0.12); }
+.notification-card[data-type="order_request_update"] .notification-icon { --notif-bg: rgba(249, 115, 22, 0.12); }
 
 /* ─── Card content ──────────────────────────────────────────────────────────── */
 .notification-content { flex: 1; min-width: 0; }
@@ -643,6 +645,11 @@ select.input { cursor: pointer; }
              badge-pulse 2s ease-in-out infinite 0.3s;
 }
 
+/* ─── Bell active — okunmamis bildirim varken zil sallanir ──────────────────── */
+.notification-bell-active {
+  animation: bell-ring 1.5s ease-in-out infinite;
+}
+
 /* ─── Toast notification ────────────────────────────────────────────────────── */
 .notification-toast {
   position: fixed; top: 16px; right: 16px;
@@ -655,6 +662,13 @@ select.input { cursor: pointer; }
   z-index: 10000;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   animation: toast-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Persistent toast — kalici, elle kapatilana kadar ─────────────────────── */
+.notification-toast-persistent {
+  border-left: 3px solid #EF4444;
+  animation: toast-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+             toast-pulse-border 2s ease-in-out infinite 0.4s;
 }
 
 /* ─── Keyframes ─────────────────────────────────────────────────────────────── */
@@ -674,6 +688,19 @@ select.input { cursor: pointer; }
 @keyframes toast-enter {
   from { opacity: 0; transform: translateX(100%) scale(0.9); }
   to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(12deg); }
+  20% { transform: rotate(-12deg); }
+  30% { transform: rotate(8deg); }
+  40% { transform: rotate(-8deg); }
+  50% { transform: rotate(4deg); }
+  60% { transform: rotate(0deg); }
+}
+@keyframes toast-pulse-border {
+  0%, 100% { border-left-color: #EF4444; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+  50% { border-left-color: #F59E0B; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(239, 68, 68, 0.2); }
 }
 
 /* ─── Staggered entry ───────────────────────────────────────────────────────── */

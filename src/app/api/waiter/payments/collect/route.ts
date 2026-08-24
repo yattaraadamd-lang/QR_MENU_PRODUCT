@@ -5,7 +5,7 @@ import { createDirectAdminPayment, PaymentError } from "@/lib/services/payment.s
 
 export const dynamic = "force-dynamic";
 
-// POST /api/waiter/payments/collect — Ödeme al (sadece admin doğrudan tahsil edebilir, garson 403)
+// POST /api/waiter/payments/collect — Ödeme al (garson ve admin)
 export async function POST(request: NextRequest) {
   let userRole: string | undefined;
 
@@ -17,16 +17,6 @@ export async function POST(request: NextRequest) {
     const businessId = getBusinessId(session);
     const body = await request.json();
     const { tableSessionId, amount, method, note, receivedAmount } = body;
-
-    if (userRole === "WAITER") {
-      return NextResponse.json(
-        {
-          error: "Garsonlar doğrudan ödeme tahsil edemez. Lütfen masanın ödeme talebini admin onayına gönderin.",
-          code: "WAITER_DIRECT_PAYMENT_FORBIDDEN",
-        },
-        { status: 403 }
-      );
-    }
 
     // ✅ Validation
     if (!tableSessionId || !amount || !method) {
@@ -68,7 +58,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ADMIN: createDirectAdminPayment ile açık adisyondan ödeme al
+    // Garson veya Admin: açık adisyondan ödeme al
     const prisma = (await import("@/lib/prisma")).prisma;
     const tableSession = await prisma.tableSession.findFirst({
       where: { id: tableSessionId, businessId, status: "ACTIVE" },
@@ -82,14 +72,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const operatorLabel = userRole === "WAITER" ? "Garson" : "Admin";
+    const operatorName = session!.user.name || operatorLabel;
+
     const result = await createDirectAdminPayment({
       billId: tableSession.bill.id,
       amount: normalizedAmount,
       method: method === "CREDIT_CARD" ? "CARD" : method,
-      receivedAmount: normalizedReceivedAmount, // ✅ Pass receivedAmount
+      receivedAmount: normalizedReceivedAmount,
       note: note || null,
       adminId: session!.user.id,
-      adminName: session!.user.name || "Admin",
+      adminName: operatorName,
       businessId,
     });
 
@@ -103,6 +96,7 @@ export async function POST(request: NextRequest) {
         changeAmount: result.changeAmount,
         remainingAmount: Number(result.bill.remainingAmount),
         paymentStatus: result.bill.paymentStatus,
+        collectedBy: operatorName,
       });
 
       if (result.isFullyPaid) {

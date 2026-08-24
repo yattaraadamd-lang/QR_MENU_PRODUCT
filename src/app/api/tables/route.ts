@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * 🔒 P0-09 FIX: Tables API — Auth + Tenant Isolation
+ *
+ * PREVIOUSLY: No authentication, businessId from query string.
+ * Anyone could list any business's tables.
+ *
+ * NOW: requireWaiterOrAdmin(), businessId from session.
+ */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const businessId = searchParams.get("businessId");
+    // ✅ P0-09 FIX: Require authentication
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response!;
 
-    if (!businessId) {
-      return NextResponse.json(
-        { error: "İşletme ID gerekli" },
-        { status: 400 }
-      );
-    }
+    // ✅ P0-09 FIX: businessId from session (NOT from query string)
+    const businessId = getBusinessId(session);
 
     const tables = await prisma.table.findMany({
       where: { businessId },

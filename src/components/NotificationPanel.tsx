@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNotificationSound, NotificationItem } from "@/contexts/NotificationSoundContext";
-import { Bell, X, CheckCheck, Trash2, Volume2, VolumeX } from "lucide-react";
+import { Bell, X, CheckCheck, Volume2, VolumeX } from "lucide-react";
 
 /**
  * 🔔 Premium Notification Panel Component
@@ -14,6 +14,8 @@ import { Bell, X, CheckCheck, Trash2, Volume2, VolumeX } from "lucide-react";
  * - Empty state illustration
  * - Swipe-to-dismiss on mobile (touch events)
  * - XSS-safe text rendering via textContent
+ * - Persistent toast for critical notifications (iOS-friendly)
+ * - Unread badge with pulse animation on bell icon
  */
 
 // ─── Safe text sanitizer (XSS protection) ─────────────────────────────────────
@@ -50,6 +52,9 @@ export function NotificationPanel() {
     soundEnabled,
     enableSound,
     newNotification,
+    dismissToast,
+    unreadCount,
+    markAllRead,
   } = useNotificationSound();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -62,8 +67,15 @@ export function NotificationPanel() {
   }, []);
 
   const togglePanel = useCallback(() => {
-    setIsOpen((prev) => !prev);
-  }, []);
+    setIsOpen((prev) => {
+      const nextState = !prev;
+      // Panel açılırsa okunmamış bildirimleri sıfırla
+      if (nextState) {
+        markAllRead();
+      }
+      return nextState;
+    });
+  }, [markAllRead]);
 
   const closePanel = useCallback(() => {
     setIsOpen(false);
@@ -83,7 +95,11 @@ export function NotificationPanel() {
   return (
     <>
       {/* Bell button with badge */}
-      <NotificationBell count={notifications.length} onClick={togglePanel} />
+      <NotificationBell
+        count={notifications.length}
+        unreadCount={unreadCount}
+        onClick={togglePanel}
+      />
 
       {/* Sound enable button (separate) */}
       {!soundEnabled && (
@@ -111,9 +127,53 @@ export function NotificationPanel() {
         </button>
       )}
 
-      {/* Toast */}
+      {/* Persistent Toast — kritik bildirimler elle kapatılana kadar kalır */}
       {newNotification && (
-        <div className="notification-toast">{newNotification}</div>
+        <div
+          className={`notification-toast ${newNotification.persistent ? "notification-toast-persistent" : ""}`}
+          onClick={dismissToast}
+          style={{ cursor: "pointer" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>
+              {newNotification.icon}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: 2 }}>
+                {escapeHtml(newNotification.title)}
+              </div>
+              <div style={{
+                fontSize: "0.8125rem",
+                color: "var(--text-secondary)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}>
+                {escapeHtml(newNotification.message)}
+              </div>
+            </div>
+            {newNotification.persistent && (
+              <button
+                onClick={(e) => { e.stopPropagation(); dismissToast(); }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  padding: 4,
+                  borderRadius: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+                title="Bildirimi kapat"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Overlay */}
@@ -271,23 +331,31 @@ export function NotificationPanel() {
 // ─── Bell Button ──────────────────────────────────────────────────────────────
 function NotificationBell({
   count,
+  unreadCount,
   onClick,
 }: {
   count: number;
+  unreadCount: number;
   onClick: () => void;
 }) {
+  const hasUnread = unreadCount > 0;
+
   return (
     <button
       id="notification-bell"
       onClick={onClick}
-      className="notification-badge"
+      className={`notification-badge ${hasUnread ? "notification-bell-active" : ""}`}
       style={{
         width: 40,
         height: 40,
         borderRadius: "var(--radius-md)",
-        border: "1px solid var(--border-color)",
-        background: "rgba(44, 36, 32, 0.6)",
-        color: "var(--text-secondary)",
+        border: hasUnread
+          ? "1px solid rgba(239, 68, 68, 0.5)"
+          : "1px solid var(--border-color)",
+        background: hasUnread
+          ? "rgba(239, 68, 68, 0.08)"
+          : "rgba(44, 36, 32, 0.6)",
+        color: hasUnread ? "#EF4444" : "var(--text-secondary)",
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
@@ -295,11 +363,11 @@ function NotificationBell({
         transition: "all 0.2s ease",
         position: "relative",
       }}
-      title="Bildirimler"
+      title={hasUnread ? `${unreadCount} okunmamış bildirim` : "Bildirimler"}
     >
       <Bell size={18} />
       {count > 0 && (
-        <span className={`notification-badge-count ${count > 0 ? "pulse" : ""}`}>
+        <span className={`notification-badge-count ${hasUnread ? "pulse" : ""}`}>
           {count > 99 ? "99+" : count}
         </span>
       )}

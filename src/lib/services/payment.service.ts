@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { PaymentStatus, PaymentMethod, BillStatus, BillPaymentStatus, TableStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 
 export class PaymentError extends Error {
   constructor(
@@ -66,7 +67,7 @@ export async function requestWaiterApproval(input: {
     }
   }
 
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       const payment = await tx.payment.findFirst({
         where: { id: paymentId, businessId },
@@ -156,6 +157,23 @@ export async function requestWaiterApproval(input: {
     },
     { maxWait: 10_000, timeout: 20_000 }
   );
+
+  createAuditLog({
+    businessId,
+    actorUserId: waiterId,
+    actorRole: "WAITER",
+    action: "PAYMENT_APPROVAL_REQUESTED",
+    entityType: "Payment",
+    entityId: paymentId,
+    metadata: {
+      amount,
+      method,
+      receivedAmount,
+      note,
+    },
+  });
+
+  return result;
 }
 
 /**
@@ -181,7 +199,7 @@ export async function processAdminPayment(input: ProcessAdminPaymentInput): Prom
     }
   }
 
-  return prisma.$transaction(
+  const result = await prisma.$transaction(
     async (tx) => {
       // 1. Idempotency kontrolü
       if (idempotencyKey) {
@@ -433,6 +451,26 @@ export async function processAdminPayment(input: ProcessAdminPaymentInput): Prom
     },
     { maxWait: 10_000, timeout: 20_000 }
   );
+
+  createAuditLog({
+    businessId,
+    actorUserId: adminId,
+    actorRole: "ADMIN",
+    action: AuditActions.PAYMENT_APPROVED,
+    entityType: "Payment",
+    entityId: paymentId,
+    metadata: {
+      amount,
+      method,
+      receivedAmount,
+      changeAmount: result.changeAmount,
+      isFullyPaid: result.isFullyPaid,
+      tableId: result.table?.id,
+      tableNumber: result.table?.tableNumber,
+    },
+  });
+
+  return result;
 }
 
 /**
@@ -502,7 +540,7 @@ export async function rejectPayment(input: {
 }) {
   const { paymentId, businessId, adminId, reason } = input;
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findFirst({
       where: { id: paymentId, businessId },
     });
@@ -527,4 +565,18 @@ export async function rejectPayment(input: {
 
     return updatedPayment;
   });
+
+  createAuditLog({
+    businessId,
+    actorUserId: adminId,
+    actorRole: "ADMIN",
+    action: AuditActions.PAYMENT_REJECTED,
+    entityType: "Payment",
+    entityId: paymentId,
+    metadata: {
+      reason,
+    },
+  });
+
+  return result;
 }

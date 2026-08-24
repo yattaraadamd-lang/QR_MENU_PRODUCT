@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ServiceRequestType, RequestStatus, TableStatus } from "@prisma/client";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { rateLimit, getClientIp, RateLimitPresets, createRateLimitResponse } from "@/lib/rate-limit";
+import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * 🔒 P0-09 FIX: Service Requests API — Auth + Tenant Isolation
+ *
+ * POST: Disabled (use /api/customer/service-requests)
+ * GET: requireWaiterOrAdmin(), businessId from session (NOT query string)
+ */
 
 export async function POST(request: NextRequest) {
   // ⚠️ KULLANIM DIŞI ENDPOINT - Güvenlik nedeniyle devre dışı bırakıldı
   // Müşteri hizmet talepleri için /api/customer/service-requests kullanılmalı
-  // Admin/Garson talepleri için authenticated endpoint'ler kullanılmalı
-  
   return NextResponse.json(
     {
       error: "Bu endpoint kullanım dışı. Lütfen /api/customer/service-requests kullanın.",
@@ -23,36 +25,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Bu endpoint artık korunmalı - sadece authenticated kullanıcılar erişebilir
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 401 }
-      );
-    }
+    // ✅ P0-09 FIX: Require authentication
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response!;
 
-    const { searchParams } = new URL(request.url);
-    const businessId = searchParams.get("businessId");
-
-    if (!businessId) {
-      return NextResponse.json(
-        { error: "İşletme ID gerekli" },
-        { status: 400 }
-      );
-    }
-
-    // Kullanıcının bu işletmeye erişim yetkisi var mı kontrol et
-    if (session.user.role !== "SUPER_ADMIN") {
-      const userBusinessId = session.user.businessId;
-      if (userBusinessId !== businessId) {
-        return NextResponse.json(
-          { error: "Bu işletmenin taleplerine erişim yetkiniz yok" },
-          { status: 403 }
-        );
-      }
-    }
+    // ✅ P0-09 FIX: businessId from session (NOT from query string)
+    const businessId = getBusinessId(session);
 
     const serviceRequests = await prisma.serviceRequest.findMany({
       where: {
@@ -71,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ serviceRequests });
   } catch (error) {
-    console.error("Hizmet talepleri listeleme hatası:", error);
+    console.error("[SERVICE_REQUEST_LIST_ERROR]", error);
     return NextResponse.json(
       { error: "Talepler yüklenirken bir hata oluştu" },
       { status: 500 }

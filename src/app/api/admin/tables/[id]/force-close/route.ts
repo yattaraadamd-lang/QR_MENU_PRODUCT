@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 
 /**
  * POST /api/admin/tables/[id]/force-close
  * Admin masayı zorla kapatır (aktif sipariş varsa bile)
+ * 🔒 P0-09 FIX: requireAdmin() + tenant-scoped table lookup
  */
 export async function POST(
   req: NextRequest,
@@ -14,28 +15,20 @@ export async function POST(
   try {
     const params = await context.params;
     
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+    // ✅ P0-09 FIX: Use centralized auth guard with DB validation
+    const { error, response, session } = await requireAdmin();
+    if (error) return response!;
 
-    // Sadece ADMIN kullanabilir
-    if (session.user.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Bu işlem için admin yetkisi gereklidir" },
-        { status: 403 }
-      );
-    }
-
+    const businessId = getBusinessId(session);
     const tableId = params.id;
     const body = await req.json().catch(() => ({}));
     const closeReason = body.closeReason || "Admin tarafından zorla kapatıldı";
 
     // Transaction içinde tüm işlemleri yap
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Masayı bul
-      const table = await tx.table.findUnique({
-        where: { id: tableId },
+      // 1. ✅ P0-09 FIX: Masayı tenant scope ile bul
+      const table = await tx.table.findFirst({
+        where: { id: tableId, businessId },
         include: {
           tableSessions: {
             where: { status: "ACTIVE" },
@@ -127,6 +120,19 @@ export async function POST(
         cancelledOrders: activeSession.orders.length,
         closeReason,
       };
+    });
+
+    createAuditLog({
+      businessId,
+      actorUserId: session.user.id,
+      actorRole: "ADMIN",
+      action: AuditActions.TABLE_FORCE_CLOSED,
+      entityType: "Table",
+      entityId: tableId,
+      metadata: {
+        closeReason,
+        cancelledOrders: result.cancelledOrders,
+      },
     });
 
     return NextResponse.json({

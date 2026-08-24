@@ -1,14 +1,32 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSuperAdmin } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Diagnostic endpoint to check if schema migrations are applied
- * GET /api/diagnostics/schema
+ * 🔒 P0-09 FIX: Diagnostic endpoint — SuperAdmin only
+ *
+ * PREVIOUSLY: No authentication. Exposed database schema info to anyone.
+ *
+ * NOW: requireSuperAdmin(). Only super admin can check schema diagnostics.
+ *
+ * In production, consider disabling entirely or gating with NODE_ENV.
  */
 export async function GET() {
   try {
+    // ✅ P0-09 FIX: Only super admin can access diagnostics
+    const { error, response } = await requireSuperAdmin();
+    if (error) return response!;
+
+    // ✅ SECURITY: Block in production unless explicitly allowed
+    if (process.env.NODE_ENV === "production" && !process.env.ALLOW_DIAGNOSTICS) {
+      return NextResponse.json(
+        { error: "Diagnostics disabled in production" },
+        { status: 403 }
+      );
+    }
+
     const checks: Record<string, boolean> = {};
     const errors: string[] = [];
 
@@ -56,14 +74,14 @@ export async function GET() {
       checks,
       errors: errors.length > 0 ? errors : undefined,
       timestamp: new Date().toISOString(),
-      deployRevision: process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
     });
   } catch (error: any) {
     console.error("[SCHEMA_DIAGNOSTIC_ERROR]", error);
     return NextResponse.json(
       {
         status: "error",
-        error: error.message,
+        // ✅ P0-09 FIX: Don't expose error details to client
+        error: "Diagnostic check failed",
         timestamp: new Date().toISOString(),
       },
       { status: 500 }

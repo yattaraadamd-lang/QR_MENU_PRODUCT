@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateBody, createStaffSchema } from "@/lib/validation";
+import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,15 @@ export async function POST(request: NextRequest) {
     if (!authResult.success) return authResult.response;
 
     const businessId = getBusinessIdFromSession(authResult.session);
+
+    // 🔒 Plan Quota Enforcement (for Waiters)
+    const quotaCheck = await checkPlanQuota(businessId, "WAITER");
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        { error: quotaCheck.error || "Personel ekleme paket limitine ulaşıldı." },
+        { status: 403 }
+      );
+    }
 
     // ✅ Validate request body
     const body = await request.json();

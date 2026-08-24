@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 
 // ✅ P0-04 FIX: Fail-fast if HMAC secret is missing or weak in production
 function getHMACSecret(): string {
@@ -96,13 +97,26 @@ export async function createDeviceBlock(params: {
 
   if (existing) return;
 
-  await client.customerAccessBlock.create({
+  const created = await client.customerAccessBlock.create({
     data: {
       businessId: params.businessId,
       deviceKeyHash: params.deviceKeyHash,
       reason: params.reason,
       sourceRequestId: params.sourceRequestId || null,
       createdById: params.createdById || null,
+    },
+  });
+
+  createAuditLog({
+    businessId: params.businessId,
+    actorUserId: params.createdById || null,
+    actorRole: params.createdById ? "ADMIN" : "SYSTEM",
+    action: AuditActions.DEVICE_BLOCKED,
+    entityType: "CustomerAccessBlock",
+    entityId: created.id,
+    metadata: {
+      reason: params.reason,
+      sourceRequestId: params.sourceRequestId,
     },
   });
 }

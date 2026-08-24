@@ -18,6 +18,7 @@ import type { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { deriveTableStatusAfterOrderChange } from "@/lib/services/table-flow.service";
 import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 
 // Transaction client tipi
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
@@ -465,8 +466,25 @@ export async function cancelOrderAndSyncState(
         sourceOrderId: orderId,
       });
     }
+
+    // 🔒 Audit log (fire and forget)
+    createAuditLog({
+      businessId,
+      actorUserId: actorId,
+      actorRole: input.actorRole,
+      action: targetStatus === "REJECTED" ? AuditActions.ORDER_REQUEST_REJECTED : AuditActions.ORDER_CANCELLED,
+      entityType: "Order",
+      entityId: orderId,
+      metadata: {
+        reasonCode,
+        reasonText,
+        outOfStockProductIds: updatedPids,
+        tableId: order?.tableId,
+        tableNumber: order?.table?.tableNumber,
+      },
+    });
   } catch (e) {
-    console.error("[OrderCancellation] Socket emit hatası (DB işlemi başarılı):", e);
+    console.error("[OrderCancellation] Socket/Audit emit hatası (DB işlemi başarılı):", e);
   }
 
   return result;

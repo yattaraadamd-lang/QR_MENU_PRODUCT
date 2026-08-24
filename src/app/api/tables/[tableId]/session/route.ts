@@ -12,7 +12,7 @@ export async function POST(
     const params = await context.params;
     // Rate limiting - QR kod okutma
     const clientIp = getClientIp(request);
-    const rateLimitResult = rateLimit({
+    const rateLimitResult = await rateLimit({
       ...RateLimitPresets.CUSTOMER_SESSION,
       identifier: `session_${clientIp}`,
     });

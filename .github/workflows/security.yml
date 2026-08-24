@@ -32,6 +32,9 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: Security & Tenant Isolation Tests
+        run: npm test
+
       - name: Build
         run: npx next build
         env:
@@ -39,10 +42,14 @@ jobs:
           NEXTAUTH_SECRET: "ci-test-secret-do-not-use-in-production-32chars"
           NEXTAUTH_URL: "http://localhost:3000"
 
-      - name: NPM Audit (production dependencies)
+      - name: NPM Audit (critical — blocking)
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: NPM Audit (high — advisory)
+        if: always()
         run: npm audit --omit=dev --audit-level=high || true
-        # Note: --audit-level=high means only high/critical fail the check
-        # Set to "critical" if you want fewer false positives
+        # Note: High-level issues are reported but do not block the pipeline.
+        # Review and address these in a timely manner.
 
       - name: Check for hardcoded secrets
         run: |

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
+import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,15 @@ export async function POST(request: NextRequest) {
 
     // ✅ P0-01 FIX: businessId from session, NOT from client
     const businessId = getBusinessId(session);
+
+    // 🔒 Plan Quota Enforcement
+    const quotaCheck = await checkPlanQuota(businessId, "WAITER");
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        { error: quotaCheck.error || "Garson davet etme paket limitine ulaşıldı." },
+        { status: 403 }
+      );
+    }
     
     // ✅ Verify business exists and is active
     const business = await prisma.business.findUnique({
