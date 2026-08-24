@@ -100,6 +100,13 @@ export default function WaiterTablesPage() {
     if (!selectedTable?.activeSession || !payAmount || !payMethod) return;
 
     const amount = parseFloat(payAmount);
+    
+    // ✅ CASH için receivedAmount zorunlu
+    if (payMethod === "CASH" && !receivedAmount) {
+      alert("Müşteriden alınan nakit tutarını girin.");
+      return;
+    }
+    
     const received = payMethod === "CASH" ? parseFloat(receivedAmount) : null;
 
     // ✅ Frontend validations

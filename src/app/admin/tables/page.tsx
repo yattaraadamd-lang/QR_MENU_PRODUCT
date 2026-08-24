@@ -45,6 +45,7 @@ export default function AdminTablesPage() {
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("CASH");
   const [payNote, setPayNote] = useState("");
+  const [payReceivedAmount, setPayReceivedAmount] = useState("");
   const [paying, setPaying] = useState(false);
 
   // Masa kapatma modal state
@@ -133,15 +134,30 @@ export default function AdminTablesPage() {
 
   const handlePay = async () => {
     if (!selectedTable?.activeSession || !payAmount || !payMethod) return;
+    // Nakit ödeme için alınan tutar zorunlu
+    if (payMethod === "CASH" && (!payReceivedAmount || parseFloat(payReceivedAmount) < parseFloat(payAmount))) {
+      alert("Nakit ödeme için alınan tutar, ödeme tutarından az olamaz.");
+      return;
+    }
     setPaying(true);
     try {
+      const requestBody: Record<string, unknown> = {
+        tableSessionId: selectedTable.activeSession.id,
+        amount: parseFloat(payAmount),
+        method: payMethod,
+        note: payNote || null,
+      };
+      // Nakit ödeme ise receivedAmount ekle
+      if (payMethod === "CASH") {
+        requestBody.receivedAmount = parseFloat(payReceivedAmount);
+      }
       const res = await fetch("/api/waiter/payments/collect", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableSessionId: selectedTable.activeSession.id, amount: parseFloat(payAmount), method: payMethod, note: payNote || null }),
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json();
       if (res.ok) {
-        setPayModal(false); setPayAmount(""); setPayNote(""); setPayMethod("CASH");
+        setPayModal(false); setPayAmount(""); setPayNote(""); setPayMethod("CASH"); setPayReceivedAmount("");
         const r2 = await fetch(`/api/bills/${selectedTable.activeSession.id}`);
         const d2 = await r2.json();
         if (r2.ok) setSessionDetail(d2.bill);
@@ -521,13 +537,29 @@ export default function AdminTablesPage() {
                   ))}
                 </div>
               </div>
+              {payMethod === "CASH" && (
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Alınan Tutar (₺) *</label>
+                  <input className="input" type="number" step="0.01" min="0.01" value={payReceivedAmount} onChange={e => setPayReceivedAmount(e.target.value)} placeholder="0.00" style={{ fontSize: 18, fontWeight: 700 }} />
+                  {payReceivedAmount && payAmount && parseFloat(payReceivedAmount) >= parseFloat(payAmount) && (
+                    <p style={{ marginTop: 6, fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
+                      Para Üstü: {(parseFloat(payReceivedAmount) - parseFloat(payAmount)).toFixed(2)} ₺
+                    </p>
+                  )}
+                  {payReceivedAmount && payAmount && parseFloat(payReceivedAmount) < parseFloat(payAmount) && (
+                    <p style={{ marginTop: 6, fontSize: 13, color: "#EF4444", fontWeight: 600 }}>
+                      Alınan tutar yetersiz!
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Not (opsiyonel)</label>
                 <input className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-              <button onClick={handlePay} disabled={paying || !payAmount || parseFloat(payAmount) <= 0} className="btn btn-success" style={{ flex: 1 }}>
+              <button onClick={handlePay} disabled={paying || !payAmount || parseFloat(payAmount) <= 0 || (payMethod === "CASH" && (!payReceivedAmount || parseFloat(payReceivedAmount) < parseFloat(payAmount)))} className="btn btn-success" style={{ flex: 1 }}>
                 {paying ? "İşleniyor..." : "Ödemeyi Onayla"}
               </button>
               <button onClick={() => setPayModal(false)} className="btn btn-ghost">İptal</button>
