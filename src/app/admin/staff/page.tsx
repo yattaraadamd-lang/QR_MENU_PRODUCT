@@ -9,6 +9,7 @@ export default function AdminStaffPage() {
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [lastCreatedCode, setLastCreatedCode] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInvites();
@@ -50,14 +51,25 @@ export default function AdminStaffPage() {
         // ✅ Show the RAW invite code (only shown ONCE)
         const rawCode = data.invite?.inviteCode;
         if (rawCode) {
-          alert(
-            `✅ Davet kodu oluşturuldu!\n\n` +
-            `Kod: ${rawCode}\n\n` +
-            `⚠️ Bu kodu kaydedin! Bir daha gösterilmeyecektir.\n` +
-            `Garsonlar bu kodu kayıt olurken kullanabilir.`
-          );
+          setLastCreatedCode(rawCode);
           // Copy to clipboard
-          navigator.clipboard.writeText(rawCode).catch(() => {});
+          try {
+            await navigator.clipboard.writeText(rawCode);
+            alert(
+              `✅ Davet kodu oluşturuldu ve panoya kopyalandı!\n\n` +
+              `Kod: ${rawCode}\n\n` +
+              `⚠️ Bu kodu kaydedin! Bir daha gösterilmeyecektir.\n` +
+              `Garsonlar bu kodu kayıt olurken kullanabilir.`
+            );
+          } catch (clipboardError) {
+            // Fallback if clipboard fails
+            alert(
+              `✅ Davet kodu oluşturuldu!\n\n` +
+              `Kod: ${rawCode}\n\n` +
+              `⚠️ Bu kodu kaydedin! Bir daha gösterilmeyecektir.\n` +
+              `Kodu manuel olarak kopyalayın.`
+            );
+          }
         }
         fetchInvites();
       } else {
@@ -69,6 +81,39 @@ export default function AdminStaffPage() {
       alert("Davet kodu oluşturulurken bir hata oluştu");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const deleteInvite = async (inviteId: string) => {
+    if (!confirm("Bu davet kodunu silmek istediğinizden emin misiniz?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/waiter-invites?id=${inviteId}`, {
+        method: "DELETE",
+      });
+      
+      if (res.ok) {
+        alert("✅ Davet kodu silindi");
+        fetchInvites();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Davet kodu silinirken bir hata oluştu");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Davet kodu silinirken bir hata oluştu");
+    }
+  };
+
+  const copyLastCode = () => {
+    if (lastCreatedCode) {
+      navigator.clipboard.writeText(lastCreatedCode).then(() => {
+        alert("✅ Kod panoya kopyalandı!");
+      }).catch(() => {
+        alert("❌ Kopyalama başarısız. Kodu manuel olarak kopyalayın:\n\n" + lastCreatedCode);
+      });
     }
   };
 
@@ -131,7 +176,49 @@ export default function AdminStaffPage() {
           <button onClick={createInvite} className="btn btn-primary" disabled={creating} style={{ flex: 1 }}>
             {creating ? "Oluşturuluyor..." : "🎫 Yeni Davet Kodu Oluştur"}
           </button>
+          {lastCreatedCode && (
+            <button onClick={copyLastCode} className="btn btn-secondary">
+              📋 Son Kodu Kopyala
+            </button>
+          )}
         </div>
+        {lastCreatedCode && (
+          <div style={{
+            marginTop: 12,
+            padding: 12,
+            background: "var(--success-bg, #d4edda)",
+            border: "1px solid var(--success, #28a745)",
+            borderRadius: 6,
+            fontSize: 13,
+          }}>
+            <strong>Son oluşturulan kod:</strong>
+            <p style={{
+              fontFamily: "monospace",
+              fontSize: 14,
+              fontWeight: 700,
+              marginTop: 6,
+              wordBreak: "break-all",
+              color: "#155724"
+            }}>
+              {lastCreatedCode}
+            </p>
+            <button
+              onClick={copyLastCode}
+              style={{
+                marginTop: 8,
+                padding: "6px 12px",
+                fontSize: 12,
+                background: "#28a745",
+                color: "white",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer"
+              }}
+            >
+              📋 Kopyala
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Invites List */}
@@ -156,7 +243,7 @@ export default function AdminStaffPage() {
                 justifyContent: "space-between",
                 alignItems: "center",
               }}>
-                <div>
+                <div style={{ flex: 1 }}>
                   <p style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
                     🎫 Davet #{invites.length - index}
                   </p>
@@ -174,9 +261,25 @@ export default function AdminStaffPage() {
                     </p>
                   )}
                 </div>
-                <span className={`badge ${invite.isUsed ? "badge-success" : "badge-warning"}`}>
-                  {invite.isUsed ? "✅ Kullanıldı" : "⏳ Bekliyor"}
-                </span>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span className={`badge ${invite.isUsed ? "badge-success" : "badge-warning"}`}>
+                    {invite.isUsed ? "✅ Kullanıldı" : "⏳ Bekliyor"}
+                  </span>
+                  {!invite.isUsed && (
+                    <button
+                      onClick={() => deleteInvite(invite.id)}
+                      className="btn btn-error"
+                      style={{
+                        padding: "6px 12px",
+                        fontSize: 12,
+                        minWidth: "auto"
+                      }}
+                      title="Davet kodunu sil"
+                    >
+                      🗑️ Sil
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
