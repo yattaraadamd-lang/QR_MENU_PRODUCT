@@ -37,7 +37,10 @@ export default function AdminCategoriesPage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.name) return;
+    if (!form.name.trim()) {
+      alert("Kategori adı gereklidir");
+      return;
+    }
     try {
       const url = editingId ? `/api/admin/categories/${editingId}` : "/api/admin/categories";
       const method = editingId ? "PUT" : "POST";
@@ -46,12 +49,17 @@ export default function AdminCategoriesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+      
       if (res.ok) {
-        fetchCategories();
-        resetForm();
+        await fetchCategories(); // ✅ Wait for categories to refresh
+        resetForm(); // ✅ Close modal after successful creation
+      } else {
+        const error = await res.json();
+        alert(error.error || "Kategori oluşturulamadı");
       }
     } catch (e) {
       console.error(e);
+      alert("Bir hata oluştu. Lütfen tekrar deneyin.");
     }
   };
 

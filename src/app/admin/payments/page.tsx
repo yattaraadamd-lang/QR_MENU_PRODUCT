@@ -25,6 +25,12 @@ export default function AdminPaymentsPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
+  
+  // ✅ E2E FIX: Add date range filter
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
+    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
+    end: new Date().toISOString().split('T')[0], // today
+  });
 
   useEffect(() => {
     if (session?.user.businessId) {
@@ -47,10 +53,23 @@ export default function AdminPaymentsPage() {
   };
 
   const filteredPayments = payments.filter((p) => {
-    if (filter === "ALL") return true;
-    if (filter === "AWAITING") return p.status === "AWAITING_ADMIN_APPROVAL" || p.status === "PENDING";
-    if (filter === "COMPLETED") return p.status === "PAID";
-    if (filter === "REJECTED") return p.status === "REJECTED";
+    // ✅ Filter by status
+    if (filter === "ALL") {
+      // continue to date filter
+    } else if (filter === "AWAITING") {
+      if (p.status !== "AWAITING_ADMIN_APPROVAL" && p.status !== "PENDING") return false;
+    } else if (filter === "COMPLETED") {
+      if (p.status !== "PAID") return false;
+    } else if (filter === "REJECTED") {
+      if (p.status !== "REJECTED") return false;
+    }
+    
+    // ✅ E2E FIX: Filter by date range
+    const paymentDate = new Date(p.paidAt || p.createdAt).toISOString().split('T')[0];
+    if (paymentDate < dateRange.start || paymentDate > dateRange.end) {
+      return false;
+    }
+    
     return true;
   });
 
@@ -76,11 +95,34 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <button onClick={() => setFilter("ALL")} className={`btn btn-sm ${filter === "ALL" ? "btn-primary" : "btn-ghost"}`}>Tümü</button>
         <button onClick={() => setFilter("AWAITING")} className={`btn btn-sm ${filter === "AWAITING" ? "btn-primary" : "btn-ghost"}`}>Onay Bekleyenler</button>
         <button onClick={() => setFilter("COMPLETED")} className={`btn btn-sm ${filter === "COMPLETED" ? "btn-primary" : "btn-ghost"}`}>Tamamlananlar</button>
         <button onClick={() => setFilter("REJECTED")} className={`btn btn-sm ${filter === "REJECTED" ? "btn-primary" : "btn-ghost"}`}>Reddedilenler</button>
+        
+        {/* ✅ E2E FIX: Date range picker */}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>Tarih Aralığı:</label>
+          <input 
+            type="date" 
+            className="input" 
+            style={{ width: 150 }}
+            value={dateRange.start}
+            onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+            max={dateRange.end}
+          />
+          <span style={{ color: "var(--text-secondary)" }}>-</span>
+          <input 
+            type="date" 
+            className="input" 
+            style={{ width: 150 }}
+            value={dateRange.end}
+            onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+            min={dateRange.start}
+            max={new Date().toISOString().split('T')[0]}
+          />
+        </div>
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>
