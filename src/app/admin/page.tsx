@@ -33,8 +33,24 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (session?.user.businessId) {
       fetchData();
-      const iv = setInterval(fetchData, 10000);
-      return () => clearInterval(iv);
+
+      // ✅ PERF: Polling aralığı 30sn (önceki: 10sn), arka planda durdur
+      let iv: ReturnType<typeof setInterval> | null = setInterval(fetchData, 30000);
+
+      const handleVisibility = () => {
+        if (document.hidden) {
+          if (iv) { clearInterval(iv); iv = null; }
+        } else {
+          fetchData();
+          if (!iv) iv = setInterval(fetchData, 30000);
+        }
+      };
+
+      document.addEventListener("visibilitychange", handleVisibility);
+      return () => {
+        if (iv) clearInterval(iv);
+        document.removeEventListener("visibilitychange", handleVisibility);
+      };
     }
   }, [session]);
 

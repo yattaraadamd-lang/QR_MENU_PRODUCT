@@ -51,7 +51,14 @@ export async function GET(request: NextRequest) {
 
     const notifications = await prisma.notification.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        message: true,
+        isRead: true,
+        soundPlayed: true,
+        createdAt: true,
         table: {
           select: {
             id: true,

@@ -38,6 +38,7 @@ const DEMOS = [
     color: "#D97706",
     bg: "rgba(217,119,6,0.08)",
     borderColor: "rgba(217,119,6,0.2)",
+    href: "/menu/demo-business-id/1",
   },
   {
     icon: <MousePointerClick size={32} />,
@@ -46,6 +47,7 @@ const DEMOS = [
     color: "#059669",
     bg: "rgba(5,150,105,0.08)",
     borderColor: "rgba(5,150,105,0.2)",
+    href: "/auth/signin?demo=waiter",
   },
   {
     icon: <Monitor size={32} />,
@@ -54,6 +56,7 @@ const DEMOS = [
     color: "#2563EB",
     bg: "rgba(37,99,235,0.08)",
     borderColor: "rgba(37,99,235,0.2)",
+    href: "/auth/signin?demo=admin",
   },
 ];
 
@@ -455,7 +458,7 @@ export default function HomePage() {
           {DEMOS.map((d, i) => (
             <Link
               key={i}
-              href="/auth/signin"
+              href={d.href}
               style={{ textDecoration: "none" }}
             >
               <div
@@ -622,7 +625,7 @@ export default function HomePage() {
               {DEMOS.map((d, i) => (
                 <Link
                   key={i}
-                  href="/auth/signin"
+                  href={d.href}
                   onClick={() => setShowDemoModal(false)}
                   style={{
                     display: "flex",

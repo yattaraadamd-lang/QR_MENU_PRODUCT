@@ -42,7 +42,7 @@ export default function WaiterLayout({ children }: { children: React.ReactNode }
 function WaiterContent({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const { counts } = useBadgeCounts(8000);
+  const { counts } = useBadgeCounts(); // ✅ PERF: default 30sn (önceki: 8sn)
 
   const badgeMap: Record<string, number> = {
     "/waiter":          counts.orders,

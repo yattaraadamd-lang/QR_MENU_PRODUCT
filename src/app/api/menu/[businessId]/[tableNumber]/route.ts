@@ -11,23 +11,38 @@ export async function GET(
     const params = await context.params;
     const { businessId, tableNumber } = params;
 
-    // İşletme bilgisi
-    const business = await prisma.business.findUnique({
-      where: { id: businessId },
-    });
+    // ✅ PERF: İşletme + masa sorgularını paralel çalıştır
+    const [business, table] = await Promise.all([
+      prisma.business.findUnique({
+        where: { id: businessId },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          logo: true,
+          phone: true,
+          isActive: true,
+        },
+      }),
+      prisma.table.findFirst({
+        where: {
+          businessId,
+          tableNumber,
+          isDeleted: false,
+        },
+        select: {
+          id: true,
+          tableNumber: true,
+          tableName: true,
+          status: true,
+          isActive: true,
+        },
+      }),
+    ]);
 
     if (!business || !business.isActive) {
       return NextResponse.json({ error: "İşletme bulunamadı veya aktif değil" }, { status: 404 });
     }
-
-    // ✅ Silinen masa kontrolü
-    const table = await prisma.table.findFirst({
-      where: {
-        businessId,
-        tableNumber,
-        isDeleted: false,
-      },
-    });
 
     if (!table) {
       return NextResponse.json(
@@ -43,45 +58,76 @@ export async function GET(
       );
     }
 
-    // ✅ Kategoriler ve ürünler — silinen ürünleri gösterme
-    const categories = await prisma.category.findMany({
-      where: { businessId, isActive: true },
-      orderBy: { sortOrder: "asc" },
-      include: {
-        products: {
-          where: { isDeleted: false }, // ✅ Silinen ürünleri filtrele
-          orderBy: { sortOrder: "asc" },
+    // ✅ PERF: Kategoriler, popüler ürünler ve oturum sorgularını paralel çalıştır
+    const [categories, popularProducts, activeTableSession] = await Promise.all([
+      // Kategoriler ve ürünler — silinen ürünleri gösterme
+      prisma.category.findMany({
+        where: { businessId, isActive: true },
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          products: {
+            where: { isDeleted: false },
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              ingredients: true,
+              allergens: true,
+              price: true,
+              image: true,
+              isAvailable: true,
+              stockStatus: true,
+              isPopular: true,
+            },
+          },
         },
-      },
-    });
+      }),
+      // Popüler ürünler — silinen ürünleri gösterme
+      prisma.product.findMany({
+        where: {
+          businessId,
+          isPopular: true,
+          isAvailable: true,
+          stockStatus: "IN_STOCK",
+          isDeleted: false,
+        },
+        take: 6,
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          image: true,
+          isAvailable: true,
+          stockStatus: true,
+          isPopular: true,
+        },
+      }),
+      // Aktif masa oturumu var mı?
+      prisma.tableSession.findFirst({
+        where: { tableId: table.id, businessId, status: "ACTIVE" },
+        select: { id: true },
+      }),
+    ]);
 
-    // ✅ Popüler ürünler — silinen ürünleri gösterme
-    const popularProducts = await prisma.product.findMany({
-      where: {
-        businessId,
-        isPopular: true,
-        isAvailable: true,
-        stockStatus: "IN_STOCK",
-        isDeleted: false, // ✅ Silinen ürünleri filtrele
-      },
-      take: 6,
-      orderBy: { sortOrder: "asc" },
-    });
-
-    // ✅ Aktif masa oturumu var mı? Frontend sipariş butonunu buna göre yönetir
-    const activeTableSession = await prisma.tableSession.findFirst({
-      where: { tableId: table.id, businessId, status: "ACTIVE" },
-      select: { id: true },
-    });
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       business,
       table,
       categories,
       popularProducts,
-      tableSessionActive: !!activeTableSession, // ✅ Masa oturumu aktif mi?
-      activeTableSessionId: activeTableSession?.id ?? null, // ✅ Aktif oturum ID (Faz 2 hazırlık)
+      tableSessionActive: !!activeTableSession,
+      activeTableSessionId: activeTableSession?.id ?? null,
     });
+
+    // ✅ PERF: Menü verisi kısa süreli cache'lenebilir (CDN/browser)
+    response.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+
+    return response;
   } catch (error) {
     console.error("Menü yükleme hatası:", error);
     return NextResponse.json({ error: "Menü yüklenirken bir hata oluştu" }, { status: 500 });

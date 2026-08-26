@@ -79,7 +79,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { counts } = useBadgeCounts(8000);
+  const { counts } = useBadgeCounts(); // ✅ PERF: default 30sn (önceki: 8sn)
 
   const badgeMap: Record<string, number> = {
     "/admin/orders": counts.orders,

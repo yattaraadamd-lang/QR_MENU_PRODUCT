@@ -40,6 +40,15 @@ export async function GET(request: NextRequest) {
     const tokenHash = hashCustomerSessionToken(rawToken);
     const session = await prisma.customerSession.findUnique({
       where: { sessionToken: tokenHash },
+      select: {
+        id: true,
+        status: true,
+        authorizationStatus: true,
+        expiresAt: true,
+        tableSessionId: true,
+        businessId: true,
+        tableId: true,
+      },
     });
 
     if (!session) {
@@ -100,6 +109,7 @@ export async function GET(request: NextRequest) {
       } else {
         const tableSession = await prisma.tableSession.findUnique({
           where: { id: session.tableSessionId },
+          select: { id: true, status: true, businessId: true, tableId: true },
         });
         if (!tableSession || tableSession.status !== "ACTIVE") {
           tableSessionActive = false;

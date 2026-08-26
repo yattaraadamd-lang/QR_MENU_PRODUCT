@@ -312,6 +312,8 @@ model Notification {
   table    Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
   user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([businessId, isRead, createdAt])
+  @@index([businessId, createdAt])
   @@map("notifications")
 }
 
@@ -368,6 +370,7 @@ model TableSession {
   customerSessions CustomerSession[]
 
   @@index([tableId, status])
+  @@index([businessId, status])
   @@map("table_sessions")
 }
 
@@ -398,6 +401,7 @@ model Bill {
   tableSession TableSession @relation(fields: [tableSessionId], references: [id])
   payments     Payment[]
 
+  @@index([businessId, status])
   @@map("bills")
 }
 

@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ✅ PERF: Gereksiz X-Powered-By header'ını kaldır
+  poweredByHeader: false,
+  // ✅ PERF: React Strict Mode
+  reactStrictMode: true,
   images: {
+    // ✅ PERF: Modern image formatları — AVIF %50, WebP %30 daha küçük
+    formats: ["image/avif", "image/webp"],
+    // ✅ PERF: Optimize edilmiş görseller 30 gün cache'lenir
+    minimumCacheTTL: 2592000,
     remotePatterns: [
       // ✅ SECURITY FIX: Restrict image hosts to known trusted domains
       // Previously: hostname: "**" (allowed ALL hosts — SSRF risk)

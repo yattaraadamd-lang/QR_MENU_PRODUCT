@@ -214,7 +214,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     };
 
     sync();
-    const timer = window.setInterval(sync, 1500);
+    const timer = window.setInterval(sync, 3000); // ✅ PERF: 3sn (önceki: 1.5sn)
 
     return () => {
       cancelled = true;
