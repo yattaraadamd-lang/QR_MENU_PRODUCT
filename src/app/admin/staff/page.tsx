@@ -8,7 +8,6 @@ export default function AdminStaffPage() {
   const [invites, setInvites] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newCode, setNewCode] = useState("");
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -44,17 +43,30 @@ export default function AdminStaffPage() {
       const res = await fetch("/api/admin/waiter-invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteCode: newCode || undefined }),
+        body: JSON.stringify({}), // ✅ Server generates secure code
       });
       if (res.ok) {
+        const data = await res.json();
+        // ✅ Show the RAW invite code (only shown ONCE)
+        const rawCode = data.invite?.inviteCode;
+        if (rawCode) {
+          alert(
+            `✅ Davet kodu oluşturuldu!\n\n` +
+            `Kod: ${rawCode}\n\n` +
+            `⚠️ Bu kodu kaydedin! Bir daha gösterilmeyecektir.\n` +
+            `Garsonlar bu kodu kayıt olurken kullanabilir.`
+          );
+          // Copy to clipboard
+          navigator.clipboard.writeText(rawCode).catch(() => {});
+        }
         fetchInvites();
-        setNewCode("");
       } else {
         const data = await res.json();
-        alert(data.error);
+        alert(data.error || "Davet kodu oluşturulurken bir hata oluştu");
       }
     } catch (e) {
       console.error(e);
+      alert("Davet kodu oluşturulurken bir hata oluştu");
     } finally {
       setCreating(false);
     }
@@ -111,18 +123,13 @@ export default function AdminStaffPage() {
       <div className="card" style={{ padding: 20, marginBottom: 24 }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>Yeni Davet Kodu Oluştur</h3>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
-          Garsonlar bu kodu kullanarak sisteme kayıt olabilir.
+          Garsonlar bu kodu kullanarak sisteme kayıt olabilir. 
+          <br />
+          ⚠️ <strong>Kod sadece bir kez gösterilecektir</strong>, mutlaka kaydedin!
         </p>
         <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            value={newCode}
-            onChange={(e) => setNewCode(e.target.value.toUpperCase())}
-            placeholder="Özel kod (boş bırakılırsa otomatik oluşturulur)"
-            style={{ flex: 1 }}
-          />
-          <button onClick={createInvite} className="btn btn-primary" disabled={creating}>
-            {creating ? "..." : "Oluştur"}
+          <button onClick={createInvite} className="btn btn-primary" disabled={creating} style={{ flex: 1 }}>
+            {creating ? "Oluşturuluyor..." : "🎫 Yeni Davet Kodu Oluştur"}
           </button>
         </div>
       </div>
@@ -130,7 +137,10 @@ export default function AdminStaffPage() {
       {/* Invites List */}
       <div className="card">
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Davet Kodları</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Davet Kodları Geçmişi</h3>
+          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
+            Güvenlik nedeniyle kodlar gösterilmez. Sadece oluşturulma anında görüntülenebilir.
+          </p>
         </div>
         {loading ? (
           <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>Yükleniyor...</p>
@@ -138,7 +148,7 @@ export default function AdminStaffPage() {
           <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>Henüz davet kodu yok</p>
         ) : (
           <div>
-            {invites.map((invite) => (
+            {invites.map((invite, index) => (
               <div key={invite.id} style={{
                 padding: "14px 20px",
                 borderBottom: "1px solid var(--border-color)",
@@ -147,12 +157,22 @@ export default function AdminStaffPage() {
                 alignItems: "center",
               }}>
                 <div>
-                  <p style={{ fontWeight: 700, fontSize: 16, fontFamily: "monospace", letterSpacing: 2 }}>
-                    {invite.inviteCode}
+                  <p style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
+                    🎫 Davet #{invites.length - index}
                   </p>
                   <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    {new Date(invite.createdAt).toLocaleString("tr-TR")}
+                    Oluşturulma: {new Date(invite.createdAt).toLocaleString("tr-TR")}
                   </p>
+                  {invite.expiresAt && (
+                    <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                      Son kullanma: {new Date(invite.expiresAt).toLocaleString("tr-TR")}
+                    </p>
+                  )}
+                  {invite.usedAt && (
+                    <p style={{ fontSize: 12, color: "var(--success)" }}>
+                      Kullanıldı: {new Date(invite.usedAt).toLocaleString("tr-TR")}
+                    </p>
+                  )}
                 </div>
                 <span className={`badge ${invite.isUsed ? "badge-success" : "badge-warning"}`}>
                   {invite.isUsed ? "✅ Kullanıldı" : "⏳ Bekliyor"}

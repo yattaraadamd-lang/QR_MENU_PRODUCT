@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * 🔒 SECURITY FIX: Unified invite code system with SHA-256 hashing
+ * 
+ * CHANGES:
+ * - Replaced UUID with crypto.randomBytes (CSPRNG)
+ * - Store invite codes as SHA-256 hashes
+ * - Return RAW code to admin (only in creation response)
+ * - List endpoint returns metadata only (no raw codes)
+ * - Mandatory 7-day expiry
+ * - Compatible with /api/auth/register hash validation
+ */
+
+/**
+ * Hash an invite code for storage (matches register.ts)
+ */
+function hashInviteCode(rawCode: string): string {
+  return crypto.createHash("sha256").update(rawCode).digest("hex");
+}
 
 // GET /api/admin/waiter-invites - Davet kodlarını listele
 export async function GET(request: NextRequest) {
@@ -12,9 +31,21 @@ export async function GET(request: NextRequest) {
     if (error) return response!;
 
     const businessId = getBusinessId(session);
+    
+    // ✅ SECURITY: Don't return raw invite codes or hashes in list
+    // Admins can only see metadata about invites
     const invites = await prisma.waiterInvite.findMany({
       where: { businessId },
       orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        isUsed: true,
+        usedByUserId: true,
+        usedAt: true,
+        expiresAt: true,
+        createdAt: true,
+        // ❌ Don't select inviteCode (it's a hash, not useful to display)
+      },
     });
 
     return NextResponse.json({ invites });
@@ -34,34 +65,41 @@ export async function POST(request: NextRequest) {
     if (error) return response!;
 
     const businessId = getBusinessId(session);
-    const body = await request.json();
 
-    // Özel kod veya otomatik oluştur
-    const inviteCode = body.inviteCode || `INV-${uuidv4().slice(0, 6).toUpperCase()}`;
+    // ✅ SECURITY: Generate cryptographically secure invite code
+    // 128-bit entropy = 32 hex characters
+    const rawCode = `inv_${crypto.randomBytes(16).toString("hex")}`;
+    
+    // ✅ Store ONLY the hash in database
+    const codeHash = hashInviteCode(rawCode);
 
-    // Kod benzersizlik kontrolü
-    const existing = await prisma.waiterInvite.findUnique({
-      where: { inviteCode },
-    });
+    // ✅ Mandatory expiry (7 days from now)
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "Bu davet kodu zaten kullanılıyor" },
-        { status: 400 }
-      );
-    }
-
+    // ✅ Create invite with secure defaults
     const invite = await prisma.waiterInvite.create({
       data: {
         businessId,
-        inviteCode,
+        inviteCode: codeHash, // ✅ Hash stored, not raw code
         isUsed: false,
-        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+        expiresAt,
+      },
+      select: {
+        id: true,
+        expiresAt: true,
+        createdAt: true,
+        isUsed: true,
       },
     });
 
     return NextResponse.json(
-      { message: "Davet kodu oluşturuldu", invite },
+      {
+        message: "Davet kodu oluşturuldu",
+        invite: {
+          ...invite,
+          inviteCode: rawCode, // ✅ RAW code returned ONLY here, ONCE
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
