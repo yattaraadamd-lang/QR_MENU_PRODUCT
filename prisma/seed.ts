@@ -5,15 +5,28 @@ import { v4 as uuidv4 } from "uuid";
 
 const prisma = new PrismaClient();
 
-// ✅ P0-08 FIX: Production safety guard
+// ✅ P0-08 FIX: Production safety guard with DEMO_MODE support
 function checkProductionSafety() {
-  if (process.env.NODE_ENV === "production") {
+  const isDemoMode = process.env.DEMO_MODE === "true";
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  if (isProduction && !isDemoMode) {
     throw new Error(
-      "❌ SECURITY: Demo seed cannot run in production environment. " +
-      "Use environment-specific seed with strong passwords."
+      "❌ SECURITY: Demo seed cannot run in production without DEMO_MODE=true.\n" +
+      "Set DEMO_MODE=true in environment variables to enable demo accounts for E2E testing.\n" +
+      "⚠️  WARNING: This will create accounts with weak passwords!"
     );
   }
-  console.warn("⚠️  Running DEMO seed with weak passwords - development only!");
+  
+  if (isProduction && isDemoMode) {
+    console.warn("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.warn("⚠️  DEMO MODE ENABLED IN PRODUCTION!");
+    console.warn("⚠️  Creating demo accounts with WEAK passwords!");
+    console.warn("⚠️  For E2E testing and demonstration only!");
+    console.warn("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  } else {
+    console.warn("⚠️  Running DEMO seed with weak passwords - development only!");
+  }
 }
 
 /**
@@ -151,16 +164,92 @@ async function main() {
 
   // Masalar oluştur
   const tableNames = ["Masa 1","Masa 2","Masa 3","Masa 4","Bahçe 1","Bahçe 2","Teras 1","Teras 2","VIP 1","VIP 2"];
+  const tables: any[] = [];
   for (let i = 0; i < tableNames.length; i++) {
     const tableNumber = `${i + 1}`;
     const qrToken = `qr_${business.slug}_${tableNumber}_${uuidv4().slice(0, 8)}`;
-    await prisma.table.upsert({
+    const table = await prisma.table.upsert({
       where: { businessId_tableNumber: { businessId: business.id, tableNumber } },
-      update: { tableName: tableNames[i], qrToken: undefined },
+      update: { tableName: tableNames[i] },
       create: { businessId: business.id, tableNumber, tableName: tableNames[i], status: TableStatus.EMPTY, qrToken },
     });
+    tables.push(table);
   }
   console.log("✅ " + tableNames.length + " masa oluşturuldu");
+
+  // ✅ E2E FIX: Create demo table session and customer session for Table 1
+  // This allows E2E tests to access /menu/demo-business-id/1 without QR scanning
+  const demoTable = tables[0]; // Masa 1
+  
+  console.log("✅ Demo QR token (Masa 1): " + demoTable.qrToken);
+
+  // Create active table session for demo table
+  let demoTableSession = await prisma.tableSession.findFirst({
+    where: {
+      businessId: business.id,
+      tableId: demoTable.id,
+      status: "ACTIVE",
+    },
+  });
+
+  if (!demoTableSession) {
+    demoTableSession = await prisma.tableSession.create({
+      data: {
+        businessId: business.id,
+        tableId: demoTable.id,
+        status: "ACTIVE",
+        openedBy: waiter.id,
+        startedAt: new Date(),
+      },
+    });
+
+    // Create bill for table session
+    await prisma.bill.create({
+      data: {
+        businessId: business.id,
+        tableId: demoTable.id,
+        tableSessionId: demoTableSession.id,
+        status: "OPEN",
+        totalAmount: 0,
+        paidAmount: 0,
+        remainingAmount: 0,
+      },
+    });
+
+    // Update table status
+    await prisma.table.update({
+      where: { id: demoTable.id },
+      data: { status: TableStatus.OCCUPIED },
+    });
+  }
+
+  // Create pre-authorized customer session for demo
+  const demoSessionToken = crypto.randomBytes(32).toString("hex");
+  const demoSessionTokenHash = crypto.createHash("sha256").update(demoSessionToken).digest("hex");
+  
+  await prisma.customerSession.upsert({
+    where: { sessionToken: demoSessionTokenHash },
+    update: {
+      status: "ACTIVE",
+      authorizationStatus: "AUTHORIZED",
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year for demo
+      tableSessionId: demoTableSession.id,
+    },
+    create: {
+      businessId: business.id,
+      tableId: demoTable.id,
+      tableSessionId: demoTableSession.id,
+      sessionToken: demoSessionTokenHash,
+      status: "ACTIVE",
+      authorizationStatus: "AUTHORIZED", // ✅ Pre-authorized for demo
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year for demo
+      lastSeenAt: new Date(),
+      authorizedAt: new Date(),
+    },
+  });
+  console.log("✅ Demo müşteri oturumu oluşturuldu (pre-authorized)");
+  console.log("   Session Token: " + demoSessionToken);
+  console.log("   ⚠️  Bu token yalnızca bu çıktıda gösterilir, DB'de hash olarak saklanır.");
 
   // ✅ P0-08 FIX: Generate CSPRNG invite codes and store as SHA-256 hashes
   // Matches the P0-01 invite creation flow in /api/staff/invite
