@@ -39,6 +39,7 @@ model Business {
   customerAccessBlocks  CustomerAccessBlock[]
   bills                 Bill[]
   customerSessions      CustomerSession[]
+  productModifiers      ProductModifier[]
 
   @@map("businesses")
 }
@@ -108,9 +109,10 @@ model Product {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  business   Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  orderItems OrderItem[]
+  business              Business                    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category              Category?                   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems            OrderItem[]
+  modifierAssignments   ProductModifierAssignment[]
 
   @@index([businessId, createdAt])
   @@index([businessId, isDeleted, isAvailable])
@@ -608,5 +610,37 @@ model AuditLog {
   @@index([actorUserId, createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+// ─── Ürün Özelleştirme / Modifier ────────────────────────────────────────────
+model ProductModifier {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  extraPrice Decimal  @default(0) @db.Decimal(10, 2)
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business                    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products ProductModifierAssignment[]
+
+  @@index([businessId, isActive])
+  @@map("product_modifiers")
+}
+
+// ─── Many-to-Many: Ürün ↔ Modifier ──────────────────────────────────────────
+model ProductModifierAssignment {
+  id         String   @id @default(cuid())
+  productId  String
+  modifierId String
+  createdAt  DateTime @default(now())
+
+  product  Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modifier ProductModifier @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, modifierId])
+  @@map("product_modifier_assignments")
 }
 

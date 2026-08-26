@@ -17,6 +17,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:super-admin": "tsx prisma/seed-super-admin.ts",
+    "db:seed:mesela-coffe": "tsx prisma/seed-mesela-coffe.ts",
     "db:studio": "prisma studio",
     "db:cleanup": "tsx scripts/cleanup-after-fix.ts",
     "postinstall": "prisma generate"
