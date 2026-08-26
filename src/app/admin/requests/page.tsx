@@ -71,14 +71,22 @@ export default function AdminRequestsPage() {
   // ✅ Atomik Masa Açma — tek endpoint çağrısı (sadece ORDER_REQUEST için)
   const openTable = async (req: any) => {
     if (!session?.user.businessId || !req.tableId) return;
+    
+    // ✅ Admin/Garson için doğrulama kodu gerekli değil
+    // Zaten yetkili personel onaylıyor
+    
     setOpeningTable(req.id);
     try {
       const res = await fetch(`/api/waiter/service-requests/${req.id}/open-table`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          verificationCode: req.verificationCode, // ✅ Doğrulama kodunu otomatik gönder
+        }),
       });
       const data = await res.json();
       if (res.ok) {
+        alert("✅ Masa başarıyla açıldı ve müşteri yetkilendirildi!");
         fetchRequests();
       } else {
         alert(data.error || "Masa açma hatası");
@@ -179,7 +187,7 @@ export default function AdminRequestsPage() {
                     <>
                       {req.verificationCode && (
                         <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(245,158,11,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#92400e" }}>Doğrulama Kodu</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#92400e" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
                           <span style={{ fontSize: 20, fontWeight: 900, color: "#d97706", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
                         </div>
                       )}
@@ -195,16 +203,30 @@ export default function AdminRequestsPage() {
                           opacity: openingTable === req.id ? 0.6 : 1,
                         }}
                       >
-                        {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç"}
+                        {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç ve Müşteriyi Yetkilendir"}
+                      </button>
+                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                        ✕ Reddet
                       </button>
                     </>
                   )}
-                  <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
-                    ✓ Tamamla
-                  </button>
-                  <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
-                    ✕ İptal
-                  </button>
+                  {/* ✅ Diğer talep türleri için tamamla/iptal butonları */}
+                  {req.requestType !== "ORDER_REQUEST" && (
+                    <>
+                      <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
+                        ✓ Tamamla
+                      </button>
+                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                        ✕ İptal
+                      </button>
+                    </>
+                  )}
+                  {/* ✅ ORDER_REQUEST IN_PROGRESS/SEEN durumundaysa iptal et */}
+                  {req.requestType === "ORDER_REQUEST" && ["SEEN", "IN_PROGRESS"].includes(req.status) && (
+                    <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444", flex: 1 }}>
+                      ✕ İptal Et
+                    </button>
+                  )}
                 </div>
               )}
             </div>
