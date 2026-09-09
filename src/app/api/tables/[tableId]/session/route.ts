@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { v4 as uuidv4 } from "uuid";
-import { rateLimit, getClientIp, RateLimitPresets, createRateLimitResponse } from "@/lib/rate-limit";
+import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS as RateLimitPresets, createRateLimitResponse } from "@/lib/unified-rate-limit";
 
 // QR kod okutulduğunda masa oturumu oluştur
 export async function POST(

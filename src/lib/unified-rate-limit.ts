@@ -147,3 +147,60 @@ export function getClientIp(request: Request): string {
   }
   return "127.0.0.1";
 }
+
+/** Legacy alias for backward compatibility */
+export const RATE_LIMITS = UNIFIED_RATE_LIMITS;
+
+/**
+ * Async rate limiter — legacy compat wrapper.
+ *
+ * All callers MUST `await` this function and check `result.success`.
+ *
+ * @returns { success, limit, remaining, reset }
+ */
+export async function rateLimit(
+  config: RateLimitConfig
+): Promise<{ success: boolean; limit: number; remaining: number; reset: number }> {
+  const identifier = config.identifier || "global";
+  try {
+    const result: RateLimitResult = await checkRateLimit(identifier, config);
+    return {
+      success: result.allowed,
+      limit: result.limit,
+      remaining: result.remaining,
+      reset: result.resetAt,
+    };
+  } catch (error) {
+    // FAIL-CLOSED: reject the request rather than silently allowing it
+    console.error("[RateLimit] Unexpected error — failing closed:", error);
+    return {
+      success: false,
+      limit: config.maxRequests,
+      remaining: 0,
+      reset: Date.now() + config.windowMs,
+    };
+  }
+}
+
+/**
+ * Creates a standardized 429 response with retry-after header.
+ */
+export function createRateLimitResponse(result: { reset?: number }) {
+  const retryAfter = result.reset
+    ? Math.max(1, Math.ceil((result.reset - Date.now()) / 1000))
+    : 60;
+
+  return new Response(
+    JSON.stringify({
+      error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin.",
+      retryAfterSeconds: retryAfter,
+    }),
+    {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": String(retryAfter),
+      },
+    }
+  );
+}

@@ -497,6 +497,12 @@ export interface AdminPaymentInput {
 
 /**
  * Masayı kapatır — tüm ilişkili kayıtları tek transaction ile kapatır.
+ *
+ * Güvenlik kuralları (forceClose=false):
+ *   1. Tüm siparişler COMPLETED, CANCELLED veya REJECTED olmalıdır.
+ *   2. Kalan bakiye 0 ₺ olmalıdır (Decimal hassasiyetle hesaplanır).
+ *
+ * forceClose=true durumunda aktif siparişler otomatik iptal edilir.
  */
 export async function closeTable(
   tableSessionId: string,
@@ -514,26 +520,74 @@ export async function closeTable(
     });
     if (!tableSession) throw new Error("Aktif oturum bulunamadı");
 
-    // Aktif sipariş kontrolü
-    const activeOrders = await tx.order.count({
+    // ✅ Tamamlanmamış sipariş kontrolü (PENDING, ACCEPTED, PREPARING, SERVED dahil)
+    const unfinishedOrders = await tx.order.findMany({
       where: {
         tableSessionId: tableSession.id,
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
+        status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
       },
+      select: { id: true, status: true },
     });
 
-    if (activeOrders > 0 && !forceClose) {
+    if (unfinishedOrders.length > 0 && !forceClose) {
+      const statusCounts: Record<string, number> = {};
+      unfinishedOrders.forEach((o) => {
+        statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
+      });
+      const summary = Object.entries(statusCounts)
+        .map(([s, c]) => `${c} ${s}`)
+        .join(", ");
       throw new Error(
-        `Masada ${activeOrders} aktif sipariş var. Zorla kapatmak için forceClose kullanın.`
+        `Masada tamamlanmamış siparişler var (${summary}). Tüm siparişler tamamlanmalı veya iptal edilmelidir. Zorla kapatmak için forceClose kullanın.`
       );
     }
 
-    // Ödenmemiş hesap kontrolü
+    // ✅ forceClose: Tamamlanmamış siparişleri otomatik iptal et
+    if (unfinishedOrders.length > 0 && forceClose) {
+      await tx.order.updateMany({
+        where: {
+          tableSessionId: tableSession.id,
+          status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
+        },
+        data: {
+          status: "CANCELLED",
+          paymentStatus: "CANCELLED",
+          cancelReason: closeReason || "Masa kapatıldığı için otomatik iptal edildi",
+          cancelledAt: new Date(),
+          cancelledById: closedById,
+        },
+      });
+    }
+
+    // ✅ Ödenmemiş hesap kontrolü — Decimal ile server-side yeniden hesapla
     const bill = tableSession.bill;
-    if (bill && Number(bill.remainingAmount) > 0 && !forceClose) {
-      throw new Error(
-        `Bu masa kapatılamaz. Ödenmemiş hesap var: ${Number(bill.remainingAmount).toFixed(2)} ₺`
+    if (bill) {
+      const orders = await tx.order.findMany({
+        where: {
+          tableSessionId: tableSession.id,
+          status: { notIn: ["CANCELLED", "REJECTED"] },
+        },
+        select: { totalPrice: true },
+      });
+      const serverTotal = orders.reduce(
+        (sum, o) => sum.add(new Decimal(o.totalPrice.toString())),
+        new Decimal(0)
       );
+      const paidPayments = await tx.payment.findMany({
+        where: { billId: bill.id, status: "PAID" },
+        select: { amount: true },
+      });
+      const paidTotal = paidPayments.reduce(
+        (sum, p) => sum.add(new Decimal(p.amount.toString())),
+        new Decimal(0)
+      );
+      const remaining = Decimal.max(new Decimal(0), serverTotal.sub(paidTotal));
+
+      if (remaining.greaterThan(new Decimal(0)) && !forceClose) {
+        throw new Error(
+          `Bu masa kapatılamaz. Ödenmemiş hesap var: ${remaining.toFixed(2)} ₺`
+        );
+      }
     }
 
     // 1. Session kapat
@@ -549,13 +603,38 @@ export async function closeTable(
 
     // 2. Bill kapat
     if (bill) {
+      // Server-side hesaplanan kalan borcu kullan
+      const orders = await tx.order.findMany({
+        where: {
+          tableSessionId: tableSession.id,
+          status: { notIn: ["CANCELLED", "REJECTED"] },
+        },
+        select: { totalPrice: true },
+      });
+      const serverTotal = orders.reduce(
+        (sum, o) => sum.add(new Decimal(o.totalPrice.toString())),
+        new Decimal(0)
+      );
+      const paidPayments = await tx.payment.findMany({
+        where: { billId: bill.id, status: "PAID" },
+        select: { amount: true },
+      });
+      const paidTotal = paidPayments.reduce(
+        (sum, p) => sum.add(new Decimal(p.amount.toString())),
+        new Decimal(0)
+      );
+      const remaining = Decimal.max(new Decimal(0), serverTotal.sub(paidTotal));
+
       await tx.bill.update({
         where: { id: bill.id },
         data: {
           status: "CLOSED",
           closedAt: new Date(),
+          totalAmount: serverTotal,
+          paidAmount: paidTotal,
+          remainingAmount: remaining,
           paymentStatus:
-            Number(bill.remainingAmount) <= 0
+            remaining.isZero()
               ? "PAID"
               : forceClose
                 ? "CANCELLED"
@@ -603,7 +682,7 @@ export async function closeTable(
     await tx.payment.updateMany({
       where: {
         tableSessionId: tableSession.id,
-        status: "PENDING",
+        status: { in: ["PENDING", "AWAITING_ADMIN_APPROVAL", "PROCESSING"] },
       },
       data: { status: "CANCELLED" },
     });
@@ -611,6 +690,7 @@ export async function closeTable(
     return { success: true };
   });
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 7b. SİPARİŞ İPTALİ SONRASI MASA DURUMUNU HESAPLA (tableSessionId bazlı)

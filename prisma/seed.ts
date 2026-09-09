@@ -198,7 +198,6 @@ async function main() {
         businessId: business.id,
         tableId: demoTable.id,
         status: "ACTIVE",
-        openedBy: waiter.id,
         startedAt: new Date(),
       },
     });

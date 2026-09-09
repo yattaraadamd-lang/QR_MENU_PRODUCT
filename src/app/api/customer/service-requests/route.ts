@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { validateViewSession, validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
-import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 

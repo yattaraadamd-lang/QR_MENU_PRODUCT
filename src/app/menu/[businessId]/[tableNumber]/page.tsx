@@ -52,6 +52,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   const [activeRequests, setActiveRequests] = useState<Record<string, boolean>>({});
   const [requestDetails, setRequestDetails] = useState<Record<string, any>>({});
 
+  // ✅ FAZ 4: Canlı adisyon barı — onaylanmış siparişlerin toplamı
+  const [liveBillTotal, setLiveBillTotal] = useState<number | null>(null);
+  const [liveBillPaid, setLiveBillPaid] = useState<number>(0);
+
+  // ✅ FAZ 4: Hizmet talebi durum rozeti
+  const [requestStatuses, setRequestStatuses] = useState<Record<string, string>>({});
+
   // ✅ Yetki durumu yönetimi
   const [authStatus, setAuthStatus] = useState<AuthStatus>("VIEW_ONLY");
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
@@ -380,6 +387,38 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     if (table?.id && business?.id) {
       checkActiveRequests();
       const iv = setInterval(checkActiveRequests, 5000);
+      return () => clearInterval(iv);
+    }
+  }, [table?.id, business?.id, checkActiveRequests]);
+
+  // ✅ FAZ 4: Canlı adisyon barı — onaylanmış sipariş toplamını periyodik çek
+  const fetchLiveBill = useCallback(async () => {
+    if (!sessionToken || authStatus !== "AUTHORIZED") return;
+    try {
+      const res = await fetch("/api/customer/orders", {
+        headers: { "x-session-token": sessionToken },
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bill) {
+          setLiveBillTotal(Number(data.bill.totalAmount) || 0);
+          setLiveBillPaid(Number(data.bill.paidAmount) || 0);
+        } else if (data.orders) {
+          // Fallback: siparişlerden hesapla
+          const total = (data.orders as any[]).reduce(
+            (sum: number, o: any) => ["CANCELLED", "REJECTED"].includes(o.status) ? sum : sum + Number(o.totalPrice || 0), 0
+          );
+          setLiveBillTotal(total);
+        }
+      }
+    } catch { /* sessiz */ }
+  }, [sessionToken, authStatus]);
+
+  useEffect(() => {
+    if (authStatus === "AUTHORIZED" && sessionToken) {
+      fetchLiveBill();
+      const iv = setInterval(fetchLiveBill, 8000);
       return () => clearInterval(iv);
     }
   }, [table?.id, business?.id, checkActiveRequests]);
@@ -1195,41 +1234,89 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         </div>
       )}
 
-      {/* ── Mobile Bottom Bar ── */}
+      {/* ── Mobile Bottom Bar — Enhanced with Live Bill ── */}
       <div className="lg:hidden" style={{
         position: "fixed", bottom: 0, left: 0, right: 0,
         background: "var(--bg-card)", borderTop: "1px solid var(--border-color)",
-        padding: "10px 12px", paddingBottom: "max(10px, env(safe-area-inset-bottom))",
-        display: "flex", gap: 10, zIndex: 40, boxShadow: "0 -4px 16px rgba(0,0,0,0.05)"
+        paddingBottom: "max(0px, env(safe-area-inset-bottom))",
+        zIndex: 40, boxShadow: "0 -4px 16px rgba(0,0,0,0.08)"
       }}>
-        {authStatus === "AUTHORIZED" && (
-          <button onClick={() => setShowServiceMenu(true)} style={{
-            flex: 1, padding: "12px 8px", borderRadius: 12,
-            border: "1px solid var(--border-color)", background: "var(--bg-hover)",
-            cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)",
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 3
+        {/* ✅ Canlı Adisyon Barı — AUTHORIZED ve aktif hesap varsa */}
+        {authStatus === "AUTHORIZED" && liveBillTotal !== null && liveBillTotal > 0 && (
+          <div style={{
+            padding: "8px 16px",
+            background: "linear-gradient(135deg, rgba(34,197,94,0.08), rgba(16,185,129,0.06))",
+            borderBottom: "1px solid rgba(34,197,94,0.15)",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
-            <span style={{ fontSize: 22 }}>🔔</span>
-            <span style={{ fontSize: 11 }}>Hizmet</span>
-          </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 16 }}>🧾</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>Adisyon</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {liveBillPaid > 0 && (
+                <span style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>
+                  ✓ {liveBillPaid.toFixed(2)} ₺ ödendi
+                </span>
+              )}
+              <span style={{
+                fontSize: 15, fontWeight: 800,
+                color: (liveBillTotal - liveBillPaid) > 0 ? "#ef4444" : "#10b981",
+              }}>
+                {(liveBillTotal - liveBillPaid) > 0
+                  ? `${(liveBillTotal - liveBillPaid).toFixed(2)} ₺`
+                  : "Ödendi ✓"
+                }
+              </span>
+            </div>
+          </div>
         )}
-        <button onClick={() => setShowCartMobile(true)} disabled={cartCount === 0} style={{
-          flex: authStatus === "AUTHORIZED" ? 3 : 4,
-          padding: "12px 16px", borderRadius: 12, border: "none",
-          background: cartCount > 0 ? `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})` : "var(--bg-hover)",
-          color: cartCount > 0 ? "white" : "var(--text-muted)",
-          cursor: cartCount > 0 ? "pointer" : "not-allowed",
-          fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          boxShadow: cartCount > 0 ? `0 4px 16px rgba(185,28,28,0.4)` : "none",
-          transition: "all 0.2s",
-        }}>
-          {cartCount > 0 ? (
-            <>
-              <span style={{ background: "rgba(255,255,255,0.25)", borderRadius: 99, padding: "2px 10px", fontSize: 14, fontWeight: 800 }}>{cartCount}</span>
-              Sepet · {cartTotal.toFixed(2)} ₺
-            </>
-          ) : "🛒 Sepet Boş"}
-        </button>
+        {/* ── Buton Satırı ── */}
+        <div style={{ padding: "10px 12px", display: "flex", gap: 10 }}>
+          {authStatus === "AUTHORIZED" && (
+            <button onClick={() => setShowServiceMenu(true)} style={{
+              flex: 1, padding: "12px 8px", borderRadius: 12,
+              border: "1px solid var(--border-color)", background: "var(--bg-hover)",
+              cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              position: "relative",
+            }}>
+              <span style={{ fontSize: 22 }}>🔔</span>
+              <span style={{ fontSize: 11 }}>Hizmet</span>
+              {/* ✅ Aktif talep sayısı rozeti */}
+              {Object.values(activeRequests).filter(Boolean).length > 0 && (
+                <span style={{
+                  position: "absolute", top: 4, right: 6,
+                  background: "#ef4444", color: "white",
+                  borderRadius: 99, minWidth: 18, height: 18,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 800, padding: "0 4px",
+                  boxShadow: "0 2px 6px rgba(239,68,68,0.4)",
+                  animation: "pulse 2s infinite",
+                }}>
+                  {Object.values(activeRequests).filter(Boolean).length}
+                </span>
+              )}
+            </button>
+          )}
+          <button onClick={() => setShowCartMobile(true)} disabled={cartCount === 0} style={{
+            flex: authStatus === "AUTHORIZED" ? 3 : 4,
+            padding: "12px 16px", borderRadius: 12, border: "none",
+            background: cartCount > 0 ? `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})` : "var(--bg-hover)",
+            color: cartCount > 0 ? "white" : "var(--text-muted)",
+            cursor: cartCount > 0 ? "pointer" : "not-allowed",
+            fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            boxShadow: cartCount > 0 ? `0 4px 16px rgba(185,28,28,0.4)` : "none",
+            transition: "all 0.2s",
+          }}>
+            {cartCount > 0 ? (
+              <>
+                <span style={{ background: "rgba(255,255,255,0.25)", borderRadius: 99, padding: "2px 10px", fontSize: 14, fontWeight: 800 }}>{cartCount}</span>
+                Sepet · {cartTotal.toFixed(2)} ₺
+              </>
+            ) : "🛒 Sepet Boş"}
+          </button>
+        </div>
       </div>
     </div>
   );

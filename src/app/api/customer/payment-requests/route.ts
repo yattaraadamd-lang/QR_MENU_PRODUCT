@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { requestPayment } from "@/lib/services/table-flow.service";
 import { validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
-import { checkRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
 
 export const dynamic = "force-dynamic";
 

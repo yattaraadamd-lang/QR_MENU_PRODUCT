@@ -3,7 +3,24 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Plus, Search, Edit3, Trash2, Circle, Star, Loader2, Package, X } from "lucide-react";
+import { Plus, Search, Edit3, Trash2, Circle, Star, Loader2, Package, X, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 type Product = {
@@ -29,6 +46,117 @@ const emptyForm = {
   isPopular: false, sortOrder: 0,
 };
 
+function SortableProductItem({
+  p,
+  isLast,
+  stockInfo,
+  onToggleStock,
+  onEdit,
+  onDelete,
+}: {
+  p: Product;
+  isLast: boolean;
+  stockInfo: (s: Product["stockStatus"]) => { value: string; label: string; color: string };
+  onToggleStock: (p: Product) => void;
+  onEdit: (p: Product) => void;
+  onDelete: (target: { id: string; name: string }) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: p.id,
+  });
+
+  const si = stockInfo(p.stockStatus);
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.6 : p.isAvailable ? 1 : 0.55,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "14px 18px",
+    borderBottom: isLast ? "none" : "1px solid var(--border-subtle)",
+    background: isDragging ? "var(--surface-hover)" : undefined,
+    position: "relative",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <button
+        {...attributes}
+        {...listeners}
+        type="button"
+        style={{
+          cursor: "grab",
+          background: "none",
+          border: "none",
+          color: "var(--text-muted)",
+          display: "flex",
+          alignItems: "center",
+          padding: 2,
+          touchAction: "none",
+          flexShrink: 0,
+        }}
+        title="Sıralamak için sürükleyin"
+      >
+        <GripVertical size={16} />
+      </button>
+
+      <Circle size={10} fill={si.color} color={si.color} style={{ flexShrink: 0 }} />
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
+          {p.isPopular && <span className="badge badge-warning" style={{ fontSize: 10, gap: 3 }}><Star size={10} /> Popüler</span>}
+          {!p.isAvailable && <span className="badge badge-neutral" style={{ fontSize: 10 }}>Gizli</span>}
+          {p.stockStatus !== "IN_STOCK" && (
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: `${si.color}18`, color: si.color }}>
+              {si.label}
+            </span>
+          )}
+        </div>
+        <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+          {p.category?.name || "Kategorisiz"}
+        </p>
+      </div>
+
+      <span style={{ fontWeight: 700, fontSize: 15, color: "var(--primary-light)", flexShrink: 0 }}>
+        {Number(p.price).toFixed(2)} ₺
+      </span>
+
+      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleStock(p); }}
+          className="btn btn-sm"
+          title={p.stockStatus === "IN_STOCK" ? "Stoktan Çıkar" : "Stoğa Al"}
+          style={{
+            padding: "4px 10px",
+            borderRadius: 99,
+            fontSize: 11,
+            fontWeight: 700,
+            border: "none",
+            background: p.stockStatus === "IN_STOCK" ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)",
+            color: p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            display: "flex", alignItems: "center", gap: 4,
+          }}
+        >
+          <Circle size={8} fill={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} color={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} />
+          {p.stockStatus === "IN_STOCK" ? "Stokta" : "Yok"}
+        </button>
+        <button onClick={() => onEdit(p)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px" }} title="Düzenle">
+          <Edit3 size={14} />
+        </button>
+        <button onClick={() => onDelete({ id: p.id, name: p.name })} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }} title="Sil">
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminProductsPage() {
   const { data: session } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
@@ -43,16 +171,64 @@ export default function AdminProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   useEffect(() => { fetchData(); }, [session]);
 
   const fetchData = async () => {
     try {
       const [pr, cr] = await Promise.all([fetch("/api/admin/products"), fetch("/api/admin/categories")]);
       const pd = await pr.json(); const cd = await cr.json();
-      if (pr.ok) setProducts(pd.products || []);
+      if (pr.ok) {
+        const sorted = (pd.products || []).sort((a: Product, b: Product) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+        setProducts(sorted);
+      }
       if (cr.ok) setCategories(cd.categories || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = products.findIndex((p) => p.id === active.id);
+    const newIndex = products.findIndex((p) => p.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newProducts = arrayMove(products, oldIndex, newIndex).map((p, idx) => ({
+      ...p,
+      sortOrder: idx,
+    }));
+    setProducts(newProducts);
+
+    try {
+      const res = await fetch("/api/admin/products/reorder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: newProducts.map((p) => ({ id: p.id, sortOrder: p.sortOrder })),
+        }),
+      });
+      if (res.ok) {
+        toast.success("Ürün sıralaması güncellendi");
+      } else {
+        toast.error("Sıralama kaydedilemedi");
+        fetchData();
+      }
+    } catch {
+      toast.error("Bağlantı hatası");
+      fetchData();
+    }
   };
 
   const handleSubmit = async () => {
@@ -148,7 +324,9 @@ export default function AdminProductsPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Ürün Yönetimi</h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>{products.length} ürün</p>
+          <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>
+            {products.length} ürün • Sürükle-bırak ile sıralayabilir, hızlı butonla stok durumunu yönetebilirsiniz
+          </p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(true); }} className="btn btn-primary" style={{ gap: 6 }}>
           <Plus size={16} /> Yeni Ürün
@@ -257,56 +435,23 @@ export default function AdminProductsPage() {
           {!search && <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ marginTop: 16, gap: 6 }}><Plus size={14} /> İlk Ürünü Ekle</button>}
         </div>
       ) : (
-        <div className="card" style={{ overflow: "hidden" }}>
-          {filtered.map((p, idx) => {
-            const si = stockInfo(p.stockStatus);
-            return (
-              <div key={p.id} style={{
-                display: "flex", alignItems: "center", gap: 14,
-                padding: "14px 18px",
-                borderBottom: idx < filtered.length - 1 ? "1px solid var(--border-subtle)" : "none",
-                opacity: p.isAvailable ? 1 : 0.55,
-                transition: "background 0.15s",
-              }}>
-                <Circle size={10} fill={si.color} color={si.color} style={{ flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
-                    {p.isPopular && <span className="badge badge-warning" style={{ fontSize: 10, gap: 3 }}><Star size={10} /> Popüler</span>}
-                    {!p.isAvailable && <span className="badge badge-neutral" style={{ fontSize: 10 }}>Gizli</span>}
-                    {p.stockStatus !== "IN_STOCK" && (
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: `${si.color}18`, color: si.color }}>
-                        {si.label}
-                      </span>
-                    )}
-                  </div>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-                    {p.category?.name || "Kategorisiz"}
-                  </p>
-                </div>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "var(--primary-light)", flexShrink: 0 }}>
-                  {Number(p.price).toFixed(2)} ₺
-                </span>
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <button
-                    onClick={() => toggleStock(p)}
-                    className="btn btn-sm btn-ghost"
-                    title={p.stockStatus === "IN_STOCK" ? "Stoktan Çıkar" : "Stoğa Al"}
-                    style={{ padding: "5px 8px" }}
-                  >
-                    <Circle size={14} fill={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} color={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} />
-                  </button>
-                  <button onClick={() => startEdit(p)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px" }}>
-                    <Edit3 size={14} />
-                  </button>
-                  <button onClick={() => setDeleteTarget({ id: p.id, name: p.name })} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }}>
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={filtered.map(p => p.id)} strategy={verticalListSortingStrategy}>
+            <div className="card" style={{ overflow: "hidden" }}>
+              {filtered.map((p, idx) => (
+                <SortableProductItem
+                  key={p.id}
+                  p={p}
+                  isLast={idx === filtered.length - 1}
+                  stockInfo={stockInfo}
+                  onToggleStock={toggleStock}
+                  onEdit={startEdit}
+                  onDelete={setDeleteTarget}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );

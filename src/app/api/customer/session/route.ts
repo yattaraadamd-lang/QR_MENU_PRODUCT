@@ -216,8 +216,7 @@ export async function POST(request: NextRequest) {
                 businessId: "demo-business-id",
                 tableId: table.id,
                 status: "ACTIVE",
-                openedBy: demoWaiter.id,
-                openedAt: new Date(),
+                startedAt: new Date(),
               },
             });
 
@@ -372,9 +371,14 @@ export async function POST(request: NextRequest) {
     console.error("Oturum oluşturma hatası:", {
       // ❌ DO NOT log tokens or device keys
       code: (error as any)?.code,
+      message: (error as any)?.message,
+      name: (error as any)?.name,
     });
     return addSecurityHeaders(
-      NextResponse.json({ error: "Oturum oluşturulurken bir hata oluştu" }, { status: 500 })
+      NextResponse.json({ 
+        error: "Oturum oluşturulurken bir hata oluştu",
+        details: process.env.NODE_ENV === "development" ? (error as any)?.message : undefined
+      }, { status: 500 })
     );
   }
 }

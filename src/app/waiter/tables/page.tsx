@@ -262,6 +262,20 @@ export default function WaiterTablesPage() {
                 </div>
                 <p style={{ fontSize: 11, color: sm.color, fontWeight: 600, marginBottom: 6 }}>{sm.label}</p>
 
+                {/* ✅ FAZ 4: Masa doluluk süresi */}
+                {table.activeSession && table.status !== "EMPTY" && (
+                  <p style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 4 }}>
+                    ⏱ {(() => {
+                      const start = new Date(table.activeSession.startedAt || table.activeSession.createdAt).getTime();
+                      const diff = Math.floor((Date.now() - start) / 60000);
+                      if (diff < 60) return `${diff} dk`;
+                      const h = Math.floor(diff / 60);
+                      const m = diff % 60;
+                      return `${h} sa ${m} dk`;
+                    })()}
+                  </p>
+                )}
+
                 {bill && table.status !== "EMPTY" && (
                   <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -286,6 +300,8 @@ export default function WaiterTablesPage() {
                 {table.serviceRequests?.length > 0 && (
                   <div style={{ marginTop: 6, fontSize: 10, color: "#fca5a5", fontWeight: 600 }}>
                     🔔 {table.serviceRequests.length} talep
+                    {table.serviceRequests.some((r: any) => r.requestType === "CALL_WAITER") && " · 🙋 Garson"}
+                    {table.serviceRequests.some((r: any) => r.requestType === "PAYMENT_REQUEST") && " · 💳 Ödeme"}
                   </div>
                 )}
 

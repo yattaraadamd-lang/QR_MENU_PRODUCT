@@ -52,6 +52,7 @@ export type CancelOrderResult = {
   order: any;
   tableStatus: TableStatus;
   stockUpdatedProductIds: string[];
+  stockRestoredProductIds: string[];
   billUpdated: boolean;
 };
 
@@ -280,6 +281,65 @@ export async function cancelOrderAndSyncState(
         });
       }
 
+      // ── 4b. Stok geri iade — iptal OUT_OF_STOCK değilse ürünleri IN_STOCK'a çevir ──
+      let stockRestoredIds: string[] = [];
+
+      if (reasonCode !== "OUT_OF_STOCK") {
+        // Siparişin ürün ID'lerini al
+        const orderProductIds = [...new Set(order.items.map((item: any) => item.productId))];
+
+        if (orderProductIds.length > 0) {
+          // Bu ürünlerden şu an OUT_OF_STOCK olanları bul
+          const outOfStockProducts = await tx.product.findMany({
+            where: {
+              id: { in: orderProductIds },
+              businessId,
+              isDeleted: false,
+              stockStatus: "OUT_OF_STOCK",
+            },
+            select: { id: true },
+          });
+
+          if (outOfStockProducts.length > 0) {
+            const candidateIds = outOfStockProducts.map((p) => p.id);
+
+            // Bu ürünleri kullanan başka aktif siparişler var mı kontrol et
+            // Eğer başka aktif sipariş varsa stoku geri açma
+            const idsToRestore: string[] = [];
+            for (const pid of candidateIds) {
+              const otherActiveOrders = await tx.order.count({
+                where: {
+                  id: { not: orderId },
+                  businessId,
+                  status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
+                  items: { some: { productId: pid } },
+                },
+              });
+              // Başka aktif sipariş yoksa geri aç
+              if (otherActiveOrders === 0) {
+                idsToRestore.push(pid);
+              }
+            }
+
+            if (idsToRestore.length > 0) {
+              await tx.product.updateMany({
+                where: {
+                  id: { in: idsToRestore },
+                  businessId,
+                  isDeleted: false,
+                  stockStatus: "OUT_OF_STOCK",
+                },
+                data: {
+                  stockStatus: "IN_STOCK",
+                  isAvailable: true,
+                },
+              });
+              stockRestoredIds = idsToRestore;
+            }
+          }
+        }
+      }
+
       // ── 5. Bill'i yeniden hesapla ────────────────────────────────────
       let billUpdated = false;
       const tableSessionId = order.tableSessionId;
@@ -414,6 +474,7 @@ export async function cancelOrderAndSyncState(
         order: updatedOrder,
         tableStatus: newTableStatus,
         stockUpdatedProductIds: stockUpdatedIds,
+        stockRestoredProductIds: stockRestoredIds,
         billUpdated,
       };
     },
@@ -456,7 +517,7 @@ export async function cancelOrderAndSyncState(
       }
     }
 
-    // Stok güncellemesi
+    // Stok güncellemesi (OUT_OF_STOCK yapıldı)
     if (updatedPids.length > 0) {
       emitToBusinessRoom(businessId, SOCKET_EVENTS.PRODUCT_STOCK_UPDATED, {
         businessId,
@@ -464,6 +525,18 @@ export async function cancelOrderAndSyncState(
         stockStatus: "OUT_OF_STOCK",
         isAvailable: false,
         sourceOrderId: orderId,
+      });
+    }
+
+    // Stok geri iade (IN_STOCK'a çevrildi)
+    if (result.stockRestoredProductIds.length > 0) {
+      emitToBusinessRoom(businessId, SOCKET_EVENTS.PRODUCT_STOCK_UPDATED, {
+        businessId,
+        productIds: result.stockRestoredProductIds,
+        stockStatus: "IN_STOCK",
+        isAvailable: true,
+        sourceOrderId: orderId,
+        restored: true,
       });
     }
 

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 
-import { checkRateLimit } from "@/lib/security/rate-limit";
+import { checkRateLimit } from "@/lib/unified-rate-limit";
 
 /**
  * POST /api/waiter/service-requests/[id]/open-table
