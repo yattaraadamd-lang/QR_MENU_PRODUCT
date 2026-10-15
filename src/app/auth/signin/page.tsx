@@ -206,6 +206,15 @@ function SignInForm() {
 
           <div style={{ textAlign: "center", marginTop: 20 }}>
             <p style={{ fontSize: 13, color: "#64748B" }}>
+              İşletmeniz için hesap mı açacaksınız?{" "}
+              <Link
+                href="/auth/signup"
+                style={{ color: "#D97706", fontWeight: 600, textDecoration: "none" }}
+              >
+                Ücretsiz Deneyin
+              </Link>
+            </p>
+            <p style={{ fontSize: 13, color: "#64748B", marginTop: 8 }}>
               Garson hesabınız yok mu?{" "}
               <Link
                 href="/auth/register"

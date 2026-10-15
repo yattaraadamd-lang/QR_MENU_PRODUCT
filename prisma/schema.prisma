@@ -546,8 +546,13 @@ enum PaymentMethod {
 // ─── Abonelik ───────────────────────────────────────────────────────────────
 model SubscriptionPlan {
   id              String   @id @default(cuid())
+  code            String?  @unique // "starter", "pro", "business" — kayıt/abonelik sayfası bununla seçer
   name            String
+  description     String?
   monthlyPrice    Decimal  @db.Decimal(10, 2)
+  trialDays       Int      @default(14)
+  sortOrder       Int      @default(0)
+  iyzicoPricingPlanRef String? @unique // iyzico abonelik ödeme planı referansı
   maxTables       Int?
   maxWaiters      Int?
   maxProducts     Int?
@@ -571,12 +576,15 @@ model BusinessSubscription {
   startedAt   DateTime
   endsAt      DateTime?
   trialEndsAt DateTime?
+  iyzicoSubscriptionRef String? @unique
+  iyzicoCustomerRef     String?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
   business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
   plan     SubscriptionPlan @relation(fields: [planId], references: [id])
 
+  @@index([businessId, status])
   @@map("business_subscriptions")
 }
 

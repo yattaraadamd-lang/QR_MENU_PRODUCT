@@ -29,13 +29,22 @@ export async function checkPlanQuota(
     const subscription = await prisma.businessSubscription.findFirst({
       where: {
         businessId,
-        status: { in: ["ACTIVE", "TRIAL"] },
+        status: { in: ["ACTIVE", "TRIAL", "PAST_DUE"] },
       },
       include: {
         plan: true,
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // Ödemesi gecikmiş abonelik varsayılan limitlere düşmez
+    if (subscription?.status === "PAST_DUE") {
+      return {
+        allowed: false,
+        status: "PAST_DUE",
+        error: "Abonelik ödemeniz alınamadı. Yeni ekleme yapabilmek için lütfen ödemenizi güncelleyin.",
+      };
+    }
 
     // If no explicit subscription found, allow a generous default or fallback (grace period for development/demo)
     if (!subscription || !subscription.plan) {
@@ -122,6 +131,54 @@ export async function checkPlanQuota(
     // On unexpected error, fail open to avoid blocking legitimate operations, but log
     return { allowed: true };
   }
+}
+
+/**
+ * Admin abonelik sayfası için: güncel abonelik, geçerlilik ve kaynak kullanımı.
+ */
+export async function getUsageSummary(businessId: string) {
+  const subscription = await prisma.businessSubscription.findFirst({
+    where: { businessId, status: { in: ["TRIAL", "ACTIVE", "PAST_DUE"] } },
+    include: { plan: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const now = new Date();
+  const isValid =
+    !!subscription &&
+    subscription.status !== "PAST_DUE" &&
+    !(subscription.status === "TRIAL" && subscription.trialEndsAt && subscription.trialEndsAt < now) &&
+    !(subscription.status === "ACTIVE" && subscription.endsAt && subscription.endsAt < now);
+
+  const [tables, waiters, products] = await Promise.all([
+    getCurrentCount(businessId, "TABLE"),
+    getCurrentCount(businessId, "WAITER"),
+    getCurrentCount(businessId, "PRODUCT"),
+  ]);
+  const plan = subscription?.plan;
+
+  return {
+    subscription: subscription
+      ? {
+          id: subscription.id,
+          status: subscription.status,
+          trialEndsAt: subscription.trialEndsAt,
+          endsAt: subscription.endsAt,
+          isValid,
+          plan: plan && {
+            id: plan.id,
+            code: plan.code,
+            name: plan.name,
+            monthlyPrice: Number(plan.monthlyPrice),
+          },
+        }
+      : null,
+    usage: {
+      tables: { current: tables, limit: plan?.maxTables ?? null },
+      waiters: { current: waiters, limit: plan?.maxWaiters ?? null },
+      products: { current: products, limit: plan?.maxProducts ?? null },
+    },
+  };
 }
 
 /**

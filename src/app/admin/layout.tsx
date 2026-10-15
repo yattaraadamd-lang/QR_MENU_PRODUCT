@@ -23,6 +23,7 @@ import {
   QrCode,
   Menu,
   Store,
+  Gem,
 } from "lucide-react";
 
 const adminMenuItems = [
@@ -36,7 +37,8 @@ const adminMenuItems = [
   { href: "/admin/tables",           label: "Masalar & QR",      icon: <Table2 size={18} />,          group: "venue" },
   { href: "/admin/staff",            label: "Personel",          icon: <Users size={18} />,           group: "venue" },
   { href: "/admin/blocked-devices",  label: "Engelli Cihazlar",  icon: <Ban size={18} />,             group: "system" },
-  { href: "/admin/settings",         label: "Ayarlar",           icon: <Settings size={18} />,        group: "system" },
+  { href: "/admin/subscription",     label: "Abonelik",          icon: <Gem size={18} />,             group: "system" },
+  { href: "/admin/settings",         label: "Ayarlar",          icon: <Settings size={18} />,        group: "system" },
 ];
 
 const groups: Record<string, string> = {
