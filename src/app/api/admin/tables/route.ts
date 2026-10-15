@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
+import { checkPlanLimit } from "@/lib/subscription";
 import { validateBody, createTableSchema } from "@/lib/validation";
 import { v4 as uuidv4 } from "uuid";
 
@@ -90,6 +91,10 @@ export async function POST(request: NextRequest) {
     if (!authResult.success) return authResult.response;
 
     const businessId = getBusinessIdFromSession(authResult.session);
+
+    // ✅ Plan limiti
+    const limitError = await checkPlanLimit(businessId, "tables");
+    if (limitError) return limitError;
     const body = await request.json();
 
     // Validation

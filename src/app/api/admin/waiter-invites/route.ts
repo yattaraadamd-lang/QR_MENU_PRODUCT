@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { checkPlanLimit } from "@/lib/subscription";
 import { v4 as uuidv4 } from "uuid";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
     if (error) return response!;
 
     const businessId = getBusinessId(session);
+
+    // ✅ Plan limiti
+    const limitError = await checkPlanLimit(businessId, "waiters");
+    if (limitError) return limitError;
     const body = await request.json();
 
     // Özel kod veya otomatik oluştur

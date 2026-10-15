@@ -25,8 +25,9 @@ export async function GET(request: NextRequest) {
           },
         },
         businessSubscriptions: {
-          where: { status: "ACTIVE" },
+          where: { status: { in: ["TRIAL", "ACTIVE", "PAST_DUE"] } },
           include: { plan: true },
+          orderBy: { createdAt: "desc" },
           take: 1
         }
       },

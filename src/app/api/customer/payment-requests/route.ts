@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus, TableStatus, PaymentStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { getDistanceFromLatLonInMeters } from "@/lib/location-helpers";
 
 export const dynamic = "force-dynamic";
 
+// POST /api/customer/payment-requests
+// ✅ Konum kontrolü tamamen kaldırıldı
+// ✅ Güvenlik: CustomerSession (ACTIVE) kontrolü korunuyor
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, note, customerLat, customerLng } = body;
+    const { businessId, tableId, note } = body;
 
     if (!businessId || !tableId) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
@@ -22,16 +24,14 @@ export async function POST(request: NextRequest) {
     }
 
     const customerSession = await prisma.customerSession.findFirst({
-      where: {
-        sessionToken,
-        tableId,
-        businessId,
-        status: "ACTIVE",
-      },
+      where: { sessionToken, tableId, businessId, status: "ACTIVE" },
     });
 
     if (!customerSession) {
-      return NextResponse.json({ error: "Geçersiz oturum veya masa bulunamadı." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Bu masa oturumu kapatılmış veya geçersiz. Lütfen QR kodu tekrar okutun." },
+        { status: 401 }
+      );
     }
 
     if (new Date() > customerSession.expiresAt) {
@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Oturum süresi doldu." }, { status: 401 });
     }
 
-    // ✅ Masa kontrolü — Table.qrToken'a dokunulmuyor
     const table = await prisma.table.findFirst({
       where: { id: tableId, businessId, isActive: true, isDeleted: false },
       include: { business: true },
@@ -52,47 +51,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Masa bulunamadı veya aktif değil." }, { status: 404 });
     }
 
-    const business = table.business;
-
-    // ✅ Konum kontrolü - OPSIYONEL (sadece log, ödeme talebi engellenmez)
-    // Asıl güvenlik: CustomerSession (aktif mi?) + TableSession (masa kapatılmış mı?)
-    if (customerLat && customerLng && business.latitude && business.longitude && business.allowedRadiusMeters) {
-      const distance = getDistanceFromLatLonInMeters(
-        business.latitude,
-        business.longitude,
-        customerLat,
-        customerLng
-      );
-      if (distance > business.allowedRadiusMeters) {
-        console.log(`⚠️ Ödeme talebi restoran dışından gönderildi. Masa: ${table.tableNumber}, Mesafe: ${Math.round(distance)}m`);
-      }
-    }
-
-    // Bekleyen veya hazırlanıp servis edilmiş siparişlerin toplamını bul
+    // Bekleyen veya hazırlanmış siparişlerin toplamını bul
     const uncompletedOrders = await prisma.order.findMany({
       where: {
         tableId,
         businessId,
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING", "SERVED"] },
+        status: { in: ["ACCEPTED", "PREPARING", "SERVED"] },
       },
     });
 
     if (uncompletedOrders.length === 0) {
-      return NextResponse.json({ error: "Ödenecek aktif sipariş bulunmamaktadır." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Ödenecek kabul edilmiş sipariş bulunmamaktadır." },
+        { status: 400 }
+      );
     }
 
-    const totalAmount = uncompletedOrders.reduce((sum, order) => sum + Number(order.totalPrice), 0);
+    const totalAmount = uncompletedOrders.reduce(
+      (sum, order) => sum + Number(order.totalPrice),
+      0
+    );
 
-    // Daha önce bekleyen bir ödeme talebi var mı kontrol et
+    // Daha önce bekleyen bir ödeme talebi var mı?
     const existingPayment = await prisma.payment.findFirst({
       where: { tableId, businessId, status: "PENDING" },
     });
 
     if (existingPayment) {
-      return NextResponse.json({ error: "Zaten bekleyen bir ödeme talebiniz var." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Zaten bekleyen bir ödeme talebiniz var." },
+        { status: 400 }
+      );
     }
 
-    // Payment kaydını oluştur
     const payment = await prisma.payment.create({
       data: {
         businessId,
@@ -103,7 +94,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Ayrıca bir servis talebi oluştur (personel kolay görsün diye)
     const serviceRequest = await prisma.serviceRequest.create({
       data: {
         businessId,
@@ -115,7 +105,6 @@ export async function POST(request: NextRequest) {
     });
 
     // ✅ Masa durumunu güncelle — SADECE masa zaten dolu ise
-    // Masa EMPTY iken ödeme isteği masayı dolu YAPMAZ
     if (table.status !== TableStatus.EMPTY) {
       await prisma.table.update({
         where: { id: tableId },
@@ -137,21 +126,27 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    emitToBusinessRoom(businessId, "payment_request", {
-      requestId: serviceRequest.id,
-      paymentId: payment.id,
-      tableNumber: table.tableNumber,
-      tableName: table.tableName,
-      message,
-      soundType: "payment",
-      amount: totalAmount,
-      createdAt: serviceRequest.createdAt,
-    });
+    try {
+      emitToBusinessRoom(businessId, "payment_request", {
+        requestId: serviceRequest.id,
+        paymentId: payment.id,
+        tableNumber: table.tableNumber,
+        tableName: table.tableName,
+        message,
+        soundType: "payment",
+        amount: totalAmount,
+        createdAt: serviceRequest.createdAt,
+      });
+    } catch (e) {
+      console.log("Socket emit hatası:", e);
+    }
 
-    return NextResponse.json({ message: "Ödeme talebi oluşturuldu", payment }, { status: 201 });
+    return NextResponse.json(
+      { message: "Ödeme talebi oluşturuldu", payment },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Ödeme talebi hatası:", error);
     return NextResponse.json({ error: "Talep oluşturulurken hata oluştu" }, { status: 500 });
   }
 }
-

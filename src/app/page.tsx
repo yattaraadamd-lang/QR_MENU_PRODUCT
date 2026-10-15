@@ -51,7 +51,7 @@ export default function HomePage() {
           <Link href="/auth/signin" className="btn btn-ghost" style={{ border: "none" }}>
             Giriş Yap
           </Link>
-          <Link href="/auth/register" className="btn btn-primary" style={{ borderRadius: 20 }}>
+          <Link href="/auth/signup" className="btn btn-primary" style={{ borderRadius: 20 }}>
             Hemen Başla
           </Link>
         </div>
@@ -150,7 +150,7 @@ export default function HomePage() {
           </p>
 
           <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/auth/register" className="btn btn-primary" style={{
+            <Link href="/auth/signup" className="btn btn-primary" style={{
               padding: "16px 32px",
               fontSize: 18,
               borderRadius: 30,

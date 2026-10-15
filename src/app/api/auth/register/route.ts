@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
+import { checkPlanLimit } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,17 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    if (invite.expiresAt && invite.expiresAt < new Date()) {
+      return NextResponse.json(
+        { error: "Bu davet kodunun süresi dolmuş" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ İşletmenin garson limiti
+    const limitError = await checkPlanLimit(invite.businessId, "waiters");
+    if (limitError) return limitError;
 
     // Şifreyi hashle
     const hashedPassword = await bcrypt.hash(password, 10);

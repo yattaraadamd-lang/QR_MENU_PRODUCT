@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
+import { checkPlanLimit } from "@/lib/subscription";
 import { validateBody, createStaffSchema } from "@/lib/validation";
 import bcrypt from "bcryptjs";
 
@@ -62,6 +63,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { name, email, password, role } = validation.data;
+
+    // ✅ Plan limiti (sadece garsonlar sayılır)
+    if (role === "WAITER") {
+      const limitError = await checkPlanLimit(businessId, "waiters");
+      if (limitError) return limitError;
+    }
 
     // ✅ Check for duplicate email
     const existingUser = await prisma.user.findUnique({

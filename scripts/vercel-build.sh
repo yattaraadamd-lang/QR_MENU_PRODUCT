@@ -1,14 +1,10 @@
 #!/bin/bash
-# Vercel build script - Database setup ve build
+# Vercel build script
+# Not: Veritabanı şeması build sırasında DEĞİŞTİRİLMEZ (db push / seed yok).
+# Şema değişiklikleri ayrı ve bilinçli olarak uygulanmalıdır.
 
 echo "🔧 Prisma Client oluşturuluyor..."
 npx prisma generate
-
-echo "📦 Database schema push ediliyor..."
-npx prisma db push --accept-data-loss --skip-generate
-
-echo "🌱 Seed data ekleniyor..."
-npx tsx prisma/seed.ts || echo "⚠️ Seed zaten çalışmış olabilir"
 
 echo "🏗️ Next.js build başlıyor..."
 next build

@@ -171,6 +171,12 @@ export default function SignInPage() {
 
           <div style={{ textAlign: "center", marginTop: 20 }}>
             <p style={{ fontSize: 13, color: "#7d8590" }}>
+              İşletmeniz için hesap mı açacaksınız?{" "}
+              <Link href="/auth/signup" style={{ color: "#818cf8", fontWeight: 600, textDecoration: "none" }}>
+                Ücretsiz Deneyin
+              </Link>
+            </p>
+            <p style={{ fontSize: 13, color: "#7d8590", marginTop: 8 }}>
               Garson hesabınız yok mu?{" "}
               <Link href="/auth/register" style={{ color: "#818cf8", fontWeight: 600, textDecoration: "none" }}>
                 Kayıt Ol

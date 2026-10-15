@@ -60,7 +60,11 @@ export default function AdminOrdersPage() {
     if (!selectedOrder || !cancelReason.trim()) return;
     setCancellingId(selectedOrder.id);
     try {
-      const res = await fetch(`/api/orders/${selectedOrder.id}?reason=${encodeURIComponent(cancelReason)}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/orders/${selectedOrder.id}/cancel`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelReason }),
+      });
       if (res.ok) { fetchOrders(); setShowCancelModal(false); setCancelReason(""); setSelectedOrder(null); }
       else { const d = await res.json(); alert(d.error || "İptal edilemedi"); }
     } catch { alert("Bağlantı hatası"); }

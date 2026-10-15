@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { getDistanceFromLatLonInMeters } from "@/lib/location-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +17,12 @@ const COOLDOWN_SECONDS: Record<string, number> = {
 };
 
 // POST /api/customer/service-requests
+// ✅ Konum kontrolü tamamen kaldırıldı
+// ✅ Güvenlik: CustomerSession (ACTIVE) kontrolü korunuyor
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, tableId, requestType, note, reason, customerLat, customerLng } = body;
+    const { businessId, tableId, requestType, note, reason } = body;
 
     if (!businessId || !tableId || !requestType) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
@@ -37,17 +38,12 @@ export async function POST(request: NextRequest) {
     }
 
     const customerSession = await prisma.customerSession.findFirst({
-      where: {
-        sessionToken,
-        tableId,
-        businessId,
-        status: "ACTIVE",
-      },
+      where: { sessionToken, tableId, businessId, status: "ACTIVE" },
     });
 
     if (!customerSession) {
       return NextResponse.json(
-        { error: "Bu QR kod artık geçerli değil. Lütfen işletme personelinden yeni QR kod isteyin." },
+        { error: "Bu masa oturumu kapatılmış veya geçersiz. Lütfen QR kodu tekrar okutun." },
         { status: 401 }
       );
     }
@@ -63,40 +59,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Masa kontrolü — silinen masa engellenir
+    // Masa kontrolü
     const table = await prisma.table.findFirst({
-      where: {
-        id: tableId,
-        businessId,
-        isActive: true,
-        isDeleted: false,
-      },
+      where: { id: tableId, businessId, isActive: true, isDeleted: false },
       include: { business: true },
     });
 
     if (!table || !table.business) {
-      return NextResponse.json(
-        { error: "Masa bulunamadı veya aktif değil." },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Masa bulunamadı veya aktif değil." }, { status: 404 });
     }
 
-    const business = table.business;
-
-    // İşletme aktif mi?
-    if (!business.isActive) {
+    if (!table.business.isActive) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
-    }
-
-    // ✅ Konum kontrolü - OPSIYONEL (sadece log, talep engellenmez)
-    // Asıl güvenlik: CustomerSession (aktif mi?) + TableSession (masa kapatılmış mı?)
-    if (customerLat && customerLng && business.latitude && business.longitude && business.allowedRadiusMeters) {
-      const distance = getDistanceFromLatLonInMeters(
-        business.latitude, business.longitude, customerLat, customerLng
-      );
-      if (distance > business.allowedRadiusMeters) {
-        console.log(`⚠️ Hizmet talebi restoran dışından gönderildi. Masa: ${table.tableNumber}, Tip: ${requestType}, Mesafe: ${Math.round(distance)}m`);
-      }
     }
 
     // ✅ Spam engelleme: aktif talep var mı?
@@ -116,7 +90,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Cooldown kontrolü: son X saniye içinde aynı tip talep gönderilmiş mi?
+    // ✅ Cooldown kontrolü
     const cooldownSec = COOLDOWN_SECONDS[requestType] || 60;
     const cooldownTime = new Date(Date.now() - cooldownSec * 1000);
 
@@ -139,10 +113,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Not alanını birleştir: reason + note
     const combinedNote = [reason, note].filter(Boolean).join(" — ") || null;
 
-    // Hizmet talebi oluştur
     const serviceRequest = await prisma.serviceRequest.create({
       data: {
         businessId,
@@ -155,7 +127,7 @@ export async function POST(request: NextRequest) {
     });
 
     // ✅ Masa durumunu güncelle — SADECE masa zaten dolu ise
-    // Masa EMPTY iken garson çağırma/ödeme isteği masayı dolu YAPMAZ
+    // Masa EMPTY iken garson çağırma masayı dolu YAPMAZ
     let tableStatus = table.status;
     if (table.status !== TableStatus.EMPTY) {
       if (requestType === "CALL_WAITER") {
@@ -172,7 +144,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Bildirim türü ve ses belirle
     let notificationType: any = "SERVICE_REQUEST";
     let soundType: any = "DEFAULT";
     let title = "Hizmet Talebi";
@@ -203,19 +174,10 @@ export async function POST(request: NextRequest) {
       message = `${table.tableName || "Masa " + table.tableNumber} temizlik istiyor`;
     }
 
-    // Bildirim oluştur
     await prisma.notification.create({
-      data: {
-        businessId,
-        tableId,
-        type: notificationType,
-        title,
-        message,
-        soundType,
-      },
+      data: { businessId, tableId, type: notificationType, title, message, soundType },
     });
 
-    // Socket.IO bildirimi
     try {
       emitToBusinessRoom(businessId, socketEvent, {
         requestId: serviceRequest.id,
@@ -241,4 +203,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Talep oluşturulurken bir hata oluştu" }, { status: 500 });
   }
 }
-

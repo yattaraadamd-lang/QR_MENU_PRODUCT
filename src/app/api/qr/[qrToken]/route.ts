@@ -39,6 +39,14 @@ export async function GET(
       );
     }
 
+    // Pasif masanın QR'ı admin panelinde görünür; müşteri tarafı kapalıdır
+    if (!table.isActive) {
+      return NextResponse.json(
+        { error: "Bu masa şu anda hizmete kapalı. Lütfen personelden yardım isteyin." },
+        { status: 403 }
+      );
+    }
+
     // ✅ Masa durumu değiştirilmiyor — sadece bilgi döndürülüyor
     return NextResponse.json({
       business: table.business,

@@ -46,12 +46,16 @@ if (error || !session || !session.user?.id) {
       },
     });
 
-    // Masayı EMPTY yap
-    await prisma.table.update({
-      where: { id: payment.tableId },
-      data: { status: TableStatus.EMPTY },
+    // ✅ Aktif masa oturumu varsa masa açık kalır — kapatma işlemi oturumu ve masayı birlikte kapatır
+    const activeSessions = await prisma.tableSession.count({
+      where: { tableId: payment.tableId, businessId, status: "ACTIVE" },
     });
-
+    if (activeSessions === 0) {
+      await prisma.table.update({
+        where: { id: payment.tableId },
+        data: { status: TableStatus.EMPTY },
+      });
+    }
     return NextResponse.json({ success: true, payment: updatedPayment });
   } catch (error) {
     console.error("Ödeme tamamlama hatası:", error);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
+import { checkPlanLimit } from "@/lib/subscription";
 import { validateBody, validateQuery, createProductSchema, updateProductSchema, productFilterSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +84,10 @@ export async function POST(request: NextRequest) {
     if (!authResult.success) return authResult.response;
 
     const businessId = getBusinessIdFromSession(authResult.session);
+
+    // ✅ Plan limiti
+    const limitError = await checkPlanLimit(businessId, "products");
+    if (limitError) return limitError;
     const body = await request.json();
 
     // Validation

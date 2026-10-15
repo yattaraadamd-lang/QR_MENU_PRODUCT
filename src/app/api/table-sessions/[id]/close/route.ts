@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { closeTableSession } from "@/lib/table-session";
 
 export const dynamic = "force-dynamic";
 
@@ -38,53 +39,17 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       }, { status: 403 });
     }
 
-    // Oturumu kapat
-    await prisma.tableSession.update({
-      where: { id: params.id },
-      data: {
-        status: "CLOSED",
-        endedAt: new Date(),
+    // ✅ Oturum + adisyon kapanır, masa EMPTY olur — qrToken SİLİNMEZ (kalıcı QR kimliği)
+    await prisma.$transaction((tx) =>
+      closeTableSession(tx, {
+        businessId,
+        tableSessionId: tableSession.id,
+        tableId: tableSession.tableId,
         closedById: session!.user.id,
         closeReason: forceClose ? (closeReason || "Admin tarafından kapatıldı") : null,
-      },
-    });
-
-    // Adisyonu kapat
-    if (bill) {
-      await prisma.bill.update({
-        where: { id: bill.id },
-        data: {
-          status: "CLOSED",
-          closedAt: new Date(),
-          paymentStatus: Number(bill.remainingAmount) <= 0 ? "PAID" : (forceClose ? "CANCELLED" : "UNPAID"),
-        },
-      });
-    }
-
-    // ✅ Masa durumunu EMPTY yap — qrToken SİLİNMEZ (kalıcı QR kimliği)
-    await prisma.table.update({
-      where: { id: tableSession.tableId },
-      data: { status: "EMPTY" },
-      // ✅ qrToken ve qrTokenExpiresAt dokunulmadı
-    });
-
-    // ✅ Aktif CustomerSession kayıtlarını kapat
-    await prisma.customerSession.updateMany({
-      where: {
-        tableId: tableSession.tableId,
-        businessId,
-        status: "ACTIVE",
-      },
-      data: {
-        status: "CLOSED",
-      },
-    });
-
-    // Aktif hizmet taleplerini tamamla
-    await prisma.serviceRequest.updateMany({
-      where: { tableId: tableSession.tableId, status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] } },
-      data: { status: "COMPLETED", completedAt: new Date() },
-    });
+        forceClose: !!forceClose,
+      })
+    );
 
     return NextResponse.json({ success: true, message: "Masa başarıyla kapatıldı" });
   } catch (e) {

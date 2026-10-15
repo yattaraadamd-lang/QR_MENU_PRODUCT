@@ -15,6 +15,7 @@ const adminMenuItems = [
   { href: "/admin/categories",       label: "Kategoriler",     icon: "📂", group: "menu" },
   { href: "/admin/tables",           label: "Masalar & QR",    icon: "🪑", group: "venue" },
   { href: "/admin/staff",            label: "Personel",        icon: "👥", group: "venue" },
+  { href: "/admin/subscription",     label: "Abonelik",        icon: "⭐", group: "system" },
   { href: "/admin/settings",         label: "Ayarlar",         icon: "⚙️", group: "system" },
 ];
 

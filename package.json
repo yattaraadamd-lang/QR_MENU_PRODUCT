@@ -13,6 +13,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:super-admin": "tsx prisma/seed-super-admin.ts",
+    "db:seed:plans": "tsx prisma/seed-plans.ts",
+    "iyzico:setup-plans": "tsx prisma/iyzico-setup-plans.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

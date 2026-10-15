@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
-import { OrderStatus, TableStatus } from "@prisma/client";
+import { OrderStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { tableStatusAfterOrderRemoved } from "@/lib/table-session";
 
 // PUT /api/admin/orders/[orderId]/cancel - Admin sipariş iptal
 export async function PUT(
@@ -50,21 +51,23 @@ export async function PUT(
       },
     });
 
-    // Aynı masada başka aktif sipariş var mı?
-    const otherActiveOrders = await prisma.order.count({
-      where: {
-        tableId: order.tableId,
-        id: { not: params.orderId },
-        status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
-      },
+    // ✅ Aktif oturum yoksa masa EMPTY kalır — iptal edilen sipariş masayı doldurmaz
+    const newTableStatus = await tableStatusAfterOrderRemoved(prisma, businessId, order.tableId);
+    await prisma.table.update({
+      where: { id: order.tableId },
+      data: { status: newTableStatus },
     });
 
-    // Başka aktif sipariş yoksa masa durumunu güncelle
-    if (otherActiveOrders === 0) {
-      await prisma.table.update({
-        where: { id: order.tableId },
-        data: { status: TableStatus.OCCUPIED },
-      });
+    // Kabul edilmiş sipariş iptal edildiyse adisyondan düş
+    if (order.tableSessionId && order.status !== "PENDING") {
+      const bill = await prisma.bill.findUnique({ where: { tableSessionId: order.tableSessionId } });
+      if (bill) {
+        const newTotal = Math.max(0, Number(bill.totalAmount) - Number(order.totalPrice));
+        await prisma.bill.update({
+          where: { id: bill.id },
+          data: { totalAmount: newTotal, remainingAmount: Math.max(0, newTotal - Number(bill.paidAmount)) },
+        });
+      }
     }
 
     // Socket.IO bildirimi
