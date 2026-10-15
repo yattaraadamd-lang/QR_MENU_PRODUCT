@@ -1,9 +1,19 @@
-import { PrismaClient } from "@prisma/client";
+/**
+ * Abonelik planlarını oluşturur / günceller.
+ *
+ *   node prisma/seed-plans.cjs                → planları oluşturur, varsa fiyat/limitleri günceller
+ *   node prisma/seed-plans.cjs --create-only  → sadece eksik planları oluşturur (Render build'i bunu kullanır;
+ *                                               Super Admin'den değiştirilen fiyatlar korunur)
+ *
+ * Düz Node.js — tsx/devDependency gerektirmez, production kurulumunda da çalışır.
+ */
+
+const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
+const createOnly = process.argv.includes("--create-only");
 
-// Fiyatlar ve limitler örnektir — Super Admin panelinden veya burada güncelleyin.
-// null limit = sınırsız
+// Fiyatlar ve limitler örnektir. null limit = sınırsız
 const PLANS = [
   {
     code: "starter",
@@ -48,12 +58,19 @@ const PLANS = [
 
 async function main() {
   for (const plan of PLANS) {
+    const existing = await prisma.subscriptionPlan.findUnique({ where: { code: plan.code } });
+
+    if (existing && createOnly) {
+      console.log(`↪️  Plan zaten var, dokunulmadı: ${plan.code}`);
+      continue;
+    }
+
     await prisma.subscriptionPlan.upsert({
       where: { code: plan.code },
       update: plan,
       create: { ...plan, trialDays: 14, isActive: true },
     });
-    console.log(`✅ Plan: ${plan.code} (${plan.name})`);
+    console.log(`✅ Plan ${existing ? "güncellendi" : "oluşturuldu"}: ${plan.code} (${plan.name})`);
   }
   // Not: Aboneliği olmayan mevcut işletmelere dokunulmaz —
   // subscription-guard bunlara varsayılan limitleri uygular.
@@ -61,7 +78,7 @@ async function main() {
 
 main()
   .catch((e) => {
-    console.error("❌ Hata:", e);
+    console.error("❌ Plan seed hatası:", e);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

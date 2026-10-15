@@ -58,6 +58,16 @@ try {
   console.log('⚙️ 3. Generating Prisma Client...');
   execSync('npx prisma generate', { stdio: 'inherit', env: process.env });
 
+  // Abonelik planları: sadece eksik olanlar oluşturulur, mevcut fiyat/limitlere dokunulmaz.
+  // Hata deploy'u durdurmaz — planlar yoksa sadece self-servis kayıt kapalı kalır.
+  console.log('🌱 3b. Ensuring subscription plans exist...');
+  try {
+    execSync('node prisma/seed-plans.cjs --create-only', { stdio: 'inherit', env: process.env });
+  } catch (seedError) {
+    console.warn('⚠️  Plan seed failed — self-service signup will be unavailable until plans exist.');
+    console.warn('   Error:', seedError.message);
+  }
+
   console.log('🏗️ 4. Building Next.js application...');
   execSync('npx next build', { stdio: 'inherit', env: process.env });
 
