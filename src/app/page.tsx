@@ -557,7 +557,7 @@ export default function HomePage() {
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link
-              href="/auth/register"
+              href="/auth/signup"
               className="btn btn-lg"
               style={{
                 background: "linear-gradient(135deg, #D97706, #F59E0B)",

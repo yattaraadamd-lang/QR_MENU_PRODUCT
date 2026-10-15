@@ -24,4 +24,14 @@ services:
       - key: CUSTOMER_DEVICE_HMAC_SECRET
         sync: false
         # IMPORTANT: Must be at least 32 random bytes (e.g. openssl rand -base64 32)
+      - key: IYZICO_API_KEY
+        sync: false
+      - key: IYZICO_SECRET_KEY
+        sync: false
+      - key: IYZICO_MERCHANT_ID
+        sync: false
+        # Webhook imza doğrulaması için
+      - key: IYZICO_BASE_URL
+        value: https://sandbox-api.iyzipay.com
+        # Canlıya geçerken: https://api.iyzipay.com
     healthCheckPath: /api/health

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,15 @@ export async function POST(request: NextRequest) {
     if (error) return response!;
 
     const businessId = getBusinessId(session);
+
+    // 🔒 Plan Quota Enforcement
+    const quotaCheck = await checkPlanQuota(businessId, "WAITER");
+    if (!quotaCheck.allowed) {
+      return NextResponse.json(
+        { error: quotaCheck.error || "Garson davet etme paket limitine ulaşıldı." },
+        { status: 403 }
+      );
+    }
 
     // ✅ SECURITY: Generate cryptographically secure invite code
     // 128-bit entropy = 32 hex characters
