@@ -606,6 +606,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         } else if (d.code === "TABLE_ALREADY_CLAIMED") {
           setAuthStatus("TABLE_ALREADY_CLAIMED");
           showToast("Bu masa başka bir aktif oturuma ait. Personelden yardım isteyin.", "err");
+        } else if (d.code === "TABLE_REQUEST_PENDING") {
+          showToast("Bu masa için başka bir cihazın bekleyen talebi var. Siparişi o cihazdan verin.", "err");
         } else if (d.code === "ORDER_REQUEST_PENDING") {
           setAuthStatus("PENDING");
           if (d.serviceRequest?.verificationCode) setVerificationCode(d.serviceRequest.verificationCode);
