@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 
 const DEVICE_COOKIE_NAME = "customer_device_id";
 
+// Demo masasını tutan cihaz bu süre işlem yapmazsa masa yeni gelen cihaza geçer
+const DEMO_IDLE_TAKEOVER_MS = 30 * 60 * 1000;
+
 /**
  * 🔒 SECURITY FIX P0-06/P0-07: Secure customer session management
  * 
@@ -175,7 +178,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ E2E FIX: Demo business special handling
-    // For demo-business-id, auto-create or reuse pre-authorized session
+    // For demo-business-id, auto-create or reuse pre-authorized session (tek cihaz)
     if (businessId === "demo-business-id") {
       // Check if a demo session already exists for this table
       let demoSession = await prisma.customerSession.findFirst({
@@ -188,6 +191,63 @@ export async function POST(request: NextRequest) {
         },
         orderBy: { createdAt: "desc" },
       });
+
+      // Tek cihaz kuralı: demo masası başka bir cihazdaysa bu cihaz yalnız menüyü görür.
+      // Masayı tutan cihaz DEMO_IDLE_TAKEOVER_MS boyunca işlem yapmadıysa masa bu cihaza geçer
+      // (herkese açık demo masası ilk ziyaretçide sonsuza kadar kilitli kalmasın).
+      if (demoSession && demoSession.deviceKeyHash && demoSession.deviceKeyHash !== deviceKeyHash) {
+        const idleMs = Date.now() - demoSession.lastSeenAt.getTime();
+
+        if (idleMs < DEMO_IDLE_TAKEOVER_MS) {
+          const rawToken = generateSessionToken();
+          const tokenHash = hashSessionToken(rawToken);
+          const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+          await prisma.customerSession.create({
+            data: {
+              businessId: "demo-business-id",
+              tableId: table.id,
+              sessionToken: tokenHash,
+              status: "ACTIVE",
+              authorizationStatus: "VIEW_ONLY",
+              deviceKeyHash,
+              expiresAt,
+            },
+          });
+
+          const res = addSecurityHeaders(
+            NextResponse.json({
+              sessionToken: rawToken,
+              expiresAt: expiresAt.toISOString(),
+              authorizationStatus: "VIEW_ONLY",
+              message: "Bu masa başka bir cihazda açık. Menüyü görüntüleyebilirsiniz.",
+            })
+          );
+
+          if (isNewDevice) {
+            res.cookies.set(DEVICE_COOKIE_NAME, rawDeviceKey, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              maxAge: 365 * 24 * 60 * 60,
+              path: "/",
+            });
+          }
+          return res;
+        }
+
+        // Boşta kalan cihazın yetkisini al; masa bu cihaza devredilecek
+        await prisma.customerSession.updateMany({
+          where: {
+            businessId: "demo-business-id",
+            tableId: table.id,
+            status: "ACTIVE",
+            authorizationStatus: "AUTHORIZED",
+          },
+          data: { authorizationStatus: "REVOKED" },
+        });
+        demoSession = null;
+      }
 
       // If no valid demo session, check for table session
       if (!demoSession) {
@@ -282,8 +342,8 @@ export async function POST(request: NextRequest) {
           return res;
         }
       } else {
-        // Return existing demo session token (but we don't have the raw token)
-        // Create a new one with same session ID binding
+        // Masayı tutan cihaz geri geldi (ör. localStorage silindi): ham token elimizde yok,
+        // aynı oturuma yeni token üret
         const rawToken = generateSessionToken();
         const tokenHash = hashSessionToken(rawToken);
 

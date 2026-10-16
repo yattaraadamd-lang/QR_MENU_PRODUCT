@@ -233,6 +233,29 @@ export async function POST(request: NextRequest) {
         data: { status: "CANCELLED" },
       });
 
+      // Tek cihaz kuralı: masa için başka bir cihazın bekleyen talebi varsa yenisini kabul etme
+      const otherPending = await prisma.serviceRequest.findFirst({
+        where: {
+          tableId,
+          businessId,
+          requestType: "ORDER_REQUEST",
+          status: { in: ["PENDING", "SEEN"] },
+          expiresAt: { gt: new Date() },
+          customerSessionId: { not: customerSession.id },
+        },
+        select: { id: true },
+      });
+
+      if (otherPending) {
+        return NextResponse.json(
+          {
+            error: "Bu masa için başka bir cihazın bekleyen sipariş talebi var. Garson onayından sonra o cihaz sipariş verebilir.",
+            code: "TABLE_REQUEST_PENDING",
+          },
+          { status: 409 }
+        );
+      }
+
       // ✅ Ürün özetini oluştur ve doğrula (orderPreview)
       let orderPreview: any = null;
       if (items && Array.isArray(items) && items.length > 0) {
@@ -312,6 +335,22 @@ export async function POST(request: NextRequest) {
 
         if (pendingCheck) {
           throw new Error("ORDER_REQUEST_PENDING");
+        }
+
+        const otherPendingCheck = await tx.serviceRequest.findFirst({
+          where: {
+            tableId,
+            businessId,
+            requestType: "ORDER_REQUEST",
+            status: { in: ["PENDING", "SEEN"] },
+            expiresAt: { gt: new Date() },
+            customerSessionId: { not: customerSession.id },
+          },
+          select: { id: true },
+        });
+
+        if (otherPendingCheck) {
+          throw new Error("TABLE_REQUEST_PENDING");
         }
 
         // 2. ServiceRequest oluştur
@@ -520,6 +559,15 @@ export async function POST(request: NextRequest) {
         {
           error: "Bekleyen sipariş talebiniz var. Garson onayı bekleniyor.",
           code: "ORDER_REQUEST_PENDING",
+        },
+        { status: 409 }
+      );
+    }
+    if (error.message === "TABLE_REQUEST_PENDING") {
+      return NextResponse.json(
+        {
+          error: "Bu masa için başka bir cihazın bekleyen sipariş talebi var. Garson onayından sonra o cihaz sipariş verebilir.",
+          code: "TABLE_REQUEST_PENDING",
         },
         { status: 409 }
       );
