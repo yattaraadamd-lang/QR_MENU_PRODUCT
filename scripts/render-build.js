@@ -68,6 +68,16 @@ try {
     console.warn('   Error:', seedError.message);
   }
 
+  // iyzico ödeme planları: IYZICO_* anahtarları yoksa atlanır; sadece referansı olmayan planlar oluşturulur.
+  // Hata deploy'u durdurmaz — planlar iyzico'ya bağlanana kadar abonelik sayfasında "Yakında" görünür.
+  console.log('💳 3c. Ensuring iyzico pricing plans exist...');
+  try {
+    execSync('node prisma/iyzico-setup-plans.cjs', { stdio: 'inherit', env: process.env });
+  } catch (iyzicoError) {
+    console.warn('⚠️  iyzico plan setup failed — online subscription payment stays unavailable.');
+    console.warn('   Error:', iyzicoError.message);
+  }
+
   console.log('🏗️ 4. Building Next.js application...');
   execSync('npx next build', { stdio: 'inherit', env: process.env });
 
