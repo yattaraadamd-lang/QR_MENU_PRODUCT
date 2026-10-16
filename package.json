@@ -18,7 +18,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:super-admin": "tsx prisma/seed-super-admin.ts",
     "db:seed:plans": "node prisma/seed-plans.cjs",
-    "iyzico:setup-plans": "tsx prisma/iyzico-setup-plans.ts",
+    "iyzico:setup-plans": "node prisma/iyzico-setup-plans.cjs",
     "db:seed:mesela-coffe": "tsx prisma/seed-mesela-coffe.ts",
     "db:studio": "prisma studio",
     "db:cleanup": "tsx scripts/cleanup-after-fix.ts",
