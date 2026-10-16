@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
-import crypto from "crypto";
+import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
+import { generateInviteCode, hashInviteCode, buildInviteUrl, INVITE_TTL_MS } from "@/lib/invite";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +18,6 @@ export const dynamic = "force-dynamic";
  * - Mandatory 7-day expiry
  * - Compatible with /api/auth/register hash validation
  */
-
-/**
- * Hash an invite code for storage (matches register.ts)
- */
-function hashInviteCode(rawCode: string): string {
-  return crypto.createHash("sha256").update(rawCode).digest("hex");
-}
 
 // GET /api/admin/waiter-invites - Davet kodlarını listele
 export async function GET(request: NextRequest) {
@@ -76,15 +70,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ SECURITY: Generate cryptographically secure invite code
-    // 128-bit entropy = 32 hex characters
-    const rawCode = `inv_${crypto.randomBytes(16).toString("hex")}`;
+    // ✅ SECURITY: 128-bit CSPRNG kod; sadece hash saklanır
+    const rawCode = generateInviteCode();
     
     // ✅ Store ONLY the hash in database
     const codeHash = hashInviteCode(rawCode);
 
     // ✅ Mandatory expiry (7 days from now)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
 
     // ✅ Create invite with secure defaults
     const invite = await prisma.waiterInvite.create({
@@ -102,12 +95,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    createAuditLog({
+      businessId,
+      actorUserId: session!.user.id,
+      actorRole: session!.user.role,
+      action: AuditActions.INVITE_CREATED,
+      entityType: "WaiterInvite",
+      entityId: invite.id,
+    });
+
     return NextResponse.json(
       {
-        message: "Davet kodu oluşturuldu",
+        message: "Davet linki oluşturuldu",
         invite: {
           ...invite,
           inviteCode: rawCode, // ✅ RAW code returned ONLY here, ONCE
+          inviteUrl: buildInviteUrl(rawCode, request.nextUrl.origin),
         },
       },
       { status: 201 }

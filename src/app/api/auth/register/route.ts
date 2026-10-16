@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { hashInviteCode, extractInviteCode } from "@/lib/invite";
+import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
@@ -49,13 +50,6 @@ const registerSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   inviteCode: z.string().min(1, "Davet kodu zorunludur").max(200),
 }).strict(); // ✅ Reject unknown fields
-
-/**
- * Hash an invite code for lookup (must match the hash used in creation).
- */
-function hashInviteCode(rawCode: string): string {
-  return crypto.createHash("sha256").update(rawCode).digest("hex");
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -109,7 +103,23 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Hash the invite code for database lookup (matches P0-01 hash storage)
-    const inviteCodeHash = hashInviteCode(inviteCode);
+    // Garson davet linkinin tamamını yapıştırmış olabilir
+    const inviteCodeHash = hashInviteCode(extractInviteCode(inviteCode));
+
+    // ✅ Garson kotası: davet tüketilmeden ÖNCE kontrol edilir
+    const pendingInvite = await prisma.waiterInvite.findUnique({
+      where: { inviteCode: inviteCodeHash },
+      select: { businessId: true },
+    });
+    if (pendingInvite) {
+      const quota = await checkPlanQuota(pendingInvite.businessId, "WAITER");
+      if (!quota.allowed) {
+        return NextResponse.json(
+          { error: "İşletmenin garson limiti dolu. Lütfen işletme yöneticinizle iletişime geçin." },
+          { status: 403 }
+        );
+      }
+    }
 
     // ✅ P0-02 FIX: Atomic transaction for invite consumption + user creation
     const result = await prisma.$transaction(async (tx) => {
