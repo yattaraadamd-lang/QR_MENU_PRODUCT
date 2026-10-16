@@ -74,7 +74,7 @@ export default function RegisterPage() {
             <span style={{ color: "var(--primary)" }}>Garson</span> Kayıt
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 4, lineHeight: 1.4 }}>
-            Davet kodunuzla garson hesabı oluşturun
+            Davet kodunuz veya linkinizle garson hesabı oluşturun
           </p>
         </div>
 
@@ -134,9 +134,10 @@ export default function RegisterPage() {
               value={formData.password}
               onChange={handleChange}
               className="input"
-              placeholder="••••••••"
+              placeholder="En az 12 karakter, harf ve rakam"
               required
-              minLength={6}
+              minLength={12}
+              maxLength={72}
             />
           </div>
 
@@ -156,7 +157,7 @@ export default function RegisterPage() {
 
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Davet Kodu *
+              Davet Kodu veya Linki *
             </label>
             <input
               type="text"
@@ -164,12 +165,12 @@ export default function RegisterPage() {
               value={formData.inviteCode}
               onChange={handleChange}
               className="input"
-              placeholder="DEMO2024"
+              placeholder="inv_… ya da davet linkinin tamamı"
               required
-              style={{ textTransform: "uppercase" }}
+              autoComplete="off"
             />
             <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>
-              İşletme yöneticinizden aldığınız davet kodunu girin
+              Yöneticinizden gelen davet linkini açarsanız bu adıma gerek kalmaz. Linki buraya da yapıştırabilirsiniz.
             </p>
           </div>
 
@@ -198,17 +199,6 @@ export default function RegisterPage() {
           </Link>
         </div>
 
-        <div style={{
-          marginTop: 16,
-          padding: 12,
-          background: "rgba(99,102,241,0.05)",
-          borderRadius: 10,
-          border: "1px solid rgba(99,102,241,0.1)",
-        }}>
-          <p style={{ fontSize: 11, color: "var(--text-secondary)", textAlign: "center" }}>
-            <strong>Demo için davet kodu:</strong> DEMO2024
-          </p>
-        </div>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
-import crypto from "crypto";
+import { generateInviteCode, hashInviteCode, buildInviteUrl, INVITE_TTL_MS } from "@/lib/invite";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +19,6 @@ export const dynamic = "force-dynamic";
  * - Mandatory expiry (7 days)
  * - Single-use enforcement
  */
-
-/**
- * Hash an invite code for storage. Raw code is never persisted.
- */
-function hashInviteCode(rawCode: string): string {
-  return crypto.createHash("sha256").update(rawCode).digest("hex");
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,13 +52,13 @@ export async function POST(request: NextRequest) {
 
     // ✅ P0-01 FIX: Generate cryptographically secure invite code
     // 128-bit entropy = 32 hex characters = ~10^38 possibilities
-    const rawCode = `inv_${crypto.randomBytes(16).toString("hex")}`;
+    const rawCode = generateInviteCode();
     
     // ✅ SECURITY: Store ONLY the hash in database
     const codeHash = hashInviteCode(rawCode);
 
     // ✅ P0-01 FIX: Mandatory expiry (7 days from now)
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
 
     // ✅ Create invite with secure defaults
     const invite = await prisma.waiterInvite.create({
@@ -98,6 +91,7 @@ export async function POST(request: NextRequest) {
         message: "Davet kodu oluşturuldu",
         invite: {
           inviteCode: rawCode, // ✅ Raw code returned ONLY here, ONCE
+          inviteUrl: buildInviteUrl(rawCode, request.nextUrl.origin),
           expiresAt: invite.expiresAt,
         },
       },
