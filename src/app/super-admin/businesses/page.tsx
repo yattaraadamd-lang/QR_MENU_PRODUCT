@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Loader from "@/components/ui/Loader";
 
 type Business = {
   id: string;
@@ -96,9 +97,7 @@ export default function SuperAdminBusinessesPage() {
   };
 
   if (loading) return (
-    <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>
-      Yükleniyor...
-    </p>
+    <Loader />
   );
 
   return (

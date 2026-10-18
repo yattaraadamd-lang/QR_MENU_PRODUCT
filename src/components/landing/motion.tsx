@@ -56,8 +56,9 @@ export function RevealGroup({ children, gap = 0.08, ...props }: HTMLMotionProps<
   );
 }
 
-// Fare imlecini takip eden 3D eğim. Dokunmatik cihazlarda ve
-// "hareketi azalt" tercihinde düz kalır.
+// Fare imlecini takip eden 3D eğim. Sayfalar MotionConfig ile giriş
+// animasyonlarını her zaman oynatır; bu büyük, etkileşimle tetiklenen hareket
+// ise işletim sistemindeki "hareketi azalt" tercihine uyar ve dokunmatikte kapalıdır.
 export function Tilt({
   children,
   max = 10,

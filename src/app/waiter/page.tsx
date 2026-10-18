@@ -393,7 +393,7 @@ export default function WaiterOrdersPage() {
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {orders.map(order => {
             const sm = STATUS_META[order.status] || STATUS_META.PENDING;
             const isPending = order.status === "PENDING";

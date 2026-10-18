@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
+import Loader from "@/components/ui/Loader";
 
 export default function QRTokenPage({ params }: { params: Promise<{ qrToken: string }> }) {
   const resolvedParams = use(params);
@@ -73,7 +74,7 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#fafafa" }}>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
         <div className="text-center max-w-sm">
           <div className="text-6xl mb-4">❌</div>
           <h1 className="text-xl font-bold mb-2" style={{ color: "#2A1A12" }}>
@@ -92,10 +93,10 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#fafafa" }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
       <div className="text-center">
-        <div className="text-5xl mb-4 animate-pulse">📱</div>
-        <p className="text-gray-500 font-medium">Menü yükleniyor...</p>
+        
+        <Loader label="Menü hazırlanıyor" emoji="🍽️" />
       </div>
     </div>
   );

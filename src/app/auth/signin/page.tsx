@@ -8,6 +8,7 @@ import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle, ArrowLeft, BellRi
 import Input from "@/components/ui/Input";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { EASE_OUT, fadeUp, stagger } from "@/components/landing/motion";
+import Loader from "@/components/ui/Loader";
 
 const HIGHLIGHTS = [
   { icon: BellRing, text: "Siparişler ve garson çağrıları anında ekranınızda" },
@@ -70,7 +71,7 @@ function SignInForm() {
   };
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion="never">
     <div className="landing-theme grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
       {/* ── Marka paneli (desktop) ─────────────────────────────────────────── */}
       <aside
@@ -283,7 +284,7 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div className="landing-theme" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>Yükleniyor...</div>}>
+    <Suspense fallback={<div className="landing-theme"><Loader fullScreen /></div>}>
       <SignInForm />
     </Suspense>
   );

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Loader from "@/components/ui/Loader";
 
 type Usage = { current: number; limit: number | null };
 type Plan = {
@@ -127,7 +128,7 @@ function SubscriptionContent() {
     load();
   };
 
-  if (loading) return <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>Yükleniyor...</p>;
+  if (loading) return <Loader />;
   if (!data) return <p style={{ color: "#ef4444", textAlign: "center", padding: 32 }}>Abonelik bilgisi alınamadı.</p>;
 
   const sub = data.subscription;

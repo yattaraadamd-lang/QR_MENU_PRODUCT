@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Loader from "@/components/ui/Loader";
 
 const requestTypeLabels: Record<string, string> = {
   CALL_WAITER: "🙋 Garson Çağrısı",
@@ -145,7 +146,7 @@ export default function AdminRequestsPage() {
       </div>
 
       {loading ? (
-        <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>Yükleniyor...</p>
+        <Loader />
       ) : filtered.length === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: "center" }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🔔</div>

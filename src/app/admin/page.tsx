@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import Loader from "@/components/ui/Loader";
 import {
   TrendingUp, BarChart3, ClipboardList, Clock, Bell, CreditCard,
-  Table2, Package, Users, Eye, EyeOff, ArrowRight, Loader2,
+  Table2, Package, Users, Eye, EyeOff, ArrowRight,
 } from "lucide-react";
 
 const statusLabels: Record<string, string> = {
@@ -74,12 +75,7 @@ export default function AdminDashboardPage() {
 
   const fmt = (v: number) => hideRevenue ? "••••" : new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(v);
 
-  if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300, gap: 12, color: "var(--text-secondary)" }}>
-      <Loader2 size={20} className="animate-spin" color="var(--primary)" />
-      Yükleniyor...
-    </div>
-  );
+  if (loading) return <Loader label="Panel hazırlanıyor" style={{ minHeight: 300 }} />;
 
   const kpiCards = [
     { label: "Bugünkü Ciro",    value: fmt(stats.todayRevenue),    icon: <TrendingUp size={20} />, color: "#3BA55C", bg: "rgba(59,165,92,0.08)" },
@@ -134,7 +130,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* KPI Grid - Fully Responsive */}
-      <div style={{
+      <div className="stagger" style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
         gap: 14,
@@ -231,7 +227,7 @@ export default function AdminDashboardPage() {
           gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
           gap: 10,
         }}
-        className="lg:grid-cols-2 lg:min-w-[220px]"
+        className="stagger lg:grid-cols-2 lg:min-w-[220px]"
         >
           {quickLinks.map((q) => (
             <Link key={q.href} href={q.href} style={{

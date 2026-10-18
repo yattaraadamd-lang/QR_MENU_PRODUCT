@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
+import Loader from "@/components/ui/Loader";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   EMPTY:             { label: "Boş",              color: "#A68A78", bg: "rgba(166,138,120,0.12)" },
@@ -319,7 +320,7 @@ export default function AdminTablesPage() {
           <button onClick={() => setShowCreate(true)} className="btn btn-primary">İlk Masayı Ekle</button>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+        <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
           {tables.map(table => {
             const sm = STATUS_META[table.status] || STATUS_META.EMPTY;
             const bill = table.bill;
@@ -427,7 +428,7 @@ export default function AdminTablesPage() {
 
             <div style={{ padding: "16px 20px", maxHeight: "60vh", overflowY: "auto" }}>
               {loadingDetail ? (
-                <div style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>Yükleniyor...</div>
+                <Loader />
               ) : !selectedTable.activeSession ? (
                 <div style={{ textAlign: "center", padding: 32 }}>
                   <div style={{ fontSize: 40, marginBottom: 8 }}>⚪</div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Loader from "@/components/ui/Loader";
 
 export default function SuperAdminPaymentsPage() {
   const { data: session } = useSession();
@@ -32,7 +33,7 @@ export default function SuperAdminPaymentsPage() {
 
   const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-  if (loading) return <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>Yükleniyor...</p>;
+  if (loading) return <Loader />;
 
   return (
     <div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, use } from "react";
 import { v4 as uuidv4 } from "uuid";
+import Loader from "@/components/ui/Loader";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -868,8 +869,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   // ── Loading ──
   if (loading) return (
     <div className="customer-theme" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <div style={{ width: 48, height: 48, border: "3px solid var(--border-color)", borderTopColor: "var(--primary)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-      <p style={{ color: "var(--text-secondary)", fontSize: 14, fontWeight: 500 }}>Menü yükleniyor...</p>
+      <Loader label="Menü hazırlanıyor" emoji="🍽️" />
+
     </div>
   );
 
@@ -913,7 +914,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           zIndex: 200, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600,
           background: toast.type === "err" ? "var(--danger)" : "var(--success)",
           color: "white", boxShadow: "var(--shadow-md)",
-          animation: "slideInRight 0.25s ease", whiteSpace: "nowrap",
+          animation: "toastDrop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both", whiteSpace: "nowrap",
           maxWidth: "90vw", textAlign: "center",
         }}>
           {toast.msg}
@@ -1038,12 +1039,12 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                   <span className="font-display" style={{ flex: 1 }}>{cat.name}</span>
                   <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 700, background: "var(--bg-hover)", padding: "4px 10px", borderRadius: 99 }}>{cat.products.length} ürün</span>
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
                   {cat.products.map(p => {
                     const sl = stockLabel(p);
                     const ok = orderable(p);
                     return (
-                      <div key={p.id} className="prod-card card" onClick={() => ok && setSelectedProduct(p)} style={{
+                      <div key={p.id} className="prod-card card lift" onClick={() => ok && setSelectedProduct(p)} style={{
                         padding: 0, display: "flex", flexDirection: p.image ? "column" : "row", cursor: ok ? "pointer" : "default", opacity: ok ? 1 : 0.65, overflow: "hidden", position: "relative", transition: "transform 0.2s, box-shadow 0.2s", borderRadius: 20,
                       }}>
                         {p.image ? (
@@ -1102,7 +1103,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "2px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
                 🛒 Sepetim
                 {cartCount > 0 && (
-                  <span style={{ background: "var(--primary)", color: "white", borderRadius: 99, fontSize: 12, fontWeight: 700, padding: "2px 8px", minWidth: 24, textAlign: "center" }}>{cartCount}</span>
+                  <span key={cartCount} className="animate-bump" style={{ background: "var(--primary)", color: "white", borderRadius: 99, fontSize: 12, fontWeight: 700, padding: "2px 8px", minWidth: 24, textAlign: "center", display: "inline-block" }}>{cartCount}</span>
                 )}
               </h2>
               <div style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>
@@ -1116,7 +1117,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       {/* ── Product Detail Modal ── */}
       {selectedProduct && (
         <div className="modal-overlay" onClick={() => setSelectedProduct(null)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
+          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>{selectedProduct.name}</h2>
               <button onClick={() => setSelectedProduct(null)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
@@ -1157,7 +1158,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       {/* ── Mobile Cart Modal ── */}
       {showCartMobile && (
         <div className="modal-overlay lg:hidden" onClick={() => setShowCartMobile(false)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", margin: 0, maxWidth: 600, padding: 0 }}>
+          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", margin: 0, maxWidth: 600, padding: 0 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1, borderRadius: "20px 20px 0 0" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>🛒 Sepetim</h2>
               <button onClick={() => setShowCartMobile(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
@@ -1172,7 +1173,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       {/* ── Garson Çağırma Modalı ── */}
       {showWaiterModal && (
         <div className="modal-overlay" onClick={() => setShowWaiterModal(false)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
+          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>🙋 Garson Çağır</h2>
               <button onClick={() => setShowWaiterModal(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
@@ -1209,7 +1210,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       {/* ── Hizmet Menüsü Modalı ── */}
       {showServiceMenu && (
         <div className="modal-overlay" onClick={() => setShowServiceMenu(false)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
+          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>Hizmet Talepleri</h2>
               <button onClick={() => setShowServiceMenu(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
@@ -1318,7 +1319,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 11, fontWeight: 800, padding: "0 4px",
                   boxShadow: "0 2px 6px rgba(239,68,68,0.4)",
-                  animation: "pulse 2s infinite",
+                  animation: "pulse 2s ease-in-out infinite",
                 }}>
                   {Object.values(activeRequests).filter(Boolean).length}
                 </span>
@@ -1337,7 +1338,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           }}>
             {cartCount > 0 ? (
               <>
-                <span style={{ background: "rgba(255,255,255,0.25)", borderRadius: 99, padding: "2px 10px", fontSize: 14, fontWeight: 800 }}>{cartCount}</span>
+                <span key={cartCount} className="animate-bump" style={{ background: "rgba(255,255,255,0.25)", borderRadius: 99, padding: "2px 10px", fontSize: 14, fontWeight: 800, display: "inline-block" }}>{cartCount}</span>
                 Sepet · {cartTotal.toFixed(2)} ₺
               </>
             ) : "🛒 Sepet Boş"}

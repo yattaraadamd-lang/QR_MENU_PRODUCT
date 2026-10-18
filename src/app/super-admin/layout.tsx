@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useState } from "react";
+import Loader from "@/components/ui/Loader";
 
 const sidebarLinks = [
   { href: "/super-admin/dashboard", label: "Dashboard", icon: "📊" },
@@ -21,7 +22,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   if (status === "loading") {
-    return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
+    return <Loader fullScreen />;
   }
 
   if (!session || session.user.role !== "SUPER_ADMIN") {
@@ -146,7 +147,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
           </div>
         )}
 
-        <div style={{ padding: "24px 32px", flex: 1, overflowY: "auto" }}>
+        <div key={pathname} className="page-enter" style={{ padding: "24px 32px", flex: 1, overflowY: "auto" }}>
           {children}
         </div>
       </div>

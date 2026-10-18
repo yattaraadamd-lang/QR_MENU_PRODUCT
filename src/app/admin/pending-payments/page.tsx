@@ -347,7 +347,7 @@ export default function PendingPaymentsPage() {
             <p style={{ color: "var(--text-secondary)" }}>Bekleyen açık adisyon bulunmamaktadır.</p>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
+          <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
             {bills.map(bill => (
               <div key={bill.id} className="card p-5" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <div>
