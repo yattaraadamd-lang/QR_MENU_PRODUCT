@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { createDirectAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 
@@ -15,17 +14,8 @@ export async function POST(
   try {
     const params = await context.params;
     billId = params.id;
-    const session = await getServerSession(authOptions);
-
-    if (
-      !session?.user?.businessId ||
-      (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN")
-    ) {
-      return NextResponse.json(
-        { error: "Bu işlem için admin yetkisi gereklidir.", code: "FORBIDDEN" },
-        { status: 403 }
-      );
-    }
+    const { error, response, session } = await requireAdmin();
+    if (error) return response;
 
     const body = await request.json();
 

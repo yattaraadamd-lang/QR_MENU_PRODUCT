@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireWaiterOrAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    // ✅ Garson ve admin erişebilir
-    if (!session?.user?.businessId || !["ADMIN", "WAITER", "SUPER_ADMIN"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
-    }
+    // ✅ Garson ve admin erişebilir (kullanıcı/işletme durumu DB'den doğrulanır)
+    const { error, response, session } = await requireWaiterOrAdmin();
+    if (error) return response;
 
     const { businessId } = session.user;
 

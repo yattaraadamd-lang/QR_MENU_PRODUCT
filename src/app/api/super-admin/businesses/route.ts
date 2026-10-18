@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
@@ -20,14 +19,8 @@ function slugify(text: string): string {
 // GET — Tüm işletmeleri listele
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { success: false, error: "Yetkisiz erişim" },
-        { status: 403 }
-      );
-    }
+    const { error, response } = await requireSuperAdmin();
+    if (error) return response;
 
     const businesses = await prisma.business.findMany({
       include: {
@@ -61,14 +54,8 @@ export async function GET(request: NextRequest) {
 // POST — Yeni işletme oluştur (işletme adı + admin hesabı)
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { success: false, error: "Yetkisiz erişim" },
-        { status: 403 }
-      );
-    }
+    const { error, response } = await requireSuperAdmin();
+    if (error) return response;
 
     const body = await request.json();
     const { name, email, phone, address, adminName, adminEmail, adminPassword } = body;

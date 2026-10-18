@@ -8,8 +8,10 @@ export async function GET(
 ) {
   try {
     const params = await context.params;
+    // ✅ SECURITY: Yalnız herkese açık alanlar — konum, iç kayıt alanları vb. dönmez
     const business = await prisma.business.findUnique({
       where: { slug: params.businessSlug, isActive: true },
+      select: { id: true, name: true, slug: true, description: true, logo: true },
     });
 
     if (!business) {
@@ -22,10 +24,25 @@ export async function GET(
     const categories = await prisma.category.findMany({
       where: { businessId: business.id, isActive: true },
       orderBy: { sortOrder: "asc" },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        icon: true,
         products: {
-          where: { isAvailable: true },
+          // ✅ Silinmiş ürünler gösterilmez
+          where: { isAvailable: true, isDeleted: false },
           orderBy: { sortOrder: "asc" },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            ingredients: true,
+            allergens: true,
+            price: true,
+            image: true,
+            stockStatus: true,
+            isPopular: true,
+          },
         },
       },
     });

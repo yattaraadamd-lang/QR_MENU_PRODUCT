@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 
 export async function PATCH(
   request: NextRequest,
@@ -9,11 +8,8 @@ export async function PATCH(
 ) {
   try {
     const params = await context.params;
-    const session = await getServerSession(authOptions);
-
-    if (!session || session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
-    }
+    const { error, response } = await requireSuperAdmin();
+    if (error) return response;
 
     const { id, action } = params;
 
