@@ -40,10 +40,10 @@ const REASON_OPTIONS = [
 type ReasonCode = typeof REASON_OPTIONS[number]["code"];
 
 const STATUS_META: Record<string, { label: string; badge: string; color: string; icon: React.ReactNode }> = {
-  PENDING:   { label: "Bekliyor",      badge: "badge-warning", color: "#f59e0b", icon: <Clock size={14} /> },
+  PENDING:   { label: "Bekliyor",      badge: "badge-warning", color: "#F4A623", icon: <Clock size={14} /> },
   ACCEPTED:  { label: "Kabul Edildi",  badge: "badge-info",    color: "#3b82f6", icon: <Check size={14} /> },
   PREPARING: { label: "Hazırlanıyor",  badge: "badge-primary", color: "var(--primary)", icon: <ChefHat size={14} /> },
-  SERVED:    { label: "Servis Edildi", badge: "badge-success", color: "#10b981", icon: <UtensilsCrossed size={14} /> },
+  SERVED:    { label: "Servis Edildi", badge: "badge-success", color: "#3BA55C", icon: <UtensilsCrossed size={14} /> },
   CANCELLED: { label: "İptal",         badge: "badge-danger",  color: "#ef4444", icon: <X size={14} /> },
   REJECTED:  { label: "Reddedildi",    badge: "badge-danger",  color: "#ef4444", icon: <AlertTriangle size={14} /> },
 };
@@ -275,8 +275,8 @@ export default function WaiterOrdersPage() {
 
           {/* OUT_OF_STOCK Product selection */}
           {selectedReasonCode === "OUT_OF_STOCK" && (
-            <div style={{ marginBottom: 16, padding: 12, background: "rgba(245,158,11,0.08)", borderRadius: 10, border: "1px solid rgba(245,158,11,0.25)" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#d97706", marginBottom: 8 }}>
+            <div style={{ marginBottom: 16, padding: 12, background: "rgba(244,166,35,0.08)", borderRadius: 10, border: "1px solid rgba(244,166,35,0.25)" }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#D9441F", marginBottom: 8 }}>
                 Stokta olmayan ürünü/ürünleri seçin:
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -435,7 +435,7 @@ export default function WaiterOrdersPage() {
                         <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{item.quantity}×</span>{" "}
                         {item.productName || item.product?.name}
                         {item.customerNote && (
-                          <span style={{ color: "#f59e0b", fontSize: 11, marginLeft: 6 }}>📝 {item.customerNote}</span>
+                          <span style={{ color: "#F4A623", fontSize: 11, marginLeft: 6 }}>📝 {item.customerNote}</span>
                         )}
                       </span>
                       <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
@@ -444,7 +444,7 @@ export default function WaiterOrdersPage() {
                     </div>
                   ))}
                   {order.note && (
-                    <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(245,158,11,0.08)", borderRadius: 8, fontSize: 12, color: "#fcd34d" }}>
+                    <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(244,166,35,0.08)", borderRadius: 8, fontSize: 12, color: "#FCD27A" }}>
                       📝 {order.note}
                     </div>
                   )}

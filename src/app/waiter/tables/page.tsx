@@ -5,13 +5,13 @@ import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  EMPTY:             { label: "Boş",              color: "#7d8590", bg: "rgba(125,133,144,0.12)", icon: "⚪" },
+  EMPTY:             { label: "Boş",              color: "#A68A78", bg: "rgba(166,138,120,0.12)", icon: "⚪" },
   OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)",  icon: "🔵" },
-  HAS_ORDER:         { label: "Sipariş Var",       color: "#fcd34d", bg: "rgba(245,158,11,0.12)",  icon: "🟡" },
-  PREPARING:         { label: "Hazırlanıyor",      color: "#86efac", bg: "rgba(34,197,94,0.12)",   icon: "🟢" },
-  SERVED:            { label: "Servis Edildi",     color: "#6ee7b7", bg: "rgba(16,185,129,0.12)",  icon: "✅" },
+  HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(244,166,35,0.12)",  icon: "🟡" },
+  PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)",   icon: "🟢" },
+  SERVED:            { label: "Servis Edildi",     color: "#8EDBA2", bg: "rgba(59,165,92,0.12)",  icon: "✅" },
   WAITING_WAITER:    { label: "Garson Bekleniyor", color: "#fca5a5", bg: "rgba(239,68,68,0.12)",   icon: "🔴" },
-  PAYMENT_REQUESTED: { label: "Ödeme İsteniyor",  color: "#c4b5fd", bg: "rgba(139,92,246,0.12)",  icon: "🟣" },
+  PAYMENT_REQUESTED: { label: "Ödeme İsteniyor",  color: "#EBAFD0", bg: "rgba(163,71,122,0.12)",  icon: "🟣" },
   CLEANING_NEEDED:   { label: "Temizlik",          color: "#67e8f9", bg: "rgba(6,182,212,0.12)",   icon: "🧹" },
 };
 
@@ -285,7 +285,7 @@ export default function WaiterTablesPage() {
                     {Number(bill.paidAmount) > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span>Ödenen:</span>
-                        <span style={{ fontWeight: 600, color: "#10b981" }}>{fmt(bill.paidAmount)} ₺</span>
+                        <span style={{ fontWeight: 600, color: "#3BA55C" }}>{fmt(bill.paidAmount)} ₺</span>
                       </div>
                     )}
                     {hasUnpaid && (
@@ -324,7 +324,7 @@ export default function WaiterTablesPage() {
                 <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                   {STATUS_META[selectedTable.status]?.label}
                   {selectedTable.activeSession && (
-                    <span style={{ marginLeft: 8, color: "#10b981" }}>
+                    <span style={{ marginLeft: 8, color: "#3BA55C" }}>
                       · Oturum aktif {new Date(selectedTable.activeSession.startedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })} den beri
                     </span>
                   )}
@@ -350,8 +350,8 @@ export default function WaiterTablesPage() {
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {[
                           { label: "Toplam Hesap", value: `${fmt(sessionDetail.totalAmount)} ₺`, color: "var(--text-primary)" },
-                          { label: "Ödenen", value: `${fmt(sessionDetail.paidAmount)} ₺`, color: "#10b981" },
-                          { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "#ef4444" : "#10b981" },
+                          { label: "Ödenen", value: `${fmt(sessionDetail.paidAmount)} ₺`, color: "#3BA55C" },
+                          { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "#ef4444" : "#3BA55C" },
                         ].map(r => (
                           <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
                             <span style={{ color: "var(--text-secondary)" }}>{r.label}</span>
@@ -360,7 +360,7 @@ export default function WaiterTablesPage() {
                         ))}
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, paddingTop: 6, borderTop: "1px solid var(--border-subtle)" }}>
                           <span style={{ color: "var(--text-secondary)" }}>Ödeme Durumu</span>
-                          <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#10b981" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#f59e0b" : "#ef4444" }}>
+                          <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F4A623" : "#ef4444" }}>
                             {sessionDetail.paymentStatus === "PAID" ? "✅ Ödendi" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "⚡ Kısmi Ödendi" : "❌ Ödenmedi"}
                           </span>
                         </div>
@@ -399,7 +399,7 @@ export default function WaiterTablesPage() {
                             {PAYMENT_METHODS.find(m => m.value === p.method)?.label || p.method}
                             {p.handledByWaiterName && ` · ${p.handledByWaiterName}`}
                           </span>
-                          <span style={{ fontWeight: 700, color: "#10b981" }}>+{fmt(p.amount)} ₺</span>
+                          <span style={{ fontWeight: 700, color: "#3BA55C" }}>+{fmt(p.amount)} ₺</span>
                         </div>
                       ))}
                     </div>
@@ -493,12 +493,12 @@ export default function WaiterTablesPage() {
                         marginTop: 12,
                         padding: "12px 16px",
                         borderRadius: 10,
-                        background: change >= 0 ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
-                        border: `1px solid ${change >= 0 ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+                        background: change >= 0 ? "rgba(59,165,92,0.08)" : "rgba(239,68,68,0.08)",
+                        border: `1px solid ${change >= 0 ? "rgba(59,165,92,0.2)" : "rgba(239,68,68,0.2)"}`,
                       }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Para Üstü</span>
-                          <span style={{ fontSize: 18, fontWeight: 800, color: change >= 0 ? "#10b981" : "#ef4444" }}>
+                          <span style={{ fontSize: 18, fontWeight: 800, color: change >= 0 ? "#3BA55C" : "#ef4444" }}>
                             {change >= 0 ? `${change.toFixed(2)} ₺` : "⚠️ Yetersiz"}
                           </span>
                         </div>
@@ -545,7 +545,7 @@ export default function WaiterTablesPage() {
             {closeError && (
               <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
                 ⚠️ {closeError}
-                <p style={{ marginTop: 8, fontSize: 11, color: "#7d8590" }}>
+                <p style={{ marginTop: 8, fontSize: 11, color: "#A68A78" }}>
                   Masada aktif sipariş varken kapatmak için admin yetkisi gereklidir.
                 </p>
               </div>

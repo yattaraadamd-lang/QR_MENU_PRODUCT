@@ -15,15 +15,15 @@ const paymentLabels: Record<string, string> = {
   UNPAID: "Ödenmedi", PAYMENT_REQUESTED: "Ödeme Bekleniyor", PAID: "Ödendi", CANCELLED: "İptal",
 };
 const paymentColors: Record<string, string> = {
-  UNPAID: "#f59e0b", PAYMENT_REQUESTED: "#8b5cf6", PAID: "#10b981", CANCELLED: "#ef4444",
+  UNPAID: "#F4A623", PAYMENT_REQUESTED: "#A3477A", PAID: "#3BA55C", CANCELLED: "#ef4444",
 };
 
 // Sekme tanımları
 const TABS = [
   { key: "all",      label: "Tümü",           badgeColor: null },
-  { key: "active",   label: "Aktif",           badgeColor: "#f59e0b" },
-  { key: "pending_payment", label: "Bekleyen Ödeme", badgeColor: "#8b5cf6" },
-  { key: "completed",label: "Tamamlanan",      badgeColor: "#10b981" },
+  { key: "active",   label: "Aktif",           badgeColor: "#F4A623" },
+  { key: "pending_payment", label: "Bekleyen Ödeme", badgeColor: "#A3477A" },
+  { key: "completed",label: "Tamamlanan",      badgeColor: "#3BA55C" },
   { key: "cancelled",label: "İptal Edilen",    badgeColor: "#ef4444" },
 ] as const;
 
@@ -227,9 +227,9 @@ export default function AdminOrdersPage() {
       {/* Bekleyen Ödeme uyarısı */}
       {filter === "pending_payment" && counts.pending_payment > 0 && (
         <div style={{
-          padding: "12px 16px", background: "rgba(139,92,246,0.08)",
-          border: "1px solid rgba(139,92,246,0.2)", borderRadius: 10,
-          marginBottom: 16, fontSize: 13, color: "#c4b5fd",
+          padding: "12px 16px", background: "rgba(163,71,122,0.08)",
+          border: "1px solid rgba(163,71,122,0.2)", borderRadius: 10,
+          marginBottom: 16, fontSize: 13, color: "#EBAFD0",
           display: "flex", alignItems: "center", gap: 8,
         }}>
           💳 Bu siparişler servis edilmiş ancak henüz ödeme alınmamış. Ödeme almak için admin/kasa panelinden işlem yapın.
@@ -284,8 +284,8 @@ export default function AdminOrdersPage() {
 
               {/* OUT_OF_STOCK Ürün Seçimi */}
               {selectedReasonCode === "OUT_OF_STOCK" && (
-                <div style={{ marginBottom: 16, padding: 12, background: "rgba(245,158,11,0.08)", borderRadius: 10, border: "1px solid rgba(245,158,11,0.25)" }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#d97706", marginBottom: 8 }}>
+                <div style={{ marginBottom: 16, padding: 12, background: "rgba(244,166,35,0.08)", borderRadius: 10, border: "1px solid rgba(244,166,35,0.25)" }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#D9441F", marginBottom: 8 }}>
                     Stokta olmayan ürünü/ürünleri seçin:
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -386,7 +386,7 @@ export default function AdminOrdersPage() {
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "1px solid var(--border-subtle)" }}>
                     <div style={{ flex: 1 }}>
                       <span>{item.quantity}× {item.productName || item.product?.name}</span>
-                      {item.customerNote && <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 2 }}>📝 {item.customerNote}</div>}
+                      {item.customerNote && <div style={{ fontSize: 11, color: "#F4A623", marginTop: 2 }}>📝 {item.customerNote}</div>}
                     </div>
                     <span style={{ fontWeight: 600 }}>{Number(item.totalPrice).toFixed(2)} ₺</span>
                   </div>
@@ -394,7 +394,7 @@ export default function AdminOrdersPage() {
               </div>
 
               {order.note && (
-                <div style={{ padding: "8px 12px", background: "rgba(245,158,11,0.08)", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ padding: "8px 12px", background: "rgba(244,166,35,0.08)", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
                   <strong>Sipariş Notu:</strong> {order.note}
                 </div>
               )}

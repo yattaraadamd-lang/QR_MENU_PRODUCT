@@ -85,13 +85,13 @@ export default function AdminPaymentsPage() {
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Ödemeler</h2>
 
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #f59e0b" }}>
+        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #F4A623" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Onay Bekleyen Ödeme Talepleri</p>
-          <p style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b" }}>{pendingCount}</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: "#F4A623" }}>{pendingCount}</p>
         </div>
-        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #10b981" }}>
+        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #3BA55C" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Bugün Alınan Ciro</p>
-          <p style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>₺{todayTotal.toFixed(2)}</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: "#3BA55C" }}>₺{todayTotal.toFixed(2)}</p>
         </div>
       </div>
 
@@ -149,7 +149,7 @@ export default function AdminPaymentsPage() {
                   {p.method === "CASH" && p.receivedAmount ? (
                     <span>
                       Alınan: ₺{Number(p.receivedAmount).toFixed(2)}
-                      {p.changeAmount ? <small style={{ display: "block", color: "#10b981" }}>Üstü: ₺{Number(p.changeAmount).toFixed(2)}</small> : null}
+                      {p.changeAmount ? <small style={{ display: "block", color: "#3BA55C" }}>Üstü: ₺{Number(p.changeAmount).toFixed(2)}</small> : null}
                     </span>
                   ) : "-"}
                 </td>
@@ -173,7 +173,7 @@ export default function AdminPaymentsPage() {
                 </td>
                 <td style={{ fontSize: 13 }}>
                   {p.approvedByName ? (
-                    <span style={{ color: "#10b981", fontWeight: 600 }}>
+                    <span style={{ color: "#3BA55C", fontWeight: 600 }}>
                       🛡️ {p.approvedByName}
                     </span>
                   ) : "-"}

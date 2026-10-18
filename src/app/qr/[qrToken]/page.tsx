@@ -76,7 +76,7 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#fafafa" }}>
         <div className="text-center max-w-sm">
           <div className="text-6xl mb-4">❌</div>
-          <h1 className="text-xl font-bold mb-2" style={{ color: "#0f172a" }}>
+          <h1 className="text-xl font-bold mb-2" style={{ color: "#2A1A12" }}>
             QR Kod Geçersiz
           </h1>
           <p className="text-gray-500 mb-6">{error}</p>

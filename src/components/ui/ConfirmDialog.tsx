@@ -31,8 +31,8 @@ export default function ConfirmDialog({
   if (!open) return null;
 
   const isDanger = variant === "danger";
-  const iconBg = isDanger ? "rgba(220,38,38,0.1)" : "rgba(245,158,11,0.1)";
-  const iconColor = isDanger ? "#DC2626" : "#F59E0B";
+  const iconBg = isDanger ? "rgba(220,38,38,0.1)" : "rgba(244,166,35,0.1)";
+  const iconColor = isDanger ? "#DC2626" : "#F4A623";
 
   return (
     <div className="modal-overlay" onClick={onClose}>

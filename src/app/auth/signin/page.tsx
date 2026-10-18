@@ -4,8 +4,14 @@ import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle } from "lucide-react";
+import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle, ArrowLeft, BellRing, ChefHat, TrendingUp } from "lucide-react";
 import Input from "@/components/ui/Input";
+
+const HIGHLIGHTS = [
+  { icon: BellRing, text: "Siparişler ve garson çağrıları anında ekranınızda" },
+  { icon: ChefHat, text: "Masa, ürün ve stok yönetimi tek panelde" },
+  { icon: TrendingUp, text: "Günlük ciro ve ödemeler canlı takipte" },
+];
 
 function SignInForm() {
   const router = useRouter();
@@ -62,255 +68,189 @@ function SignInForm() {
   };
 
   return (
-    <div
-      className="landing-theme"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        background: "linear-gradient(145deg, #F8FAFC 0%, #FEF7ED 50%, #F8FAFC 100%)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Background decorations */}
-      <div
-        style={{
-          position: "absolute",
-          top: "15%",
-          left: "5%",
-          width: 350,
-          height: 350,
-          background: "radial-gradient(circle, rgba(217,119,6,0.06) 0%, transparent 70%)",
-          borderRadius: "50%",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          bottom: "10%",
-          right: "10%",
-          width: 300,
-          height: 300,
-          background: "radial-gradient(circle, rgba(245,158,11,0.05) 0%, transparent 70%)",
-          borderRadius: "50%",
-          pointerEvents: "none",
-        }}
-      />
+    <div className="landing-theme grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
+      {/* ── Marka paneli (desktop) ─────────────────────────────────────────── */}
+      <aside
+        className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"
+        style={{ background: "linear-gradient(150deg,#F06A3F 0%,#D9441F 40%,#8C2A14 100%)" }}
+      >
+        <div
+          aria-hidden
+          className="absolute -right-24 -top-24 h-96 w-96 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(244,166,35,0.55), transparent 70%)" }}
+        />
+        <div
+          aria-hidden
+          className="absolute -bottom-32 -left-20 h-96 w-96 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(42,26,18,0.55), transparent 70%)" }}
+        />
 
-      <div style={{ maxWidth: 420, width: "100%", position: "relative", zIndex: 1 }}>
-        {/* Logo & Title */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 16,
-              background: "linear-gradient(135deg, #D97706, #B45309)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 16px",
-              boxShadow: "0 8px 24px rgba(217,119,6,0.3)",
-            }}
-          >
-            <QrCode size={28} color="white" />
+        <Link href="/" className="relative flex items-center gap-2.5" style={{ textDecoration: "none", color: "white" }}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.25)" }}>
+            <QrCode size={20} />
+          </span>
+          <span className="font-display text-xl font-semibold">QR Menü</span>
+        </Link>
+
+        <div className="relative max-w-md">
+          <div className="mb-8 flex gap-3 text-4xl">
+            {["🍕", "🍔", "🥗", "☕"].map((e) => (
+              <span
+                key={e}
+                className="flex h-16 w-16 items-center justify-center rounded-2xl"
+                style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(6px)" }}
+              >
+                {e}
+              </span>
+            ))}
           </div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>
-            QR Menü Platformu
-          </h1>
-          <p style={{ color: "#64748B", fontSize: 14, marginTop: 6 }}>
-            Yönetim panelinize giriş yapın
-          </p>
+          <h2 className="font-display text-4xl font-semibold leading-tight">
+            Mutfağınızın ritmi, tek ekranda.
+          </h2>
+          <ul className="mt-8 flex flex-col gap-4">
+            {HIGHLIGHTS.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 text-[15px] font-medium" style={{ color: "rgba(255,255,255,0.92)" }}>
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.16)" }}>
+                  <Icon size={18} />
+                </span>
+                {text}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Login Card */}
-        <div
-          style={{
-            background: "#FFFFFF",
-            border: "1px solid #E2E8F0",
-            borderRadius: 20,
-            padding: "28px 28px 24px",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)",
-          }}
-        >
-          {/* Error */}
-          {error && (
+        <p className="relative text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
+          © {new Date().getFullYear()} QR Menü Platformu
+        </p>
+      </aside>
+
+      {/* ── Form ───────────────────────────────────────────────────────────── */}
+      <main className="flex items-center justify-center px-4 py-10 sm:px-8">
+        <div className="w-full max-w-[420px] animate-slide-up">
+          <div className="mb-8 text-center lg:text-left">
             <div
-              style={{
-                padding: "12px 14px",
-                background: "rgba(220,38,38,0.06)",
-                border: "1px solid rgba(220,38,38,0.15)",
-                borderRadius: 12,
-                color: "#B91C1C",
-                fontSize: 13,
-                fontWeight: 500,
-                marginBottom: 20,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
+              className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl lg:hidden"
+              style={{ background: "var(--gradient-brand)", boxShadow: "0 10px 24px rgba(217,68,31,0.32)" }}
             >
-              <AlertCircle size={16} style={{ flexShrink: 0 }} />
-              {error}
+              <QrCode size={28} color="white" />
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <Input
-              label="E-posta adresi"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ornek@isletme.com"
-              required
-              autoComplete="email"
-              leftIcon={<Mail size={18} />}
-              style={{ fontSize: 15 }}
-            />
-
-            <Input
-              label="Şifre"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-              showPasswordToggle
-              leftIcon={<Lock size={18} />}
-              style={{ fontSize: 15 }}
-            />
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary btn-lg"
-              style={{ width: "100%", marginTop: 4, fontSize: 15, borderRadius: 12, gap: 8 }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Giriş yapılıyor...
-                </>
-              ) : (
-                <>
-                  Giriş Yap
-                  <ArrowRight size={18} />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div style={{ textAlign: "center", marginTop: 20 }}>
-            <p style={{ fontSize: 13, color: "#64748B" }}>
-              İşletmeniz için hesap mı açacaksınız?{" "}
-              <Link
-                href="/auth/signup"
-                style={{ color: "#D97706", fontWeight: 600, textDecoration: "none" }}
-              >
-                Ücretsiz Deneyin
-              </Link>
-            </p>
-            <p style={{ fontSize: 13, color: "#64748B", marginTop: 8 }}>
-              Garson hesabınız yok mu?{" "}
-              <Link
-                href="/auth/register"
-                style={{ color: "#D97706", fontWeight: 600, textDecoration: "none" }}
-              >
-                Kayıt Ol
-              </Link>
+            <h1 className="font-display text-3xl font-semibold" style={{ color: "#2A1A12" }}>
+              Tekrar hoş geldiniz
+            </h1>
+            <p className="mt-2 text-sm" style={{ color: "#6E4F3F" }}>
+              Yönetim panelinize giriş yapın
             </p>
           </div>
-        </div>
 
-        {/* Demo Credentials */}
-        <div
-          style={{
-            marginTop: 16,
-            padding: "16px 20px",
-            background: "rgba(217,119,6,0.04)",
-            border: "1px solid rgba(217,119,6,0.12)",
-            borderRadius: 16,
-          }}
-        >
-          <p
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#B45309",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: 10,
-            }}
-          >
-            Demo Hesapları
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <button
-              onClick={() => fillDemo("admin@demo.com", "admin123")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid rgba(217,119,6,0.12)",
-                background: "white",
-                cursor: "pointer",
-                transition: "all 0.15s",
-                fontSize: 13,
-                color: "#475569",
-              }}
-            >
-              <span>
-                <strong style={{ color: "#0F172A" }}>Admin</strong> · admin@demo.com
-              </span>
-              <ArrowRight size={14} color="#D97706" />
-            </button>
-            <button
-              onClick={() => fillDemo("garson@demo.com", "garson123")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid rgba(217,119,6,0.12)",
-                background: "white",
-                cursor: "pointer",
-                transition: "all 0.15s",
-                fontSize: 13,
-                color: "#475569",
-              }}
-            >
-              <span>
-                <strong style={{ color: "#0F172A" }}>Garson</strong> · garson@demo.com
-              </span>
-              <ArrowRight size={14} color="#D97706" />
-            </button>
+          <div className="card p-7" style={{ borderRadius: 24, boxShadow: "0 20px 50px rgba(68,34,18,0.08)" }}>
+            {error && (
+              <div
+                role="alert"
+                className="mb-5 flex items-center gap-2 rounded-xl px-3.5 py-3 text-[13px] font-medium"
+                style={{ background: "#FDE3E1", border: "1px solid #FBC9C5", color: "#8F2019" }}
+              >
+                <AlertCircle size={16} className="flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <Input
+                label="E-posta adresi"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ornek@isletme.com"
+                required
+                autoComplete="email"
+                leftIcon={<Mail size={18} />}
+                style={{ fontSize: 15, minHeight: 48 }}
+              />
+
+              <Input
+                label="Şifre"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+                showPasswordToggle
+                leftIcon={<Lock size={18} />}
+                style={{ fontSize: 15, minHeight: 48 }}
+              />
+
+              <button type="submit" disabled={loading} className="btn btn-primary btn-lg mt-1 w-full">
+                {loading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Giriş yapılıyor...
+                  </>
+                ) : (
+                  <>
+                    Giriş Yap
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 flex flex-col gap-2 text-center text-[13px]" style={{ color: "#6E4F3F" }}>
+              <p>
+                İşletmeniz için hesap mı açacaksınız?{" "}
+                <Link href="/auth/signup" className="font-bold hover:underline" style={{ color: "#D9441F" }}>
+                  Ücretsiz Deneyin
+                </Link>
+              </p>
+              <p>
+                Garson hesabınız yok mu?{" "}
+                <Link href="/auth/register" className="font-bold hover:underline" style={{ color: "#D9441F" }}>
+                  Kayıt Ol
+                </Link>
+              </p>
+            </div>
+          </div>
+
+          {/* Demo hesapları */}
+          <div className="mt-4 rounded-2xl p-4" style={{ background: "#FFF1E6", border: "1px dashed #FFC8B0" }}>
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: "#B23415" }}>
+              Demo Hesapları
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                { role: "Admin", email: "admin@demo.com", pass: "admin123" },
+                { role: "Garson", email: "garson@demo.com", pass: "garson123" },
+              ].map((d) => (
+                <button
+                  key={d.role}
+                  type="button"
+                  onClick={() => fillDemo(d.email, d.pass)}
+                  className="flex items-center justify-between rounded-xl bg-white px-3.5 py-2.5 text-left text-[13px] transition-all hover:-translate-y-0.5"
+                  style={{ border: "1px solid #F0DFD0", color: "#6E4F3F", cursor: "pointer", boxShadow: "0 1px 2px rgba(68,34,18,0.05)" }}
+                >
+                  <span className="min-w-0">
+                    <strong className="block" style={{ color: "#2A1A12" }}>{d.role}</strong>
+                    <span className="block truncate text-xs">{d.email}</span>
+                  </span>
+                  <ArrowRight size={14} color="#D9441F" className="flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6 text-center">
+            <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] font-semibold hover:underline" style={{ color: "#A68A78" }}>
+              <ArrowLeft size={14} /> Ana Sayfaya Dön
+            </Link>
           </div>
         </div>
-
-        {/* Back to landing */}
-        <div style={{ textAlign: "center", marginTop: 20 }}>
-          <Link
-            href="/"
-            style={{ fontSize: 13, color: "#94A3B8", textDecoration: "none", fontWeight: 500 }}
-          >
-            ← Ana Sayfaya Dön
-          </Link>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading...</div>}>
+    <Suspense fallback={<div className="landing-theme" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>Yükleniyor...</div>}>
       <SignInForm />
     </Suspense>
   );

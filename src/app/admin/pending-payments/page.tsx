@@ -254,8 +254,8 @@ export default function PendingPaymentsPage() {
         <div style={{
           padding: "12px 16px", borderRadius: 10, marginBottom: 16,
           fontSize: 13, fontWeight: 600,
-          background: "rgba(16,185,129,0.1)", color: "var(--success)",
-          border: "1px solid rgba(16,185,129,0.2)",
+          background: "rgba(59,165,92,0.1)", color: "var(--success)",
+          border: "1px solid rgba(59,165,92,0.2)",
           display: "flex", alignItems: "center", gap: 8,
         }}>
           ✅ {successMessage}
@@ -277,7 +277,7 @@ export default function PendingPaymentsPage() {
       {/* SECTION 1: ADMIN ONAYI BEKLEYEN ÖDEME TALEPLERİ */}
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-          <Clock size={20} color="#f59e0b" /> Garson / Müşteri Ödeme Onay Talepleri ({approvalRequests.length})
+          <Clock size={20} color="#F4A623" /> Garson / Müşteri Ödeme Onay Talepleri ({approvalRequests.length})
         </h2>
 
         {approvalRequests.length === 0 ? (
@@ -287,7 +287,7 @@ export default function PendingPaymentsPage() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
             {approvalRequests.map((req) => (
-              <div key={req.id} className="card p-5" style={{ borderLeft: "4px solid #f59e0b", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div key={req.id} className="card p-5" style={{ borderLeft: "4px solid #F4A623", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 12 }}>
                     <h3 style={{ fontSize: 18, fontWeight: 700 }}>
@@ -514,8 +514,8 @@ export default function PendingPaymentsPage() {
 
                 <div style={{
                   padding: "12px 16px", borderRadius: 10,
-                  background: changeAmount > 0 ? "rgba(16,185,129,0.08)" : "var(--bg-hover)",
-                  border: `1px solid ${changeAmount > 0 ? "rgba(16,185,129,0.2)" : "var(--border-subtle)"}`,
+                  background: changeAmount > 0 ? "rgba(59,165,92,0.08)" : "var(--bg-hover)",
+                  border: `1px solid ${changeAmount > 0 ? "rgba(59,165,92,0.2)" : "var(--border-subtle)"}`,
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>Para Üstü:</span>

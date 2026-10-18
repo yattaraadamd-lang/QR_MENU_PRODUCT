@@ -152,7 +152,7 @@ export default function SignupPage() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%)",
+      background: "radial-gradient(700px 400px at 85% -10%, rgba(217,68,31,0.28), transparent 70%), linear-gradient(135deg, #17110E 0%, #2A1A12 50%, #17110E 100%)",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",

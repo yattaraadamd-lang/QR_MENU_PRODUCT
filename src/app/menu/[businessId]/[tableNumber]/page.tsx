@@ -24,8 +24,20 @@ const WAITER_REASONS = [
   "Diğer",
 ];
 
-const BRAND = "#B91C1C";
-const BRAND_DARK = "#991B1B";
+const BRAND = "#D9441F";      // Paprika — iştah açıcı kırmızı-turuncu
+const BRAND_DARK = "#B23415";
+const BRAND_RGB = "217,68,31";
+
+// Görseli olmayan ürünler için sıcak, iştah açıcı kutucuk degradeleri
+const FOOD_TILES = [
+  "linear-gradient(135deg,#FDBA74,#D9441F)",
+  "linear-gradient(135deg,#FCD27A,#D9820B)",
+  "linear-gradient(135deg,#F6A19A,#B3261E)",
+  "linear-gradient(135deg,#BBE2C1,#2E8B47)",
+  "linear-gradient(135deg,#E7C9A9,#8C5A3C)",
+];
+const foodTile = (id: string) =>
+  FOOD_TILES[Array.from(id).reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % FOOD_TILES.length];
 
 type AuthStatus = "VIEW_ONLY" | "PENDING" | "AUTHORIZED" | "REVOKED" | "TABLE_ALREADY_CLAIMED";
 
@@ -731,7 +743,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
 
   const stockLabel = (p: Product) => {
     if (!p.isAvailable || p.stockStatus === "OUT_OF_STOCK") return { text: "Stokta Yok", color: "#ef4444" };
-    if (p.stockStatus === "TEMPORARILY_UNAVAILABLE") return { text: "Geçici Yok", color: "#f59e0b" };
+    if (p.stockStatus === "TEMPORARILY_UNAVAILABLE") return { text: "Geçici Yok", color: "#F4A623" };
     return null;
   };
 
@@ -774,14 +786,14 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         {authStatus === "PENDING" && verificationCode && (
           <div style={{
             padding: "16px", marginBottom: 16,
-            background: "linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))",
-            borderRadius: 14, border: "1px solid rgba(245,158,11,0.25)",
+            background: "linear-gradient(135deg, rgba(244,166,35,0.12), rgba(244,166,35,0.06))",
+            borderRadius: 14, border: "1px solid rgba(244,166,35,0.25)",
             textAlign: "center",
           }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#8C2A14", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
               Masa Doğrulama Kodunuz
             </p>
-            <p style={{ fontSize: 36, fontWeight: 900, color: "#d97706", letterSpacing: "0.2em", fontFamily: "monospace" }}>
+            <p style={{ fontSize: 36, fontWeight: 900, color: "#D9441F", letterSpacing: "0.2em", fontFamily: "monospace" }}>
               {verificationCode}
             </p>
             <p style={{ fontSize: 12, color: "#78716c", marginTop: 6 }}>
@@ -887,7 +899,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "12px 16px 0" }}>
           <div style={{
             padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600,
-            background: "rgba(217,119,6,0.12)", color: "#92400e", border: "1px solid rgba(217,119,6,0.35)",
+            background: "rgba(217,68,31,0.12)", color: "#8C2A14", border: "1px solid rgba(217,68,31,0.35)",
           }}>
             ⚠️ {orderBlockedMsg}
           </div>
@@ -910,13 +922,14 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
 
       {/* ── Header ── */}
       <div style={{
-        background: `linear-gradient(160deg, ${BRAND} 0%, ${BRAND_DARK} 100%)`,
+        background: `radial-gradient(420px 180px at 92% -30%, rgba(244,166,35,0.55), transparent 70%), linear-gradient(150deg, #F06A3F 0%, ${BRAND} 45%, ${BRAND_DARK} 100%)`,
         padding: "16px 16px 24px",
         color: "white",
         position: "sticky",
         top: 0,
         zIndex: 40,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        borderRadius: "0 0 22px 22px",
+        boxShadow: `0 10px 28px rgba(${BRAND_RGB},0.28)`,
       }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
@@ -933,7 +946,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
               ) : "🏪"}
             </div>
             <div style={{ minWidth: 0 }}>
-              <h1 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <h1 className="font-display" style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {business.name}
               </h1>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
@@ -947,7 +960,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                   <span style={{ fontSize: 10, background: "rgba(34,197,94,0.3)", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>✓ Aktif</span>
                 )}
                 {authStatus === "PENDING" && (
-                  <span style={{ fontSize: 10, background: "rgba(245,158,11,0.3)", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>⏳ Onay</span>
+                  <span style={{ fontSize: 10, background: "rgba(244,166,35,0.3)", padding: "2px 8px", borderRadius: 99, fontWeight: 700 }}>⏳ Onay</span>
                 )}
               </div>
             </div>
@@ -985,7 +998,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                     background: activeCategory === cat.id ? "var(--primary)" : "transparent",
                     color: activeCategory === cat.id ? "white" : "var(--text-secondary)",
                     transform: activeCategory === cat.id ? "translateX(4px)" : "translateX(0)",
-                    boxShadow: activeCategory === cat.id ? "0 4px 12px rgba(185,28,28,0.3)" : "none",
+                    boxShadow: activeCategory === cat.id ? `0 6px 16px rgba(${BRAND_RGB},0.3)` : "none",
                   }}>
                     {cat.icon && <span style={{ fontSize: 18 }}>{cat.icon}</span>}
                     <span style={{ flex: 1 }}>{cat.name}</span>
@@ -999,11 +1012,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 {categories.map(cat => (
                   <button key={cat.id} data-tab-id={cat.id} onClick={() => scrollTo(cat.id)} style={{
                     padding: "10px 18px", borderRadius: 99, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
-                    border: activeCategory === cat.id ? "2px solid var(--primary)" : "2px solid var(--border-color)",
+                    border: activeCategory === cat.id ? "1.5px solid var(--primary)" : "1.5px solid var(--border-color)",
                     cursor: "pointer", transition: "all 0.2s",
-                    background: activeCategory === cat.id ? "var(--primary)" : "var(--bg-card)",
+                    background: activeCategory === cat.id ? `linear-gradient(135deg, #F06A3F, ${BRAND})` : "var(--bg-card)",
                     color: activeCategory === cat.id ? "white" : "var(--text-secondary)",
-                    boxShadow: activeCategory === cat.id ? "0 4px 12px rgba(185,28,28,0.25)" : "0 1px 3px rgba(0,0,0,0.05)",
+                    boxShadow: activeCategory === cat.id ? `0 6px 16px rgba(${BRAND_RGB},0.3)` : "0 1px 3px rgba(68,34,18,0.05)",
                     transform: activeCategory === cat.id ? "scale(1.05)" : "scale(1)",
                   }}>
                     {cat.icon && <span style={{ marginRight: 6 }}>{cat.icon}</span>}
@@ -1018,10 +1031,12 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           <div className="flex-1 pb-24 lg:pb-8 pt-0">
             {categories.map(cat => (
               <div key={cat.id} ref={el => { categoryRefs.current[cat.id] = el; }} data-category-id={cat.id} style={{ marginBottom: 40, scrollMarginTop: 160 }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-primary)", marginBottom: 18, display: "flex", alignItems: "center", gap: 10, paddingBottom: 12, borderBottom: "2px solid var(--border-subtle)" }}>
-                  {cat.icon && <span style={{ fontSize: 24 }}>{cat.icon}</span>}
-                  <span style={{ flex: 1 }}>{cat.name}</span>
-                  <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>{cat.products.length} ürün</span>
+                <h2 style={{ fontSize: 22, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+                  {cat.icon && (
+                    <span style={{ fontSize: 20, width: 40, height: 40, borderRadius: 12, background: "#FFE9DF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{cat.icon}</span>
+                  )}
+                  <span className="font-display" style={{ flex: 1 }}>{cat.name}</span>
+                  <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 700, background: "var(--bg-hover)", padding: "4px 10px", borderRadius: 99 }}>{cat.products.length} ürün</span>
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {cat.products.map(p => {
@@ -1029,21 +1044,30 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                     const ok = orderable(p);
                     return (
                       <div key={p.id} className="prod-card card" onClick={() => ok && setSelectedProduct(p)} style={{
-                        padding: 0, display: "flex", flexDirection: "column", cursor: ok ? "pointer" : "default", opacity: ok ? 1 : 0.65, overflow: "hidden", position: "relative", transition: "transform 0.2s, box-shadow 0.2s",
+                        padding: 0, display: "flex", flexDirection: p.image ? "column" : "row", cursor: ok ? "pointer" : "default", opacity: ok ? 1 : 0.65, overflow: "hidden", position: "relative", transition: "transform 0.2s, box-shadow 0.2s", borderRadius: 20,
                       }}>
-                        {p.image && (
-                          <div style={{ width: "100%", height: 140, background: `url(${p.image}) center/cover`, position: "relative" }}>
-                            <div style={{ position: "absolute", top: 8, left: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              {p.isPopular && <span className="badge badge-accent" style={{ backdropFilter: "blur(4px)" }}>⭐ Popüler</span>}
+                        {p.image ? (
+                          <div style={{ width: "100%", height: 168, background: `url(${p.image}) center/cover`, position: "relative" }}>
+                            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, rgba(42,26,18,0.35) 100%)" }} />
+                            <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {p.isPopular && <span className="badge" style={{ background: "rgba(255,255,255,0.92)", color: "#B3261E", backdropFilter: "blur(4px)" }}>🔥 Popüler</span>}
                               {sl && <span className="badge" style={{ background: `${sl.color}`, color: "white", backdropFilter: "blur(4px)" }}>{sl.text}</span>}
                             </div>
                           </div>
+                        ) : (
+                          <div aria-hidden style={{
+                            width: 88, minHeight: 88, margin: "12px 0 12px 12px", borderRadius: 16, flexShrink: 0,
+                            background: foodTile(p.id), display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 38, boxShadow: "inset 0 -14px 24px rgba(0,0,0,0.1)",
+                          }}>
+                            {cat.icon || "🍽️"}
+                          </div>
                         )}
-                        <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column" }}>
+                        <div style={{ padding: 14, flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                           <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
                             <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)", lineHeight: 1.3, flex: 1 }}>{p.name}</span>
                             {!p.image && (<>
-                              {p.isPopular && <span className="badge badge-accent">⭐</span>}
+                              {p.isPopular && <span className="badge badge-accent">🔥 Popüler</span>}
                               {sl && <span className="badge" style={{ background: `${sl.color}15`, color: sl.color }}>{sl.text}</span>}
                             </>)}
                           </div>
@@ -1051,11 +1075,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                             <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 12, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{p.description}</p>
                           )}
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: "auto" }}>
-                            <span style={{ fontSize: 19, fontWeight: 800, color: "var(--primary)" }}>{Number(p.price).toFixed(2)} ₺</span>
+                            <span style={{ fontSize: 19, fontWeight: 800, color: "var(--primary)", letterSpacing: "-0.01em" }}>{Number(p.price).toFixed(2)} ₺</span>
                             <button onClick={e => { e.stopPropagation(); addToCart(p); }} disabled={!ok} className="btn btn-sm" style={{
-                              background: ok ? `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})` : "var(--bg-hover)",
-                              color: ok ? "white" : "var(--text-muted)", borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: 700,
-                              boxShadow: ok ? "0 2px 8px rgba(185,28,28,0.25)" : "none",
+                              background: ok ? `linear-gradient(135deg, #F06A3F, ${BRAND} 60%, ${BRAND_DARK})` : "var(--bg-hover)",
+                              color: ok ? "white" : "var(--text-muted)", borderRadius: 99, padding: "8px 16px", fontSize: 13, fontWeight: 700, minHeight: 38,
+                              boxShadow: ok ? `0 4px 12px rgba(${BRAND_RGB},0.3)` : "none",
                             }}>
                               {ok ? "+ Ekle" : "Yok"}
                             </button>
@@ -1106,7 +1130,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 </div>
               )}
               {selectedProduct.allergens && (
-                <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(217,119,6,0.05)", borderRadius: 10, border: "1px solid rgba(217,119,6,0.2)" }}>
+                <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(217,68,31,0.05)", borderRadius: 10, border: "1px solid rgba(217,68,31,0.2)" }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>⚠️ Alerjenler</p>
                   <p style={{ fontSize: 13, color: "var(--accent)" }}>{selectedProduct.allergens}</p>
                 </div>
@@ -1241,13 +1265,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         position: "fixed", bottom: 0, left: 0, right: 0,
         background: "var(--bg-card)", borderTop: "1px solid var(--border-color)",
         paddingBottom: "max(0px, env(safe-area-inset-bottom))",
-        zIndex: 40, boxShadow: "0 -4px 16px rgba(0,0,0,0.08)"
+        zIndex: 40, boxShadow: "0 -8px 24px rgba(68,34,18,0.08)", borderRadius: "20px 20px 0 0"
       }}>
         {/* ✅ Canlı Adisyon Barı — AUTHORIZED ve aktif hesap varsa */}
         {authStatus === "AUTHORIZED" && liveBillTotal !== null && liveBillTotal > 0 && (
           <div style={{
             padding: "8px 16px",
-            background: "linear-gradient(135deg, rgba(34,197,94,0.08), rgba(16,185,129,0.06))",
+            background: "linear-gradient(135deg, rgba(34,197,94,0.08), rgba(59,165,92,0.06))",
             borderBottom: "1px solid rgba(34,197,94,0.15)",
             display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
@@ -1257,13 +1281,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {liveBillPaid > 0 && (
-                <span style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>
+                <span style={{ fontSize: 12, color: "#3BA55C", fontWeight: 600 }}>
                   ✓ {liveBillPaid.toFixed(2)} ₺ ödendi
                 </span>
               )}
               <span style={{
                 fontSize: 15, fontWeight: 800,
-                color: (liveBillTotal - liveBillPaid) > 0 ? "#ef4444" : "#10b981",
+                color: (liveBillTotal - liveBillPaid) > 0 ? "#ef4444" : "#3BA55C",
               }}>
                 {(liveBillTotal - liveBillPaid) > 0
                   ? `${(liveBillTotal - liveBillPaid).toFixed(2)} ₺`
@@ -1304,11 +1328,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           <button onClick={() => setShowCartMobile(true)} disabled={cartCount === 0} style={{
             flex: authStatus === "AUTHORIZED" ? 3 : 4,
             padding: "12px 16px", borderRadius: 12, border: "none",
-            background: cartCount > 0 ? `linear-gradient(135deg, ${BRAND}, ${BRAND_DARK})` : "var(--bg-hover)",
+            background: cartCount > 0 ? `linear-gradient(135deg, #F06A3F, ${BRAND} 55%, ${BRAND_DARK})` : "var(--bg-hover)",
             color: cartCount > 0 ? "white" : "var(--text-muted)",
             cursor: cartCount > 0 ? "pointer" : "not-allowed",
             fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            boxShadow: cartCount > 0 ? `0 4px 16px rgba(185,28,28,0.4)` : "none",
+            boxShadow: cartCount > 0 ? `0 8px 22px rgba(${BRAND_RGB},0.4)` : "none",
             transition: "all 0.2s",
           }}>
             {cartCount > 0 ? (

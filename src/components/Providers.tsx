@@ -12,7 +12,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         richColors
         toastOptions={{
           style: {
-            fontFamily: "'Inter', system-ui, sans-serif",
+            fontFamily: "var(--font-body)",
             fontSize: 14,
             fontWeight: 600,
             borderRadius: 14,

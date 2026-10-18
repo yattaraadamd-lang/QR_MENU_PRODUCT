@@ -69,18 +69,21 @@ const nextConfig = {
           },
         ],
       },
-      {
-        // HSTS only for production (applied to all routes)
-        source: "/:path*",
-        headers: process.env.NODE_ENV === "production"
-          ? [
-              {
-                key: "Strict-Transport-Security",
-                value: "max-age=31536000; includeSubDomains",
-              },
-            ]
-          : [],
-      },
+      // HSTS only for production (applied to all routes).
+      // Next.js boş headers dizisini reddettiği için girdi geliştirmede hiç eklenmez.
+      ...(process.env.NODE_ENV === "production"
+        ? [
+            {
+              source: "/:path*",
+              headers: [
+                {
+                  key: "Strict-Transport-Security",
+                  value: "max-age=31536000; includeSubDomains",
+                },
+              ],
+            },
+          ]
+        : []),
       {
         // ✅ Private API routes: no caching
         source: "/api/:path*",

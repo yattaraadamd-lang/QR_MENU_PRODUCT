@@ -39,13 +39,13 @@ export default function SuperAdminPaymentsPage() {
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Platform Ödemeleri</h2>
 
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-        <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #8b5cf6" }}>
+        <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #A3477A" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Toplam Platform Geliri</p>
-          <p style={{ fontSize: 24, fontWeight: 800, color: "#8b5cf6" }}>{formatCurrency(totalRevenue)}</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: "#A3477A" }}>{formatCurrency(totalRevenue)}</p>
         </div>
-        <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #10b981" }}>
+        <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #3BA55C" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Aktif Abonelik</p>
-          <p style={{ fontSize: 24, fontWeight: 800, color: "#10b981" }}>{payments.length}</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: "#3BA55C" }}>{payments.length}</p>
         </div>
       </div>
 

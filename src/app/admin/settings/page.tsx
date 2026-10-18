@@ -57,7 +57,7 @@ export default function AdminSettingsPage() {
   return (
     <div>
       {toast && (
-        <div className="toast" style={{ background: "#10b981", color: "white" }}>
+        <div className="toast" style={{ background: "#3BA55C", color: "white" }}>
           {toast}
         </div>
       )}

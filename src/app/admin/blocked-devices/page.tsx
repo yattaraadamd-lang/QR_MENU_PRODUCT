@@ -116,9 +116,9 @@ export default function BlockedDevicesPage() {
           marginBottom: 16,
           fontSize: 13,
           fontWeight: 500,
-          background: feedback.type === "success" ? "rgba(16,185,129,0.1)" : "rgba(220,38,38,0.1)",
+          background: feedback.type === "success" ? "rgba(59,165,92,0.1)" : "rgba(220,38,38,0.1)",
           color: feedback.type === "success" ? "var(--success)" : "var(--danger)",
-          border: `1px solid ${feedback.type === "success" ? "rgba(16,185,129,0.2)" : "rgba(220,38,38,0.2)"}`,
+          border: `1px solid ${feedback.type === "success" ? "rgba(59,165,92,0.2)" : "rgba(220,38,38,0.2)"}`,
         }}>
           {feedback.message}
         </div>
@@ -292,8 +292,8 @@ export default function BlockedDevicesPage() {
             </div>
 
             <div style={{
-              padding: "10px 14px", background: "rgba(245, 158, 11, 0.1)",
-              color: "#f59e0b", borderRadius: 8, marginBottom: 16,
+              padding: "10px 14px", background: "rgba(244,166,35, 0.1)",
+              color: "#F4A623", borderRadius: 8, marginBottom: 16,
               fontSize: 12, fontWeight: 500, lineHeight: 1.5,
             }}>
               ⚠️ Bu işlem cihaz engelini kaldırır. Cihaz sahibi QR kodunu yeniden okuttuğunda yeni bir oturum açabilir.
