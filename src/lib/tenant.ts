@@ -5,10 +5,14 @@
  * Her API route'u businessId kontrolü yapmalıdır.
  */
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "./auth";
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
+import {
+  requireAuth as guardRequireAuth,
+  requireAdmin as guardRequireAdmin,
+  requireSuperAdmin as guardRequireSuperAdmin,
+  type AuthGuardResult,
+} from "./auth-guard";
 
 export interface TenantSession {
   userId: string;
@@ -29,83 +33,50 @@ export interface TenantAuthError {
 }
 
 /**
+ * 🔒 SECURITY: Tüm kontroller auth-guard'a devredilir.
+ * auth-guard her istekte kullanıcıyı ve işletmeyi veritabanından okur; böylece
+ * silinen/pasifleştirilen personel veya askıya alınan işletme, elindeki JWT
+ * (8 saate kadar geçerli) ile işlem yapmaya devam edemez. Rol de JWT'den değil
+ * veritabanından gelir.
+ */
+function toTenantResult(result: AuthGuardResult): TenantAuthResult | TenantAuthError {
+  if (result.error) {
+    return { success: false, response: result.response };
+  }
+
+  const { user } = result.session;
+  return {
+    success: true,
+    session: {
+      userId: user.id,
+      businessId: user.businessId,
+      role: user.role,
+      email: user.email,
+      name: user.name,
+    },
+  };
+}
+
+/**
  * Admin veya Waiter authentication gerektirir
  * BusinessId session'dan alınır - ASLA request body'den alınmaz
  */
 export async function requireAuth(): Promise<TenantAuthResult | TenantAuthError> {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user) {
-    return {
-      success: false,
-      response: NextResponse.json(
-        { error: "Yetkisiz erişim. Lütfen giriş yapın." },
-        { status: 401 }
-      ),
-    };
-  }
-
-  return {
-    success: true,
-    session: {
-      userId: session.user.id,
-      businessId: session.user.businessId,
-      role: session.user.role as "ADMIN" | "WAITER" | "SUPER_ADMIN",
-      email: session.user.email!,
-      name: session.user.name!,
-    },
-  };
+  return toTenantResult(await guardRequireAuth());
 }
 
 /**
  * Sadece Admin rolü gerektirir
  */
 export async function requireAdmin(): Promise<TenantAuthResult | TenantAuthError> {
-  const authResult = await requireAuth();
-
-  if (!authResult.success) {
-    return authResult;
-  }
-
-  if (authResult.session.role !== "ADMIN" && authResult.session.role !== "SUPER_ADMIN") {
-    return {
-      success: false,
-      response: NextResponse.json(
-        { error: "Bu işlem için admin yetkisi gereklidir." },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return authResult;
+  return toTenantResult(await guardRequireAdmin());
 }
 
 /**
  * Sadece Super Admin rolü gerektirir
  */
 export async function requireSuperAdmin(): Promise<TenantAuthResult | TenantAuthError> {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
-    return {
-      success: false,
-      response: NextResponse.json(
-        { error: "Bu işlem için super admin yetkisi gereklidir." },
-        { status: 403 }
-      ),
-    };
-  }
-
-  return {
-    success: true,
-    session: {
-      userId: session.user.id,
-      businessId: session.user.businessId,
-      role: "SUPER_ADMIN",
-      email: session.user.email!,
-      name: session.user.name!,
-    },
-  };
+  return toTenantResult(await guardRequireSuperAdmin());
 }
 
 /**

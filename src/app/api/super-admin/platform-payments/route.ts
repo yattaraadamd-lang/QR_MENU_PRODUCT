@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
-    }
+    const { error, response } = await requireSuperAdmin();
+    if (error) return response;
 
     // Placeholder - platform payment records will be populated when subscription billing is active
     return NextResponse.json({ success: true, payments: [] });

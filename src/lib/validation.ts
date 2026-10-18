@@ -17,6 +17,12 @@ export const emailSchema = z.string().email();
 export const positiveIntSchema = z.number().int().positive();
 export const nonNegativeIntSchema = z.number().int().min(0);
 export const priceSchema = z.number().positive().multipleOf(0.01);
+// 🔒 SECURITY: z.string().url() "javascript:" / "data:" şemalarını da kabul eder; yalnız http(s)
+export const httpUrlSchema = z
+  .string()
+  .url()
+  .max(2000)
+  .refine((value) => /^https?:\/\//i.test(value), "Yalnızca http(s) bağlantıları kabul edilir");
 
 // ============================================================================
 // Table Schemas
@@ -44,7 +50,7 @@ export const createProductSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   price: priceSchema,
   categoryId: z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/).optional().nullable(), // ✅ Demo ID + CUID + null desteklenir
-  image: z.string().url().optional().nullable(),
+  image: httpUrlSchema.optional().nullable(),
   isAvailable: z.boolean().default(true),
   stockStatus: z.nativeEnum(StockStatus).default("IN_STOCK"),
   allergens: z.string().max(500).optional().nullable().or(z.literal("")),
@@ -59,7 +65,7 @@ export const updateProductSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   price: priceSchema.optional(),
   categoryId: z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/).optional().nullable(), // ✅ Demo ID + CUID + null desteklenir
-  image: z.string().url().optional().nullable(),
+  image: httpUrlSchema.optional().nullable(),
   isAvailable: z.boolean().optional(),
   stockStatus: z.nativeEnum(StockStatus).optional(),
   allergens: z.string().max(500).optional().nullable().or(z.literal("")),
@@ -148,16 +154,14 @@ export const updateStaffSchema = z.object({
 // Business Schemas
 // ============================================================================
 
+// 🔒 SECURITY: isActive bilerek yok — askıya alınan işletmeyi yalnız Super Admin açabilir
 export const updateBusinessSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
+  name: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(1000).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
-  phone: z.string().max(20).optional().nullable(),
-  email: emailSchema.optional().nullable(),
-  logo: z.string().url().optional().nullable(),
-  currency: z.string().length(3).optional(),
-  timezone: z.string().optional(),
-  isActive: z.boolean().optional(),
+  phone: z.string().max(30).optional().nullable(),
+  email: emailSchema.optional().nullable().or(z.literal("")),
+  logo: httpUrlSchema.optional().nullable().or(z.literal("")),
 });
 
 // ============================================================================

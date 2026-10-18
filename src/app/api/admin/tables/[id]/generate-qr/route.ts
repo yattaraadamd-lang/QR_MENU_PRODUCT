@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import QRCode from "qrcode";
-import { v4 as uuidv4 } from "uuid";
+import { generateQrToken } from "@/lib/qr-token";
 
 // POST /api/admin/tables/[id]/generate-qr - QR kod oluştur
 export async function POST(
@@ -36,7 +36,7 @@ export async function POST(
     // ✅ qrToken null ise yeni kalıcı token oluştur ve kaydet
     let qrToken = table.qrToken;
     if (!qrToken) {
-      qrToken = `qr_${table.business?.slug || businessId}_${table.tableNumber}_${uuidv4().slice(0, 8)}`;
+      qrToken = generateQrToken();
       await prisma.table.update({
         where: { id: params.id },
         data: { qrToken },

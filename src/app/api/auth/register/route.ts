@@ -6,6 +6,7 @@ import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
+import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +54,12 @@ const registerSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // ✅ SECURITY: Davet kodu denemesi / toplu hesap açmaya karşı IP limiti
+    const rl = await rateLimit({ ...UNIFIED_RATE_LIMITS.WAITER_REGISTER, identifier: `register_${getClientIp(request)}` });
+    if (!rl.success) return createRateLimitResponse(rl);
+
     const body = await request.json();
-    
+
     // ✅ Zod strict validation
     const parseResult = registerSchema.safeParse(body);
     if (!parseResult.success) {

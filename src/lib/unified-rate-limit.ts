@@ -99,6 +99,18 @@ export const UNIFIED_RATE_LIMITS = {
     maxRequests: 10,
     windowMs: 15 * 60 * 1000, // 10 session creations per 15 min
   },
+  CUSTOMER_SESSION_CREATE: {
+    maxRequests: 60,
+    windowMs: 15 * 60 * 1000, // IP başına (paylaşılan kafe Wi-Fi'ı düşünülerek geniş)
+  },
+  WAITER_REGISTER: {
+    maxRequests: 10,
+    windowMs: 60 * 60 * 1000, // IP başına; aynı Wi-Fi'dan birkaç garson kaydolabilir
+  },
+  LOGIN_IP: {
+    maxRequests: 30,
+    windowMs: 15 * 60 * 1000, // IP başına; farklı e-postalarla deneme (password spraying)
+  },
   ORDER_CREATE: {
     maxRequests: 1,
     windowMs: 10 * 1000, // 1 order per 10 seconds
@@ -131,15 +143,21 @@ export const UNIFIED_RATE_LIMITS = {
 
 /**
  * Helper to get client IP from Next.js / standard Request headers safely
+ *
+ * 🔒 SECURITY: X-Forwarded-For'un İLK değeri istemci tarafından yazılabilir;
+ * her istekte farklı sahte IP gönderilerek rate limit atlatılabiliyordu.
+ * - cf-connecting-ip: Render önündeki Cloudflare her zaman üzerine yazar
+ * - X-Forwarded-For: güvenilir proxy'nin eklediği EN SONDAKİ değer kullanılır
  */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
-  }
   const cfConnectingIp = request.headers.get("cf-connecting-ip");
   if (cfConnectingIp) {
-    return cfConnectingIp;
+    return cfConnectingIp.trim();
+  }
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const hops = forwarded.split(",").map((ip) => ip.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
   }
   const realIp = request.headers.get("x-real-ip");
   if (realIp) {

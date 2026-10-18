@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { generateDeviceKey, hashDeviceKey, checkDeviceBlock } from "@/lib/security/device-block";
+import { qrTokensMatch } from "@/lib/qr-token";
+import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -378,8 +380,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ─── 🔒 SECURITY: QR token tahmin denemelerine karşı IP başına sınır
+    // Kafe Wi-Fi'ında müşteriler aynı IP'yi paylaşır; limit bu yüzden geniş tutuldu.
+    const rl = await rateLimit({
+      ...UNIFIED_RATE_LIMITS.CUSTOMER_SESSION_CREATE,
+      identifier: `customer_session_${getClientIp(request)}`,
+    });
+    if (!rl.success) return createRateLimitResponse(rl);
+
     // ─── Yeni session oluşturmak için qrToken ZORUNLU (normal businesses)
-    if (!qrToken || qrToken !== table.qrToken) {
+    const qrExpired = !!table.qrTokenExpiresAt && table.qrTokenExpiresAt < new Date();
+    if (!qrTokensMatch(qrToken, table.qrToken) || qrExpired) {
       return addSecurityHeaders(
         NextResponse.json({
           sessionToken: null,

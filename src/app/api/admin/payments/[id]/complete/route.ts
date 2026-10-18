@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { processAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
@@ -16,18 +15,8 @@ export async function PATCH(
   try {
     const params = await context.params;
     paymentId = params.id;
-    const session = await getServerSession(authOptions);
-
-    if (
-      !session?.user?.businessId ||
-      !session?.user?.id ||
-      (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN")
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Bu işlem için admin yetkisi gereklidir." },
-        { status: 403 }
-      );
-    }
+    const { error, response, session } = await requireAdmin();
+    if (error) return response;
 
     const businessId = session.user.businessId;
     const body = await request.json();

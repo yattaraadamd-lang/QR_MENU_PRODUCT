@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateBody, updateStaffSchema, isValidCuid } from "@/lib/validation";
+import bcrypt from "bcryptjs";
 
 // PUT /api/admin/staff/[staffId] - Garson güncelle
 export async function PUT(
@@ -64,10 +65,14 @@ export async function PUT(
       }
     }
 
+    // ✅ SECURITY: Şifre değişiyorsa hash'lenir — düz metin asla veritabanına yazılmaz
+    const { password, ...rest } = validation.data;
+    const data = password ? { ...rest, password: await bcrypt.hash(password, 12) } : rest;
+
     // ✅ Update staff with validated data
     const updatedStaff = await prisma.user.update({
       where: { id: params.staffId },
-      data: validation.data,
+      data,
       select: {
         id: true,
         name: true,

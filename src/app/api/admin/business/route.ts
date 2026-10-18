@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { validateBody, updateBusinessSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -57,25 +58,19 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const {
-      name,
-      description,
-      logo,
-      address,
-      phone,
-      email,
-    } = body;
+    // ✅ SECURITY: Tip/uzunluk doğrulaması; bilinmeyen alanlar (ör. isActive) atılır
+    const validation = validateBody(updateBusinessSchema, await request.json());
+    if (!validation.success) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
+    }
+    const { email, logo, ...rest } = validation.data;
 
     const business = await prisma.business.update({
       where: { id: businessId },
       data: {
-        ...(name !== undefined && { name }),
-        ...(description !== undefined && { description }),
-        ...(logo !== undefined && { logo }),
-        ...(address !== undefined && { address }),
-        ...(phone !== undefined && { phone }),
-        ...(email !== undefined && { email }),
+        ...rest,
+        ...(email !== undefined && { email: email || null }),
+        ...(logo !== undefined && { logo: logo || null }),
       },
     });
 

@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "./prisma";
-import { checkRateLimit, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
+import { checkRateLimit, getClientIp, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
 
 /**
  * 🔒 SECURITY FIX P0: Login Rate Limiting
@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "E-posta", type: "email" },
         password: { label: "Şifre", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -37,13 +37,20 @@ export const authOptions: NextAuthOptions = {
           // ✅ SECURITY: Email normalization
           const normalizedEmail = credentials.email.trim().toLowerCase();
 
-          // ✅ P0 FIX: Rate limit login attempts by email
+          // ✅ P0 FIX: Rate limit login attempts by email AND by IP
+          // (yalnız e-posta limiti, tek IP'den çok sayıda hesabın denenmesini engellemez)
           // FAIL-CLOSED: if checkRateLimit throws, deny the attempt
           try {
-            const rl = await checkRateLimit(
-              `login:${normalizedEmail}`,
-              UNIFIED_RATE_LIMITS.LOGIN
+            const headerEntries = Object.entries(req?.headers ?? {}).filter(
+              (entry): entry is [string, string] => typeof entry[1] === "string"
             );
+            const clientIp = getClientIp({ headers: new Headers(headerEntries) } as Request);
+
+            const [rlEmail, rlIp] = await Promise.all([
+              checkRateLimit(`login:${normalizedEmail}`, UNIFIED_RATE_LIMITS.LOGIN),
+              checkRateLimit(`login_ip:${clientIp}`, UNIFIED_RATE_LIMITS.LOGIN_IP),
+            ]);
+            const rl = !rlEmail.allowed ? rlEmail : rlIp;
             if (!rl.allowed) {
               const waitMinutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60000));
               throw new Error(

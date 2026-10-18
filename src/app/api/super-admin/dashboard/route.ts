@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user || session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json(
-        { success: false, error: "Yetkisiz erişim" },
-        { status: 403 }
-      );
-    }
+    const { error, response } = await requireSuperAdmin();
+    if (error) return response;
 
     const [
       totalBusinesses,

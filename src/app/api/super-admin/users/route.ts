@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const { error, response } = await requireSuperAdmin();
+    if (error) return response;
 
-    if (!session || session.user.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
-    }
-
+    // ✅ SECURITY: Açık select — şifre hash'i asla istemciye gönderilmez
     const users = await prisma.user.findMany({
-      include: {
+      select: {
+        id: true,
+        businessId: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        deletedAt: true,
+        createdAt: true,
+        updatedAt: true,
         business: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" }

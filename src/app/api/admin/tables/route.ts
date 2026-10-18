@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateBody, createTableSchema } from "@/lib/validation";
-import { v4 as uuidv4 } from "uuid";
+import { generateQrToken } from "@/lib/qr-token";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 
 export const dynamic = "force-dynamic";
@@ -129,12 +129,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const business = await prisma.business.findUnique({
-      where: { id: businessId },
-      select: { slug: true },
-    });
-    
-    const qrToken = `qr_${business?.slug || businessId}_${tableNumber}_${uuidv4().slice(0, 8)}`;
+    const qrToken = generateQrToken();
 
     const table = await prisma.table.create({
       data: {
