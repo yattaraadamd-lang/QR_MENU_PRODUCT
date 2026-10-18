@@ -9,7 +9,17 @@ on:
 jobs:
   security:
     runs-on: ubuntu-latest
-    
+
+    # Yalnız CI için sahte değerler — gerçek veritabanına bağlanılmaz, gerçek gizli anahtar yoktur.
+    # prisma validate/generate env("DATABASE_URL") ve env("DATABASE_URL_UNPOOLED") ister;
+    # next build (NODE_ENV=production) device-block için CUSTOMER_DEVICE_HMAC_SECRET ister.
+    env:
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+      DATABASE_URL_UNPOOLED: "postgresql://ci:ci@localhost:5432/ci"
+      NEXTAUTH_SECRET: "ci-test-secret-do-not-use-in-production-32chars"
+      NEXTAUTH_URL: "http://localhost:3000"
+      CUSTOMER_DEVICE_HMAC_SECRET: "ci-only-device-hmac-key-not-for-production-use"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,10 +47,6 @@ jobs:
 
       - name: Build
         run: npx next build
-        env:
-          DATABASE_URL: "postgresql://test:test@localhost:5432/test"
-          NEXTAUTH_SECRET: "ci-test-secret-do-not-use-in-production-32chars"
-          NEXTAUTH_URL: "http://localhost:3000"
 
       - name: NPM Audit (critical — blocking)
         run: npm audit --omit=dev --audit-level=critical
