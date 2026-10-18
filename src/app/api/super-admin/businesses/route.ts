@@ -78,10 +78,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Admin şifre minimum uzunluk
-    if (String(adminPassword).length < 8) {
+    // ✅ SECURITY: Self-servis kayıt ve personel ile aynı politika (12-72, harf + rakam)
+    // bcrypt 72 bayttan sonrasını yok saydığı için üst sınır da gerekli
+    const passwordStr = String(adminPassword);
+    if (
+      passwordStr.length < 12 ||
+      passwordStr.length > 72 ||
+      !/[a-zA-Z]/.test(passwordStr) ||
+      !/[0-9]/.test(passwordStr)
+    ) {
       return NextResponse.json(
-        { success: false, error: "Admin şifresi en az 8 karakter olmalıdır" },
+        { success: false, error: "Admin şifresi 12-72 karakter olmalı ve en az 1 harf ile 1 rakam içermelidir" },
         { status: 400 }
       );
     }
@@ -106,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ İşletme + Admin kullanıcıyı aynı transaction'da oluştur
-    const hashedPassword = await bcrypt.hash(String(adminPassword), 10);
+    const hashedPassword = await bcrypt.hash(passwordStr, 12);
 
     const business = await prisma.$transaction(async (tx) => {
       const newBusiness = await tx.business.create({

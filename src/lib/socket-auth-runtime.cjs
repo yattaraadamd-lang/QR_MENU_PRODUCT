@@ -116,6 +116,7 @@ async function authenticateSocket(socket, next) {
         role: true,
         isActive: true,
         deletedAt: true,
+        business: { select: { isActive: true } },
       },
     });
 
@@ -125,6 +126,12 @@ async function authenticateSocket(socket, next) {
 
     if (!user.isActive || user.deletedAt) {
       return next(createSocketError("User account is disabled", "USER_DISABLED"));
+    }
+
+    // 🔒 SECURITY: Askıya alınan işletmenin personeli canlı sipariş/ödeme akışını dinleyemez
+    // (HTTP tarafında auth-guard aynı kontrolü yapıyor)
+    if (user.role !== "SUPER_ADMIN" && !user.business?.isActive) {
+      return next(createSocketError("Business is inactive", "BUSINESS_INACTIVE"));
     }
 
     // ✅ P0-03 FIX: Verify businessId matches (prevents token reuse after business change)

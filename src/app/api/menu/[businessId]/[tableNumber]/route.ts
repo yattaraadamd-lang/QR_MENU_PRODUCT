@@ -121,7 +121,7 @@ export async function GET(
       categories,
       popularProducts,
       tableSessionActive: !!activeTableSession,
-      activeTableSessionId: activeTableSession?.id ?? null,
+      // 🔒 SECURITY: Kimliksiz endpoint — iç masa oturumu ID'si döndürülmez (istemci kullanmıyor)
     });
 
     // ✅ PERF: Menü verisi kısa süreli cache'lenebilir (CDN/browser)
