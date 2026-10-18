@@ -7,6 +7,9 @@ import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
 
 export const dynamic = "force-dynamic";
 
+// 🔒 SECURITY: Müşteriye dönen sipariş yanıtında masanın QR token'ı ve iç alanları yer almaz
+const CUSTOMER_TABLE_SELECT = { id: true, tableNumber: true, tableName: true } as const;
+
 // POST /api/customer/orders
 export async function POST(request: NextRequest) {
   let body: any;
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
           businessId, // ✅ Tenant scope
           customerSessionId: customerSession.id, // ✅ Session scope
         },
-        include: { items: { include: { product: true } }, table: true },
+        include: { items: { include: { product: true } }, table: { select: CUSTOMER_TABLE_SELECT } },
       });
       
       if (existingOrder) {
@@ -233,7 +236,7 @@ export async function POST(request: NextRequest) {
         },
         include: {
           items: { include: { product: true } },
-          table: true,
+          table: { select: CUSTOMER_TABLE_SELECT },
         },
       });
 

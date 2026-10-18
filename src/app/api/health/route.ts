@@ -15,9 +15,9 @@ export async function GET() {
     // Test database connection and measure latency
     await prisma.$queryRaw`SELECT 1`;
     const dbLatencyMs = Date.now() - startDb;
-    
-    const memoryUsage = process.memoryUsage ? process.memoryUsage() : null;
 
+    // 🔒 SECURITY: Herkese açık endpoint — Node sürümü ve bellek bilgisi döndürülmez
+    // (sürüme özel açıkları hedeflemeyi kolaylaştırır)
     return NextResponse.json({
       status: "healthy",
       timestamp: new Date().toISOString(),
@@ -25,11 +25,6 @@ export async function GET() {
       database: {
         status: "connected",
         latencyMs: dbLatencyMs,
-      },
-      system: {
-        nodeVersion: process.version,
-        memoryRssMb: memoryUsage ? Math.round(memoryUsage.rss / 1024 / 1024) : undefined,
-        memoryHeapUsedMb: memoryUsage ? Math.round(memoryUsage.heapUsed / 1024 / 1024) : undefined,
       },
       service: "qr-menu-platform",
       version: "1.1.0",

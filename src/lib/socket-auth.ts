@@ -145,6 +145,7 @@ export async function authenticateSocket(
         role: true,
         isActive: true,
         deletedAt: true,
+        business: { select: { isActive: true } },
       },
     });
 
@@ -157,6 +158,13 @@ export async function authenticateSocket(
     if (!user.isActive || user.deletedAt) {
       const error = new Error("User account is disabled") as ExtendedError;
       error.data = { code: "USER_DISABLED" };
+      return next(error);
+    }
+
+    // 🔒 SECURITY: Askıya alınan işletmenin personeli canlı akışı dinleyemez (runtime .cjs ile aynı)
+    if (user.role !== "SUPER_ADMIN" && !user.business?.isActive) {
+      const error = new Error("Business is inactive") as ExtendedError;
+      error.data = { code: "BUSINESS_INACTIVE" };
       return next(error);
     }
 

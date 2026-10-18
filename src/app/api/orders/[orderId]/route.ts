@@ -35,6 +35,14 @@ export async function PATCH(
       );
     }
 
+    // ✅ SECURITY: Yalnız tanımlı sipariş durumları kabul edilir
+    if (!Object.values(OrderStatus).includes(status)) {
+      return NextResponse.json(
+        { error: "Geçersiz sipariş durumu" },
+        { status: 400 }
+      );
+    }
+
     // ✅ P0-09 FIX: Verify order belongs to authenticated user's business
     const existingOrder = await prisma.order.findFirst({
       where: { id: orderId, businessId },
@@ -100,12 +108,14 @@ export async function PATCH(
           },
         },
         table: true,
-        waiter: true,
+        // 🔒 SECURITY: `waiter: true` garsonun şifre hash'ini yanıta koyuyordu
+        waiter: { select: { id: true, name: true } },
       },
     });
 
     const otherActiveOrders = await prisma.order.count({
       where: {
+        businessId,
         tableId: order.tableId,
         id: { not: orderId },
         status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
