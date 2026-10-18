@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle, ArrowLeft, BellRing, ChefHat, TrendingUp } from "lucide-react";
 import Input from "@/components/ui/Input";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { EASE_OUT, fadeUp, stagger } from "@/components/landing/motion";
 
 const HIGHLIGHTS = [
   { icon: BellRing, text: "Siparişler ve garson çağrıları anında ekranınızda" },
@@ -68,16 +70,19 @@ function SignInForm() {
   };
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="landing-theme grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
       {/* ── Marka paneli (desktop) ─────────────────────────────────────────── */}
       <aside
         className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"
         style={{ background: "linear-gradient(150deg,#F06A3F 0%,#D9441F 40%,#8C2A14 100%)" }}
       >
-        <div
+        <motion.div
           aria-hidden
           className="absolute -right-24 -top-24 h-96 w-96 rounded-full blur-3xl"
           style={{ background: "radial-gradient(circle, rgba(244,166,35,0.55), transparent 70%)" }}
+          animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
         <div
           aria-hidden
@@ -92,32 +97,48 @@ function SignInForm() {
           <span className="font-display text-xl font-semibold">QR Menü</span>
         </Link>
 
-        <div className="relative max-w-md">
-          <div className="mb-8 flex gap-3 text-4xl">
-            {["🍕", "🍔", "🥗", "☕"].map((e) => (
-              <span
+        <motion.div className="relative max-w-md" initial="hidden" animate="show" variants={stagger(0.1, 0.15)}>
+          <motion.div className="mb-8 flex gap-3 text-4xl" variants={stagger(0.08)}>
+            {["🍕", "🍔", "🥗", "☕"].map((e, i) => (
+              <motion.span
                 key={e}
+                variants={{
+                  hidden: { opacity: 0, y: 24, rotate: -12, scale: 0.8 },
+                  show: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: "spring", stiffness: 240, damping: 16 } },
+                }}
                 className="flex h-16 w-16 items-center justify-center rounded-2xl"
                 style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(6px)" }}
+                whileHover={{ scale: 1.12, rotate: 6 }}
               >
-                {e}
-              </span>
+                {/* İç span sonsuz süzülmeyi taşır; dış span giriş animasyonunu */}
+                <motion.span
+                  animate={{ y: [0, -6, 0] }}
+                  transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 1 + i * 0.4 }}
+                >
+                  {e}
+                </motion.span>
+              </motion.span>
             ))}
-          </div>
-          <h2 className="font-display text-4xl font-semibold leading-tight">
+          </motion.div>
+          <motion.h2 variants={fadeUp} className="font-display text-4xl font-semibold leading-tight">
             Mutfağınızın ritmi, tek ekranda.
-          </h2>
-          <ul className="mt-8 flex flex-col gap-4">
+          </motion.h2>
+          <motion.ul className="mt-8 flex flex-col gap-4" variants={stagger(0.1)}>
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3 text-[15px] font-medium" style={{ color: "rgba(255,255,255,0.92)" }}>
+              <motion.li
+                key={text}
+                variants={{ hidden: { opacity: 0, x: -16 }, show: { opacity: 1, x: 0, transition: { duration: 0.5, ease: EASE_OUT } } }}
+                className="flex items-center gap-3 text-[15px] font-medium"
+                style={{ color: "rgba(255,255,255,0.92)" }}
+              >
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.16)" }}>
                   <Icon size={18} />
                 </span>
                 {text}
-              </li>
+              </motion.li>
             ))}
-          </ul>
-        </div>
+          </motion.ul>
+        </motion.div>
 
         <p className="relative text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
           © {new Date().getFullYear()} QR Menü Platformu
@@ -126,8 +147,8 @@ function SignInForm() {
 
       {/* ── Form ───────────────────────────────────────────────────────────── */}
       <main className="flex items-center justify-center px-4 py-10 sm:px-8">
-        <div className="w-full max-w-[420px] animate-slide-up">
-          <div className="mb-8 text-center lg:text-left">
+        <motion.div className="w-full max-w-[420px]" initial="hidden" animate="show" variants={stagger(0.08, 0.05)}>
+          <motion.div variants={fadeUp} className="mb-8 text-center lg:text-left">
             <div
               className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl lg:hidden"
               style={{ background: "var(--gradient-brand)", boxShadow: "0 10px 24px rgba(217,68,31,0.32)" }}
@@ -140,19 +161,30 @@ function SignInForm() {
             <p className="mt-2 text-sm" style={{ color: "#6E4F3F" }}>
               Yönetim panelinize giriş yapın
             </p>
-          </div>
+          </motion.div>
 
-          <div className="card p-7" style={{ borderRadius: 24, boxShadow: "0 20px 50px rgba(68,34,18,0.08)" }}>
-            {error && (
-              <div
-                role="alert"
-                className="mb-5 flex items-center gap-2 rounded-xl px-3.5 py-3 text-[13px] font-medium"
-                style={{ background: "#FDE3E1", border: "1px solid #FBC9C5", color: "#8F2019" }}
-              >
-                <AlertCircle size={16} className="flex-shrink-0" />
-                {error}
-              </div>
-            )}
+          <motion.div variants={fadeUp} className="card p-7" style={{ borderRadius: 24, boxShadow: "0 20px 50px rgba(68,34,18,0.08)", transition: "border-color 0.2s, box-shadow 0.2s" }}>
+            <AnimatePresence initial={false}>
+              {error && (
+                <motion.div
+                  key="signin-error"
+                  role="alert"
+                  initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  animate={{ opacity: 1, height: "auto", marginBottom: 20, x: [0, -8, 8, -4, 4, 0] }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  transition={{ duration: 0.35 }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <div
+                    className="flex items-center gap-2 rounded-xl px-3.5 py-3 text-[13px] font-medium"
+                    style={{ background: "#FDE3E1", border: "1px solid #FBC9C5", color: "#8F2019" }}
+                  >
+                    <AlertCircle size={16} className="flex-shrink-0" />
+                    {error}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <Input
@@ -208,10 +240,10 @@ function SignInForm() {
                 </Link>
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Demo hesapları */}
-          <div className="mt-4 rounded-2xl p-4" style={{ background: "#FFF1E6", border: "1px dashed #FFC8B0" }}>
+          <motion.div variants={fadeUp} className="mt-4 rounded-2xl p-4" style={{ background: "#FFF1E6", border: "1px dashed #FFC8B0" }}>
             <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: "#B23415" }}>
               Demo Hesapları
             </p>
@@ -235,16 +267,17 @@ function SignInForm() {
                 </button>
               ))}
             </div>
-          </div>
+          </motion.div>
 
-          <div className="mt-6 text-center">
+          <motion.div variants={fadeUp} className="mt-6 text-center">
             <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] font-semibold hover:underline" style={{ color: "#A68A78" }}>
               <ArrowLeft size={14} /> Ana Sayfaya Dön
             </Link>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </main>
     </div>
+    </MotionConfig>
   );
 }
 
