@@ -148,13 +148,131 @@ body {
 .animate-spin        { animation: spin 0.8s linear infinite; }
 .animate-float       { animation: float 3s ease-in-out infinite; }
 
+@keyframes pulse {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.12); }
+}
+@keyframes bump {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.28); }
+  65%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+@keyframes sheetUp {
+  from { opacity: 0.4; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes toastDrop {
+  from { opacity: 0; transform: translate(-50%, -18px) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+  40%           { transform: translateY(-5px); opacity: 1; }
+}
+@keyframes spinReverse { to { transform: rotate(-360deg); } }
+@keyframes plateBob {
+  0%,100% { transform: translateY(0) rotate(-4deg); }
+  50%     { transform: translateY(-6px) rotate(4deg); }
+}
+
+.animate-bump        { animation: bump 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.animate-pulse-soft  { animation: pulse 2s ease-in-out infinite; }
+
+/* Sayfa geçişi: panel içerikleri her rotada yumuşakça belirir */
+@keyframes pageFade { from { opacity: 0; } to { opacity: 1; } }
+/* Sadece opaklık: transform, içerideki position:fixed öğeleri (modal, alt bar) kaydırırdı */
+.page-enter { animation: pageFade 0.3s ease-out backwards; }
+
+/* Listeler: çocuklar sırayla aşağıdan gelir (ilk 12 öğe gecikmeli) */
+/* backwards: animasyon bitince transform bırakılır, böylece hover efektleri çalışır */
+.stagger > * { animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.stagger > *:nth-child(1)  { animation-delay: 0.02s; }
+.stagger > *:nth-child(2)  { animation-delay: 0.06s; }
+.stagger > *:nth-child(3)  { animation-delay: 0.10s; }
+.stagger > *:nth-child(4)  { animation-delay: 0.14s; }
+.stagger > *:nth-child(5)  { animation-delay: 0.18s; }
+.stagger > *:nth-child(6)  { animation-delay: 0.22s; }
+.stagger > *:nth-child(7)  { animation-delay: 0.26s; }
+.stagger > *:nth-child(8)  { animation-delay: 0.30s; }
+.stagger > *:nth-child(9)  { animation-delay: 0.34s; }
+.stagger > *:nth-child(10) { animation-delay: 0.38s; }
+.stagger > *:nth-child(11) { animation-delay: 0.42s; }
+.stagger > *:nth-child(n+12) { animation-delay: 0.46s; }
+
+/* Alttan açılan mobil sayfa (bottom sheet) */
+.modal-sheet { animation: sheetUp 0.38s cubic-bezier(0.16, 1, 0.3, 1) both !important; }
+
+/* Hover'da hafif yükselen etkileşimli kartlar */
+.lift { transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, border-color 0.2s; }
+.lift:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.lift:active { transform: translateY(-1px) scale(0.99); }
+
+/* ─── Yükleniyor göstergesi ──────────────────────────────────────────────── */
+.loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 48px 16px;
+  color: var(--text-secondary);
+  animation: fadeIn 0.3s ease both;
+}
+.loader-ring {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+.loader-ring::before,
+.loader-ring::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid transparent;
+}
+.loader-ring::before {
+  inset: 0;
+  border-top-color: var(--primary);
+  border-right-color: var(--primary-light);
+  animation: spin 0.9s linear infinite;
+}
+.loader-ring::after {
+  inset: 9px;
+  border-bottom-color: var(--saffron);
+  border-left-color: rgba(var(--saffron-rgb),0.45);
+  animation: spinReverse 1.3s linear infinite;
+}
+.loader-emoji {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  animation: plateBob 1.6s ease-in-out infinite;
+}
+.loader-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.loader-dots span {
+  display: inline-block;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.loader-dots span:nth-child(2) { animation-delay: 0.15s; }
+.loader-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+/* "Hareketi azalt" açıkken yalnızca büyük ve sürekli dekoratif hareketler
+   durur. Yükleniyor göstergeleri, iskeletler ve kısa geçişler geri bildirim
+   olduğu için her zaman çalışır. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+  html { scroll-behavior: auto; }
+  .animate-float,
+  .notification-bell-active { animation: none !important; }
 }
 
 /* ─── Card ───────────────────────────────────────────────────────────────── */

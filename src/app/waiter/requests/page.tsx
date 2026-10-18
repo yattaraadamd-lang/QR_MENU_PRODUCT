@@ -201,7 +201,7 @@ export default function WaiterRequestsPage() {
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {requests.map(req => {
             const tm = TYPE_META[req.requestType] || { label: req.requestType, icon: "📌", color: "#A3477A" };
             const sm = STATUS_META[req.status] || STATUS_META.PENDING;

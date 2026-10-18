@@ -92,7 +92,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Content */}
-      <div style={{ padding: "16px 14px" }}>
+      <div key={pathname} className="page-enter" style={{ padding: "16px 14px" }}>
         {children}
       </div>
 

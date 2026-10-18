@@ -354,7 +354,7 @@ export default function AdminOrdersPage() {
           <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Bu kategoride sipariş bulunamadı</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {filtered.map(order => (
             <div key={order.id} className="card" style={{ padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>

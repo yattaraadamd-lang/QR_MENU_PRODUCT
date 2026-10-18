@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Loader from "@/components/ui/Loader";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Müşteri Talebi",
@@ -78,7 +79,7 @@ export default function AdminPaymentsPage() {
     .filter(p => p.status === "PAID" && new Date(p.paidAt).toDateString() === new Date().toDateString())
     .reduce((sum, p) => sum + Number(p.amount), 0);
 
-  if (loading) return <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>Yükleniyor...</p>;
+  if (loading) return <Loader />;
 
   return (
     <div>

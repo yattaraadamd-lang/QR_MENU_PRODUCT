@@ -271,7 +271,7 @@ export default function HomePage() {
   const [showDemoModal, setShowDemoModal] = useState(false);
 
   return (
-    <MotionConfig reducedMotion="user">
+    <MotionConfig reducedMotion="never">
       <div className="landing-theme min-h-screen overflow-x-hidden">
         {/* ── Navbar ──────────────────────────────────────────────────────────── */}
         <motion.nav

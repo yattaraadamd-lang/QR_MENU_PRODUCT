@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
+import Loader from "@/components/ui/Loader";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   EMPTY:             { label: "Boş",              color: "#A68A78", bg: "rgba(166,138,120,0.12)", icon: "⚪" },
@@ -213,7 +214,7 @@ export default function WaiterTablesPage() {
           {[1,2,3,4,5,6].map(i => <div key={i} className="skeleton" style={{ height: 110, borderRadius: 14 }} />)}
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+        <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
           {tables.map(table => {
             const sm = STATUS_META[table.status] || STATUS_META.EMPTY;
             const bill = table.bill;
@@ -335,7 +336,7 @@ export default function WaiterTablesPage() {
 
             <div style={{ padding: "16px 20px", maxHeight: "65vh", overflowY: "auto" }}>
               {loadingDetail ? (
-                <div style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>Yükleniyor...</div>
+                <Loader />
               ) : !selectedTable.activeSession ? (
                 <div style={{ textAlign: "center", padding: 32 }}>
                   <div style={{ fontSize: 40, marginBottom: 8 }}>⚪</div>

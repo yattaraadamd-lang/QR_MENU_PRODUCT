@@ -155,7 +155,7 @@ export default function WaiterPaymentsPage() {
           <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Bekleyen ödeme talebi yok</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {payments.map((p) => {
             const isAwaitingApproval = p.status === "AWAITING_ADMIN_APPROVAL";
             const isRejected = p.status === "REJECTED";

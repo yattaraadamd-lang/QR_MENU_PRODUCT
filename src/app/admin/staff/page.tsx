@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import QRCode from "qrcode";
+import Loader from "@/components/ui/Loader";
 
 export default function AdminStaffPage() {
   const { data: session } = useSession();
@@ -114,7 +115,7 @@ export default function AdminStaffPage() {
           <h3 style={{ fontSize: 16, fontWeight: 700 }}>Personel Listesi</h3>
         </div>
         {loading ? (
-          <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>Yükleniyor...</p>
+          <Loader />
         ) : staff.length === 0 ? (
           <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>
             Henüz personel yok. Aşağıdan bir davet linki oluşturup garsonlarınıza gönderin.
@@ -221,7 +222,7 @@ export default function AdminStaffPage() {
           </p>
         </div>
         {loading ? (
-          <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>Yükleniyor...</p>
+          <Loader />
         ) : invites.length === 0 ? (
           <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>Henüz davet oluşturulmadı</p>
         ) : (

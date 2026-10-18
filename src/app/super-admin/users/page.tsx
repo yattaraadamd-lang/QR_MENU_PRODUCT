@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Loader from "@/components/ui/Loader";
 
 export default function SuperAdminUsersPage() {
   const { data: session } = useSession();
@@ -26,7 +27,7 @@ export default function SuperAdminUsersPage() {
     }
   };
 
-  if (loading) return <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>Yükleniyor...</p>;
+  if (loading) return <Loader />;
 
   return (
     <div>

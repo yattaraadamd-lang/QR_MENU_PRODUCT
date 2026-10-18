@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Loader from "@/components/ui/Loader";
 
 export default function SuperAdminDashboardPage() {
   const { data: session } = useSession();
@@ -40,7 +41,7 @@ export default function SuperAdminDashboardPage() {
     return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(value);
   };
 
-  if (loading) return <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>Yükleniyor...</p>;
+  if (loading) return <Loader />;
 
   const statCards = [
     { label: "Toplam İşletme", value: stats.totalBusinesses, icon: "🏢", color: "#A3477A" },
@@ -55,7 +56,7 @@ export default function SuperAdminDashboardPage() {
     <div>
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Platform Özeti</h2>
       
-      <div style={{
+      <div className="stagger" style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
         gap: 16,
