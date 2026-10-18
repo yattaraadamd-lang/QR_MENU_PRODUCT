@@ -30,9 +30,18 @@ export type NotificationItem = {
   persistent?: boolean;
 };
 
+/** waiter → ses varsayılan açık; admin → ses varsayılan kapalı, sadece önemli olaylar */
+export type NotificationSoundMode = "waiter" | "admin";
+
 type NotificationSoundContextType = {
+  mode: NotificationSoundMode;
+  /** Kullanıcının ses tercihi (localStorage'da kalıcı) */
   soundEnabled: boolean;
+  /** Tarayıcı şu an ses çalmaya izin veriyor mu (autoplay kilidi açık mı) */
+  audioUnlocked: boolean;
+  /** Kullanıcı gesture'ı içinde çağrılır: tercihi açar, ses kilidini açar */
   enableSound: () => void;
+  disableSound: () => void;
   newNotification: NotificationItem | null;
   dismissToast: () => void;
   notifications: NotificationItem[];
@@ -159,6 +168,35 @@ function playFallbackBeep(): void {
     }
   } catch {
     // sessizce geç
+  }
+}
+
+/**
+ * Tarayıcının autoplay kilidini açar. Sadece kullanıcı gesture'ı
+ * (dokunma, tıklama, tuş) içinde çağrıldığında etkilidir.
+ */
+function unlockAudio(): void {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state !== "running") {
+    ctx.resume().catch(() => {});
+    unlockAudioContext(ctx);
+  }
+  unlockFallbackAudio();
+}
+
+/** Gesture içinde: AudioContext henüz running değilse resume bekleyip çal */
+function playWhenReady(type: string): void {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state !== "running") {
+    ctx
+      .resume()
+      .then(() => playSoundEffect(type))
+      .catch(() => {
+        playFallbackBeep();
+        vibrateDevice([200, 100, 200]);
+      });
+  } else {
+    playSoundEffect(type);
   }
 }
 
@@ -313,46 +351,121 @@ const CRITICAL_TYPES = new Set([
   "help_request",
 ]);
 
+// ─── Admin panelinde yalnızca bu olaylar ses çalar (garson çağrısı garsonun işi)
+const ADMIN_SOUND_TYPES = new Set(["new_order", "payment_request"]);
+
+// ─── Ses tercihi — localStorage, panel bazında ────────────────────────────────
+const DEFAULT_SOUND_PREF: Record<NotificationSoundMode, boolean> = {
+  waiter: true,
+  admin: false,
+};
+
+function soundPrefKey(mode: NotificationSoundMode): string {
+  return `notificationSound:${mode}`;
+}
+
+function readSoundPref(mode: NotificationSoundMode): boolean {
+  try {
+    const saved = localStorage.getItem(soundPrefKey(mode));
+    if (saved === "true") return true;
+    if (saved === "false") return false;
+  } catch {
+    // storage erişilemiyor (gizli sekme vb.) — varsayılana düş
+  }
+  return DEFAULT_SOUND_PREF[mode];
+}
+
+function writeSoundPref(mode: NotificationSoundMode, enabled: boolean): void {
+  try {
+    localStorage.setItem(soundPrefKey(mode), String(enabled));
+  } catch {
+    // sessizce geç
+  }
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function NotificationSoundProvider({
   children,
+  mode = "waiter",
 }: {
   children: React.ReactNode;
+  mode?: NotificationSoundMode;
 }) {
   const { data: session } = useSession();
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(DEFAULT_SOUND_PREF[mode]);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [newNotification, setNewNotification] = useState<NotificationItem | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const soundEnabledRef = useRef(false);
+  const soundEnabledRef = useRef(DEFAULT_SOUND_PREF[mode]);
+  const audioUnlockedRef = useRef(false);
+  /** Ses kilitliyken gelen son bildirimin sesi — ilk dokunuşta çalınır */
+  const pendingSoundRef = useRef<string | null>(null);
   const recentNotifKeys = useRef<Map<string, number>>(new Map());
   const keepAliveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Ses tercihini session storage'dan geri yükle
+  // Ses tercihini localStorage'dan geri yükle
   useEffect(() => {
-    const saved = sessionStorage.getItem("waiterSoundEnabled");
-    if (saved === "true") {
-      setSoundEnabled(true);
-      soundEnabledRef.current = true;
-    }
-  }, []);
+    const pref = readSoundPref(mode);
+    setSoundEnabled(pref);
+    soundEnabledRef.current = pref;
+  }, [mode]);
 
-  // ─── Global touch/click listener — iOS AudioContext resume ────────────────
+  // ─── AudioContext durumunu izle — kilit gerçekten açık mı? ────────────────
   useEffect(() => {
-    function resumeAudioOnInteraction() {
-      if (audioCtx && audioCtx.state === "suspended") {
-        audioCtx.resume().catch(() => {});
+    // Tarayıcı izin veriyorsa (ör. ana ekrana eklenmiş PWA) context
+    // doğrudan "running" başlar ve hiç dokunmaya gerek kalmaz.
+    const ctx = getAudioContext();
+    if (!ctx) {
+      // Web Audio yok — fallback <audio> ile en iyi çabayı göster
+      audioUnlockedRef.current = true;
+      setAudioUnlocked(true);
+      return;
+    }
+
+    function syncState() {
+      const running = ctx!.state === "running";
+      audioUnlockedRef.current = running;
+      setAudioUnlocked(running);
+      if (running && pendingSoundRef.current && soundEnabledRef.current) {
+        const pending = pendingSoundRef.current;
+        pendingSoundRef.current = null;
+        playSoundEffect(pending);
       }
     }
 
-    // Passive listener — performans dostu, iOS scroll engellemiyor
-    document.addEventListener("touchstart", resumeAudioOnInteraction, { passive: true });
-    document.addEventListener("click", resumeAudioOnInteraction, { passive: true });
+    syncState();
+    ctx.addEventListener("statechange", syncState);
+    return () => ctx.removeEventListener("statechange", syncState);
+  }, []);
+
+  // ─── Sayfadaki HERHANGİ bir dokunuş/tıklama/tuş sesi açar ─────────────────
+  useEffect(() => {
+    function unlockOnInteraction() {
+      if (!soundEnabledRef.current || audioUnlockedRef.current) return;
+      unlockAudio();
+    }
+
+    function resumeOnVisible() {
+      // Sekmeye geri dönüldüğünde (iOS arka plandan dönüş) context'i canlandır
+      if (document.visibilityState === "visible" && soundEnabledRef.current) {
+        getAudioContext();
+      }
+    }
+
+    // touchend/click/keydown tarayıcıların "kullanıcı etkileşimi" saydığı olaylar
+    const events = ["pointerdown", "touchend", "click", "keydown"] as const;
+    events.forEach((e) =>
+      document.addEventListener(e, unlockOnInteraction, { capture: true, passive: true })
+    );
+    document.addEventListener("visibilitychange", resumeOnVisible);
 
     return () => {
-      document.removeEventListener("touchstart", resumeAudioOnInteraction);
-      document.removeEventListener("click", resumeAudioOnInteraction);
+      events.forEach((e) =>
+        document.removeEventListener(e, unlockOnInteraction, { capture: true })
+      );
+      document.removeEventListener("visibilitychange", resumeOnVisible);
     };
   }, []);
 
@@ -385,27 +498,25 @@ export function NotificationSoundProvider({
 
   // ─── Enable sound — Kullanıcı gesture'ı içinde AudioContext + Audio unlock ─
   const enableSound = useCallback(() => {
-    // 1. AudioContext oluştur ve unlock et
-    const ctx = getAudioContext();
-    if (ctx) {
-      if (ctx.state === "suspended") {
-        ctx.resume();
-      }
-      // iOS unlock trick: 1ms silent buffer
-      unlockAudioContext(ctx);
-    }
+    // 1. AudioContext + fallback <audio> kilidini aynı gesture içinde aç
+    unlockAudio();
 
-    // 2. Fallback <audio> elementini de aynı gesture içinde unlock et
-    unlockFallbackAudio();
-
-    // 3. Kullanıcıya feedback — kısa ding sesi
-    playSoundEffect("default");
-
-    // 4. State güncelle
+    // 2. State güncelle (bekleyen ses varsa ding yerine o çalınsın diye önce)
     setSoundEnabled(true);
     soundEnabledRef.current = true;
-    sessionStorage.setItem("waiterSoundEnabled", "true");
-  }, []);
+    writeSoundPref(mode, true);
+
+    // 3. Kullanıcıya feedback — kısa ding sesi
+    pendingSoundRef.current = null;
+    playWhenReady("default");
+  }, [mode]);
+
+  const disableSound = useCallback(() => {
+    setSoundEnabled(false);
+    soundEnabledRef.current = false;
+    pendingSoundRef.current = null;
+    writeSoundPref(mode, false);
+  }, [mode]);
 
   // ✅ SECURITY: Deduplication — prevent duplicate notifications from same event
   const isDuplicate = useCallback((type: string, tableNumber?: string): boolean => {
@@ -524,27 +635,28 @@ export function NotificationSoundProvider({
           sanitizeText(data.tableName) ||
           `Masa ${sanitizeText(data.tableNumber) || "?"}`;
 
-        // Ses çal
-        if (soundEnabledRef.current) {
-          const ctx = getAudioContext();
-          if (ctx && ctx.state === "suspended") {
-            ctx.resume().then(() => playSoundEffect(soundType)).catch(() => {
-              // resume başarısız — fallback çal
-              playFallbackBeep();
-              vibrateDevice([200, 100, 200]);
-            });
-          } else {
+        // Ses çal — admin panelinde sadece önemli olaylar
+        const playsSound = mode === "waiter" || ADMIN_SOUND_TYPES.has(type);
+        if (soundEnabledRef.current && playsSound) {
+          if (audioUnlockedRef.current) {
             playSoundEffect(soundType);
-          }
-          // Garson çağrısı ve ödeme talebi için 3 sn sonra tekrar çal
-          if (soundType === "call_waiter" || soundType === "payment") {
-            setTimeout(() => {
-              if (soundEnabledRef.current) playSoundEffect(soundType);
-            }, 3000);
+            // Garson çağrısı ve ödeme talebi için 3 sn sonra tekrar çal (sadece garson)
+            if (
+              mode === "waiter" &&
+              (soundType === "call_waiter" || soundType === "payment")
+            ) {
+              setTimeout(() => {
+                if (soundEnabledRef.current) playSoundEffect(soundType);
+              }, 3000);
+            }
+          } else {
+            // Tarayıcı sesi kilitli — ekrana ilk dokunuşta çalınacak
+            pendingSoundRef.current = soundType;
           }
         }
 
-        const isCritical = CRITICAL_TYPES.has(type);
+        // Admin panelinde toast'lar kalıcı değil — iş akışını bölmesin
+        const isCritical = mode === "waiter" && CRITICAL_TYPES.has(type);
 
         const item: NotificationItem = {
           id: `${Date.now()}-${Math.random()}`,
@@ -595,13 +707,16 @@ export function NotificationSoundProvider({
         socket.off(event, fn)
       );
     };
-  }, [session, addNotification, showToast, isDuplicate]);
+  }, [session, mode, addNotification, showToast, isDuplicate]);
 
   return (
     <NotificationSoundContext.Provider
       value={{
+        mode,
         soundEnabled,
+        audioUnlocked,
         enableSound,
+        disableSound,
         newNotification,
         dismissToast,
         notifications,
