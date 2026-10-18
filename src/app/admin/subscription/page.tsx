@@ -31,8 +31,8 @@ type Data = {
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   TRIAL: { label: "Deneme", color: "#60a5fa" },
-  ACTIVE: { label: "Aktif", color: "#10b981" },
-  PAST_DUE: { label: "Ödeme Bekleniyor", color: "#f59e0b" },
+  ACTIVE: { label: "Aktif", color: "#3BA55C" },
+  PAST_DUE: { label: "Ödeme Bekleniyor", color: "#F4A623" },
   CANCELLED: { label: "İptal Edildi", color: "#ef4444" },
   EXPIRED: { label: "Süresi Doldu", color: "#ef4444" },
 };
@@ -42,7 +42,7 @@ const labelStyle = { fontSize: 13, fontWeight: 600, color: "var(--text-secondary
 
 function UsageBar({ label, usage }: { label: string; usage: Usage }) {
   const pct = usage.limit ? Math.min(100, (usage.current / usage.limit) * 100) : 0;
-  const color = pct >= 100 ? "#ef4444" : pct >= 80 ? "#f59e0b" : "var(--primary)";
+  const color = pct >= 100 ? "#ef4444" : pct >= 80 ? "#F4A623" : "var(--primary)";
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
@@ -142,7 +142,7 @@ function SubscriptionContent() {
       <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Abonelik</h2>
 
       {paymentResult === "success" && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid #10b981" }}>
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid #3BA55C" }}>
           ✅ Ödemeniz alındı, aboneliğiniz aktif.
         </div>
       )}

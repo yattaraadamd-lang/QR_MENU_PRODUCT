@@ -373,7 +373,7 @@ function SoundToggle({
           ...baseStyle,
           width: 40,
           border: "1px solid var(--border-color)",
-          background: "rgba(44, 36, 32, 0.6)",
+          background: "rgba(40,30,25, 0.6)",
           color: "var(--success)",
         }}
         title={
@@ -397,8 +397,8 @@ function SoundToggle({
         style={{
           ...baseStyle,
           padding: "0 12px",
-          border: "1px solid rgba(217, 119, 6, 0.5)",
-          background: "rgba(217, 119, 6, 0.12)",
+          border: "1px solid rgba(217,68,31, 0.5)",
+          background: "rgba(217,68,31, 0.12)",
           color: "var(--primary-light)",
           animation: "pulse-glow 2s infinite",
         }}
@@ -420,15 +420,15 @@ function SoundToggle({
           ? {
               ...baseStyle,
               padding: "0 12px",
-              border: "1px solid rgba(217, 119, 6, 0.3)",
-              background: "rgba(217, 119, 6, 0.12)",
+              border: "1px solid rgba(217,68,31, 0.3)",
+              background: "rgba(217,68,31, 0.12)",
               color: "var(--primary-light)",
             }
           : {
               ...baseStyle,
               width: 40,
               border: "1px solid var(--border-color)",
-              background: "rgba(44, 36, 32, 0.6)",
+              background: "rgba(40,30,25, 0.6)",
               color: "var(--text-muted)",
             }
       }
@@ -467,7 +467,7 @@ function NotificationBell({
           : "1px solid var(--border-color)",
         background: hasUnread
           ? "rgba(239, 68, 68, 0.08)"
-          : "rgba(44, 36, 32, 0.6)",
+          : "rgba(40,30,25, 0.6)",
         color: hasUnread ? "#EF4444" : "var(--text-secondary)",
         cursor: "pointer",
         display: "flex",

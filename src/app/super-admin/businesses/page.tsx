@@ -283,12 +283,12 @@ export default function SuperAdminBusinessesPage() {
 
               {/* Hata / Başarı */}
               {formError && (
-                <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#991b1b", fontSize: 13 }}>
+                <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#8F2019", fontSize: 13 }}>
                   ❌ {formError}
                 </div>
               )}
               {formSuccess && (
-                <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 14px", color: "#166534", fontSize: 13 }}>
+                <div style={{ background: "#f0fdf4", border: "1px solid #8EDBA2", borderRadius: 8, padding: "10px 14px", color: "#166534", fontSize: 13 }}>
                   ✅ {formSuccess}
                 </div>
               )}

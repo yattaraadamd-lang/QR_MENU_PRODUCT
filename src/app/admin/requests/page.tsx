@@ -165,12 +165,12 @@ export default function AdminRequestsPage() {
                   </p>
                   {/* ✅ Garson çağırma nedeni göster */}
                   {req.note && (
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, padding: "4px 8px", background: "rgba(245,158,11,0.1)", borderRadius: 6 }}>
+                    <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, padding: "4px 8px", background: "rgba(244,166,35,0.1)", borderRadius: 6 }}>
                       📝 {req.note}
                     </p>
                   )}
                   {req.completedAt && (
-                    <p style={{ fontSize: 11, color: "#10b981", marginTop: 4 }}>
+                    <p style={{ fontSize: 11, color: "#3BA55C", marginTop: 4 }}>
                       ✅ Tamamlandı: {new Date(req.completedAt).toLocaleString("tr-TR")}
                     </p>
                   )}
@@ -186,9 +186,9 @@ export default function AdminRequestsPage() {
                   {req.requestType === "ORDER_REQUEST" && req.status === "PENDING" && (
                     <>
                       {req.verificationCode && (
-                        <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(245,158,11,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#92400e" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
-                          <span style={{ fontSize: 20, fontWeight: 900, color: "#d97706", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
+                        <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(244,166,35,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#8C2A14" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
+                          <span style={{ fontSize: 20, fontWeight: 900, color: "#D9441F", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
                         </div>
                       )}
                       <button
@@ -197,7 +197,7 @@ export default function AdminRequestsPage() {
                         className="btn btn-sm"
                         style={{
                           flex: 1,
-                          background: "linear-gradient(135deg, #059669, #047857)",
+                          background: "linear-gradient(135deg, #2E8B47, #24713A)",
                           color: "white",
                           border: "none",
                           opacity: openingTable === req.id ? 0.6 : 1,

@@ -5,13 +5,13 @@ import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  EMPTY:             { label: "Boş",              color: "#7d8590", bg: "rgba(125,133,144,0.12)" },
+  EMPTY:             { label: "Boş",              color: "#A68A78", bg: "rgba(166,138,120,0.12)" },
   OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)" },
-  HAS_ORDER:         { label: "Sipariş Var",       color: "#fcd34d", bg: "rgba(245,158,11,0.12)" },
-  PREPARING:         { label: "Hazırlanıyor",      color: "#86efac", bg: "rgba(34,197,94,0.12)" },
-  SERVED:            { label: "Servis Edildi",     color: "#6ee7b7", bg: "rgba(16,185,129,0.12)" },
+  HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(244,166,35,0.12)" },
+  PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)" },
+  SERVED:            { label: "Servis Edildi",     color: "#8EDBA2", bg: "rgba(59,165,92,0.12)" },
   WAITING_WAITER:    { label: "Garson Bekleniyor", color: "#fca5a5", bg: "rgba(239,68,68,0.12)" },
-  PAYMENT_REQUESTED: { label: "Ödeme İsteniyor",  color: "#c4b5fd", bg: "rgba(139,92,246,0.12)" },
+  PAYMENT_REQUESTED: { label: "Ödeme İsteniyor",  color: "#EBAFD0", bg: "rgba(163,71,122,0.12)" },
   CLEANING_NEEDED:   { label: "Temizlik",          color: "#67e8f9", bg: "rgba(6,182,212,0.12)" },
 };
 
@@ -228,7 +228,7 @@ export default function AdminTablesPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Masa & QR Yönetimi</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>
             {tables.length} masa · {occupied} dolu · {tables.length - occupied} boş
-            {pendingPayment > 0 && <span style={{ color: "#c4b5fd", marginLeft: 8 }}>· {pendingPayment} bekleyen ödeme</span>}
+            {pendingPayment > 0 && <span style={{ color: "#EBAFD0", marginLeft: 8 }}>· {pendingPayment} bekleyen ödeme</span>}
           </p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn btn-primary">+ Yeni Masa</button>
@@ -236,7 +236,7 @@ export default function AdminTablesPage() {
 
       {/* Bekleyen ödeme uyarısı */}
       {pendingPayment > 0 && (
-        <div style={{ padding: "12px 16px", background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 10, marginBottom: 16, fontSize: 13, color: "#c4b5fd", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(163,71,122,0.08)", border: "1px solid rgba(163,71,122,0.2)", borderRadius: 10, marginBottom: 16, fontSize: 13, color: "#EBAFD0", display: "flex", alignItems: "center", gap: 8 }}>
           💳 <strong>{pendingPayment} masada</strong> bekleyen ödeme var. Ödeme almak için masa kartına tıklayın.
         </div>
       )}
@@ -377,7 +377,7 @@ export default function AdminTablesPage() {
                     {Number(bill.paidAmount) > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                         <span>Ödenen:</span>
-                        <span style={{ fontWeight: 600, color: "#10b981" }}>{fmt(bill.paidAmount)} ₺</span>
+                        <span style={{ fontWeight: 600, color: "#3BA55C" }}>{fmt(bill.paidAmount)} ₺</span>
                       </div>
                     )}
                     {hasUnpaid && (
@@ -391,7 +391,7 @@ export default function AdminTablesPage() {
 
                 {(table.orders?.length > 0 || table.serviceRequests?.length > 0) && (
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    {table.orders?.length > 0 && <span style={{ fontSize: 10, color: "#fcd34d" }}>🧾 {table.orders.length}</span>}
+                    {table.orders?.length > 0 && <span style={{ fontSize: 10, color: "#FCD27A" }}>🧾 {table.orders.length}</span>}
                     {table.serviceRequests?.length > 0 && <span style={{ fontSize: 10, color: "#fca5a5" }}>🔔 {table.serviceRequests.length}</span>}
                   </div>
                 )}
@@ -416,7 +416,7 @@ export default function AdminTablesPage() {
                 <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                   {STATUS_META[selectedTable.status]?.label}
                   {selectedTable.activeSession && (
-                    <span style={{ marginLeft: 8, color: "#10b981" }}>
+                    <span style={{ marginLeft: 8, color: "#3BA55C" }}>
                       · Oturum: {new Date(selectedTable.activeSession.startedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })} den beri
                     </span>
                   )}
@@ -440,8 +440,8 @@ export default function AdminTablesPage() {
                       <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Adisyon</p>
                       {[
                         { label: "Toplam Hesap", value: `${fmt(sessionDetail.totalAmount)} ₺`, color: "var(--text-primary)" },
-                        { label: "Ödenen", value: `${fmt(sessionDetail.paidAmount)} ₺`, color: "#10b981" },
-                        { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "#ef4444" : "#10b981" },
+                        { label: "Ödenen", value: `${fmt(sessionDetail.paidAmount)} ₺`, color: "#3BA55C" },
+                        { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "#ef4444" : "#3BA55C" },
                       ].map(r => (
                         <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
                           <span style={{ color: "var(--text-secondary)" }}>{r.label}</span>
@@ -450,7 +450,7 @@ export default function AdminTablesPage() {
                       ))}
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
                         <span style={{ color: "var(--text-secondary)" }}>Ödeme Durumu</span>
-                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#10b981" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#f59e0b" : "#ef4444" }}>
+                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F4A623" : "#ef4444" }}>
                           {sessionDetail.paymentStatus === "PAID" ? "✅ Ödendi" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "⚡ Kısmi" : "❌ Ödenmedi"}
                         </span>
                       </div>
@@ -486,7 +486,7 @@ export default function AdminTablesPage() {
                             {PAYMENT_METHODS.find(m => m.value === p.method)?.label || p.method}
                             {p.handledByWaiterName && ` · ${p.handledByWaiterName}`}
                           </span>
-                          <span style={{ fontWeight: 700, color: "#10b981" }}>+{fmt(p.amount)} ₺</span>
+                          <span style={{ fontWeight: 700, color: "#3BA55C" }}>+{fmt(p.amount)} ₺</span>
                         </div>
                       ))}
                     </div>
@@ -580,7 +580,7 @@ export default function AdminTablesPage() {
               <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
                 ⚠️ {closeError}
                 {!forceClose && (
-                  <button onClick={() => setForceClose(true)} style={{ display: "block", marginTop: 8, color: "#f59e0b", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                  <button onClick={() => setForceClose(true)} style={{ display: "block", marginTop: 8, color: "#F4A623", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                     Admin olarak zorla kapat →
                   </button>
                 )}

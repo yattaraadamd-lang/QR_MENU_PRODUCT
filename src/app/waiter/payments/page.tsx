@@ -171,7 +171,7 @@ export default function WaiterPaymentsPage() {
                     ? "4px solid #3b82f6"
                     : isRejected
                     ? "4px solid #ef4444"
-                    : "4px solid #f59e0b",
+                    : "4px solid #F4A623",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 10 }}>
@@ -265,8 +265,8 @@ export default function WaiterPaymentsPage() {
             {/* Bill amount */}
             <div style={{
               marginBottom: 16, padding: "16px", borderRadius: 14,
-              background: "linear-gradient(135deg, var(--primary-glow), rgba(217,119,6,0.05))",
-              border: "1px solid rgba(217,119,6,0.15)",
+              background: "linear-gradient(135deg, var(--primary-glow), rgba(217,68,31,0.05))",
+              border: "1px solid rgba(217,68,31,0.15)",
             }}>
               <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4, fontWeight: 600 }}>
                 Adisyon / Kalan Borç
@@ -332,12 +332,12 @@ export default function WaiterPaymentsPage() {
             {paymentMethod === "CASH" && received > 0 && (
               <div style={{
                 marginBottom: 16, padding: "12px 16px", borderRadius: 12,
-                background: change > 0 ? "rgba(5,150,105,0.08)" : "var(--bg-hover)",
-                border: `1px solid ${change > 0 ? "rgba(5,150,105,0.2)" : "var(--border-subtle)"}`,
+                background: change > 0 ? "rgba(46,139,71,0.08)" : "var(--bg-hover)",
+                border: `1px solid ${change > 0 ? "rgba(46,139,71,0.2)" : "var(--border-subtle)"}`,
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Hesaplanan Para Üstü</span>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: change > 0 ? "#10b981" : "var(--text-primary)" }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: change > 0 ? "#3BA55C" : "var(--text-primary)" }}>
                     ₺{change.toFixed(2)}
                   </span>
                 </div>
@@ -351,7 +351,7 @@ export default function WaiterPaymentsPage() {
               display: "flex", alignItems: "flex-start", gap: 8,
             }}>
               <Info size={16} color="#3b82f6" style={{ flexShrink: 0, marginTop: 1 }} />
-              <p style={{ fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+              <p style={{ fontSize: 12, color: "#6E4F3F", lineHeight: 1.5 }}>
                 Garson doğrudan ödemeyi tamamlayamaz. Gönderilen bilgiler admin onayından sonra ciroya yansıyacaktır.
               </p>
             </div>

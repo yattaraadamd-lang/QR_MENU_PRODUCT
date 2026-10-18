@@ -6,12 +6,12 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 
 const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
   CALL_WAITER:         { label: "Garson Çağrısı",  icon: "🙋", color: "#ef4444" },
-  PAYMENT_REQUEST:     { label: "Ödeme Talebi",    icon: "💳", color: "#8b5cf6" },
+  PAYMENT_REQUEST:     { label: "Ödeme Talebi",    icon: "💳", color: "#A3477A" },
   HELP_REQUEST:        { label: "Yardım Talebi",   icon: "ℹ️", color: "#3b82f6" },
   CLEANING_REQUEST:    { label: "Temizlik",         icon: "🧹", color: "#06b6d4" },
-  ORDER_REQUEST:       { label: "Sipariş Talebi",  icon: "📋", color: "#f59e0b" },
-  PRODUCT_INFO:        { label: "Ürün Bilgisi",    icon: "❓", color: "#10b981" },
-  COMPLAINT_SUGGESTION:{ label: "Şikayet/Öneri",   icon: "💬", color: "#6366f1" },
+  ORDER_REQUEST:       { label: "Sipariş Talebi",  icon: "📋", color: "#F4A623" },
+  PRODUCT_INFO:        { label: "Ürün Bilgisi",    icon: "❓", color: "#3BA55C" },
+  COMPLAINT_SUGGESTION:{ label: "Şikayet/Öneri",   icon: "💬", color: "#A3477A" },
 };
 
 const STATUS_META: Record<string, { label: string; badge: string }> = {
@@ -203,7 +203,7 @@ export default function WaiterRequestsPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {requests.map(req => {
-            const tm = TYPE_META[req.requestType] || { label: req.requestType, icon: "📌", color: "#6366f1" };
+            const tm = TYPE_META[req.requestType] || { label: req.requestType, icon: "📌", color: "#A3477A" };
             const sm = STATUS_META[req.status] || STATUS_META.PENDING;
             const isPending = req.status === "PENDING";
             const isOrder = req.requestType === "ORDER_REQUEST";
@@ -242,8 +242,8 @@ export default function WaiterRequestsPage() {
                   {isOrder && req.orderPreview && (
                     <div style={{
                       padding: "10px 12px", marginTop: 8,
-                      background: "rgba(245,158,11,0.06)", borderRadius: 10,
-                      border: "1px solid rgba(245,158,11,0.2)", fontSize: 13,
+                      background: "rgba(244,166,35,0.06)", borderRadius: 10,
+                      border: "1px solid rgba(244,166,35,0.2)", fontSize: 13,
                     }}>
                       <p style={{ fontWeight: 700, marginBottom: 6, color: "var(--text-primary)", fontSize: 12 }}>
                         📋 Ürün Özeti:
@@ -263,10 +263,10 @@ export default function WaiterRequestsPage() {
                       </div>
                       <div style={{
                         display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 6,
-                        borderTop: "1px dashed rgba(245,158,11,0.3)", fontWeight: 800, fontSize: 13
+                        borderTop: "1px dashed rgba(244,166,35,0.3)", fontWeight: 800, fontSize: 13
                       }}>
                         <span>Tahmini Toplam:</span>
-                        <span style={{ color: "#d97706" }}>{Number(req.orderPreview.total || 0).toFixed(2)} ₺</span>
+                        <span style={{ color: "#D9441F" }}>{Number(req.orderPreview.total || 0).toFixed(2)} ₺</span>
                       </div>
                       {req.orderPreview.orderNote && (
                         <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, fontStyle: "italic" }}>
@@ -277,7 +277,7 @@ export default function WaiterRequestsPage() {
                   )}
 
                   {req.note && !isOrder && (
-                    <div style={{ padding: "6px 10px", background: "rgba(245,158,11,0.08)", borderRadius: 8, fontSize: 12, color: "#fcd34d", marginTop: 6 }}>
+                    <div style={{ padding: "6px 10px", background: "rgba(244,166,35,0.08)", borderRadius: 8, fontSize: 12, color: "#FCD27A", marginTop: 6 }}>
                       📝 {req.note}
                     </div>
                   )}
@@ -317,7 +317,7 @@ export default function WaiterRequestsPage() {
                           className="btn btn-sm"
                           style={{
                             flex: 2,
-                            background: "linear-gradient(135deg, #059669, #047857)",
+                            background: "linear-gradient(135deg, #2E8B47, #24713A)",
                             color: "white",
                             border: "none",
                             opacity: (openingTable === req.id || !(codeInputs[req.id] && codeInputs[req.id].length === 6)) ? 0.5 : 1,

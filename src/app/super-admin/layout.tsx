@@ -52,7 +52,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
       }} className="hidden md:flex">
         <div style={{ padding: "24px 20px", borderBottom: "1px solid var(--border-color)" }}>
           <h1 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
-            <span style={{ color: "#8b5cf6" }}>QR</span> SaaS Admin
+            <span style={{ color: "#A3477A" }}>QR</span> SaaS Admin
           </h1>
           <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Super Admin Modu</p>
         </div>
@@ -72,8 +72,8 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
                   borderRadius: 12,
                   textDecoration: "none",
                   fontWeight: isActive ? 600 : 500,
-                  color: isActive ? "#8b5cf6" : "var(--text-secondary)",
-                  background: isActive ? "rgba(139,92,246,0.1)" : "transparent",
+                  color: isActive ? "#A3477A" : "var(--text-secondary)",
+                  background: isActive ? "rgba(163,71,122,0.1)" : "transparent",
                   transition: "all 0.2s",
                 }}
               >
@@ -110,7 +110,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
           zIndex: 40,
         }}>
           <h1 style={{ fontSize: 18, fontWeight: 800 }}>
-            <span style={{ color: "#8b5cf6" }}>QR</span> SaaS
+            <span style={{ color: "#A3477A" }}>QR</span> SaaS
           </h1>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--text-primary)" }}>
             {isMobileMenuOpen ? "✕" : "☰"}

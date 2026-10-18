@@ -43,10 +43,10 @@ export default function SuperAdminDashboardPage() {
   if (loading) return <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: 32 }}>Yükleniyor...</p>;
 
   const statCards = [
-    { label: "Toplam İşletme", value: stats.totalBusinesses, icon: "🏢", color: "#6366f1" },
-    { label: "Aktif İşletme", value: stats.activeBusinesses, icon: "🟢", color: "#10b981" },
-    { label: "Aylık Platform Geliri", value: formatCurrency(stats.monthlyPlatformRevenue), icon: "💎", color: "#8b5cf6" },
-    { label: "Toplam Admin", value: stats.totalAdmins, icon: "👑", color: "#f59e0b" },
+    { label: "Toplam İşletme", value: stats.totalBusinesses, icon: "🏢", color: "#A3477A" },
+    { label: "Aktif İşletme", value: stats.activeBusinesses, icon: "🟢", color: "#3BA55C" },
+    { label: "Aylık Platform Geliri", value: formatCurrency(stats.monthlyPlatformRevenue), icon: "💎", color: "#A3477A" },
+    { label: "Toplam Admin", value: stats.totalAdmins, icon: "👑", color: "#F4A623" },
     { label: "Toplam Garson", value: stats.totalWaiters, icon: "👔", color: "#ef4444" },
     { label: "Toplam Sipariş", value: stats.totalOrders, icon: "📋", color: "#3b82f6" },
   ];

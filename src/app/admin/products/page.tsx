@@ -34,9 +34,9 @@ type Product = {
 type Category = { id: string; name: string };
 
 const STOCK_OPTIONS = [
-  { value: "IN_STOCK",               label: "Stokta Var",    color: "#10b981" },
+  { value: "IN_STOCK",               label: "Stokta Var",    color: "#3BA55C" },
   { value: "OUT_OF_STOCK",           label: "Stokta Yok",    color: "#ef4444" },
-  { value: "TEMPORARILY_UNAVAILABLE",label: "Geçici Yok",    color: "#f59e0b" },
+  { value: "TEMPORARILY_UNAVAILABLE",label: "Geçici Yok",    color: "#F4A623" },
 ];
 
 const emptyForm = {
@@ -136,14 +136,14 @@ function SortableProductItem({
             fontSize: 11,
             fontWeight: 700,
             border: "none",
-            background: p.stockStatus === "IN_STOCK" ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.12)",
-            color: p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444",
+            background: p.stockStatus === "IN_STOCK" ? "rgba(59,165,92,0.12)" : "rgba(239,68,68,0.12)",
+            color: p.stockStatus === "IN_STOCK" ? "#3BA55C" : "#ef4444",
             cursor: "pointer",
             transition: "all 0.2s",
             display: "flex", alignItems: "center", gap: 4,
           }}
         >
-          <Circle size={8} fill={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} color={p.stockStatus === "IN_STOCK" ? "#10b981" : "#ef4444"} />
+          <Circle size={8} fill={p.stockStatus === "IN_STOCK" ? "#3BA55C" : "#ef4444"} color={p.stockStatus === "IN_STOCK" ? "#3BA55C" : "#ef4444"} />
           {p.stockStatus === "IN_STOCK" ? "Stokta" : "Yok"}
         </button>
         <button onClick={() => onEdit(p)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px" }} title="Düzenle">
@@ -406,8 +406,8 @@ export default function AdminProductsPage() {
                   Menüde Görünsün
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
-                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#f59e0b" }} />
-                  <Star size={14} color="#f59e0b" /> Popüler
+                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#F4A623" }} />
+                  <Star size={14} color="#F4A623" /> Popüler
                 </label>
               </div>
             </div>
