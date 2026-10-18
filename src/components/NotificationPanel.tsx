@@ -49,8 +49,11 @@ export function NotificationPanel() {
     notifications,
     clearNotification,
     clearAll,
+    mode,
     soundEnabled,
+    audioUnlocked,
     enableSound,
+    disableSound,
     newNotification,
     dismissToast,
     unreadCount,
@@ -101,31 +104,14 @@ export function NotificationPanel() {
         onClick={togglePanel}
       />
 
-      {/* Sound enable button (separate) */}
-      {!soundEnabled && (
-        <button
-          id="enable-sound-btn"
-          onClick={enableSound}
-          className="btn btn-sm"
-          style={{
-            background: "rgba(217, 119, 6, 0.12)",
-            border: "1px solid rgba(217, 119, 6, 0.3)",
-            color: "var(--primary-light)",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: "0.8125rem",
-            padding: "6px 12px",
-            borderRadius: "var(--radius-md)",
-            cursor: "pointer",
-          }}
-          title="Bildirimleri ses ile al"
-        >
-          <Volume2 size={16} />
-          <span className="lg-hidden" style={{ display: "none" }}>Ses</span>
-          <span>Sesi Aç</span>
-        </button>
-      )}
+      {/* Ses kontrolü — açık/kapalı tercihi + tarayıcı kilidi durumu */}
+      <SoundToggle
+        mode={mode}
+        soundEnabled={soundEnabled}
+        audioUnlocked={audioUnlocked}
+        onEnable={enableSound}
+        onDisable={disableSound}
+      />
 
       {/* Persistent Toast — kritik bildirimler elle kapatılana kadar kalır */}
       {newNotification && (
@@ -151,6 +137,19 @@ export function NotificationPanel() {
               }}>
                 {escapeHtml(newNotification.message)}
               </div>
+              {soundEnabled && !audioUnlocked && (
+                <div style={{
+                  fontSize: "0.75rem",
+                  color: "var(--primary-light)",
+                  marginTop: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}>
+                  <VolumeX size={12} />
+                  Ses kilitli — açmak için ekrana dokunun
+                </div>
+              )}
             </div>
             {newNotification.persistent && (
               <button
@@ -297,34 +296,148 @@ export function NotificationPanel() {
             flexShrink: 0,
           }}
         >
-          {soundEnabled ? (
+          {soundEnabled && audioUnlocked ? (
             <>
               <Volume2 size={14} style={{ color: "var(--success)" }} />
-              <span>Sesli bildirimler aktif</span>
+              <span>
+                {mode === "admin"
+                  ? "Sipariş ve ödeme talepleri sesli"
+                  : "Sesli bildirimler aktif"}
+              </span>
+            </>
+          ) : soundEnabled ? (
+            <>
+              <VolumeX size={14} style={{ color: "var(--primary-light)" }} />
+              <span>Ses kilitli — ekrana dokunun</span>
             </>
           ) : (
             <>
               <VolumeX size={14} />
               <span>Sesli bildirimler kapalı</span>
-              <button
-                onClick={enableSound}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--primary)",
-                  cursor: "pointer",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  textDecoration: "underline",
-                }}
-              >
-                Aç
-              </button>
             </>
           )}
+          <button
+            onClick={soundEnabled && audioUnlocked ? disableSound : enableSound}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--primary)",
+              cursor: "pointer",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              textDecoration: "underline",
+            }}
+          >
+            {soundEnabled && audioUnlocked ? "Kapat" : "Aç"}
+          </button>
         </div>
       </div>
     </>
+  );
+}
+
+// ─── Sound Toggle ─────────────────────────────────────────────────────────────
+// 3 durum: kapalı (tercih) · kilitli (tarayıcı dokunuş bekliyor) · açık
+function SoundToggle({
+  mode,
+  soundEnabled,
+  audioUnlocked,
+  onEnable,
+  onDisable,
+}: {
+  mode: "waiter" | "admin";
+  soundEnabled: boolean;
+  audioUnlocked: boolean;
+  onEnable: () => void;
+  onDisable: () => void;
+}) {
+  const baseStyle: React.CSSProperties = {
+    height: 40,
+    borderRadius: "var(--radius-md)",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    fontSize: "0.8125rem",
+    transition: "all 0.2s ease",
+  };
+
+  // Açık ve çalışıyor → sade ikon, tıklayınca kapanır
+  if (soundEnabled && audioUnlocked) {
+    return (
+      <button
+        id="sound-toggle-btn"
+        onClick={onDisable}
+        style={{
+          ...baseStyle,
+          width: 40,
+          border: "1px solid var(--border-color)",
+          background: "rgba(44, 36, 32, 0.6)",
+          color: "var(--success)",
+        }}
+        title={
+          mode === "admin"
+            ? "Sesli bildirimler açık (sipariş ve ödeme) — kapatmak için tıklayın"
+            : "Sesli bildirimler açık — kapatmak için tıklayın"
+        }
+        aria-label="Sesli bildirimleri kapat"
+      >
+        <Volume2 size={18} />
+      </button>
+    );
+  }
+
+  // Tercih açık ama tarayıcı kilitli → ekrana herhangi bir dokunuş yeterli
+  if (soundEnabled) {
+    return (
+      <button
+        id="sound-toggle-btn"
+        onClick={onEnable}
+        style={{
+          ...baseStyle,
+          padding: "0 12px",
+          border: "1px solid rgba(217, 119, 6, 0.5)",
+          background: "rgba(217, 119, 6, 0.12)",
+          color: "var(--primary-light)",
+          animation: "pulse-glow 2s infinite",
+        }}
+        title="Tarayıcı sesi kilitledi — ekranın herhangi bir yerine dokunmanız yeterli"
+      >
+        <VolumeX size={16} />
+        <span>Dokun, sesi aç</span>
+      </button>
+    );
+  }
+
+  // Tercih kapalı → garsonda dikkat çekici, adminde sade
+  return (
+    <button
+      id="sound-toggle-btn"
+      onClick={onEnable}
+      style={
+        mode === "waiter"
+          ? {
+              ...baseStyle,
+              padding: "0 12px",
+              border: "1px solid rgba(217, 119, 6, 0.3)",
+              background: "rgba(217, 119, 6, 0.12)",
+              color: "var(--primary-light)",
+            }
+          : {
+              ...baseStyle,
+              width: 40,
+              border: "1px solid var(--border-color)",
+              background: "rgba(44, 36, 32, 0.6)",
+              color: "var(--text-muted)",
+            }
+      }
+      title="Sesli bildirimler kapalı — açmak için tıklayın"
+      aria-label="Sesli bildirimleri aç"
+    >
+      <VolumeX size={mode === "waiter" ? 16 : 18} />
+      {mode === "waiter" && <span>Ses kapalı</span>}
+    </button>
   );
 }
 

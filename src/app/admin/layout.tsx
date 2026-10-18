@@ -71,7 +71,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <NotificationSoundProvider>
+    <NotificationSoundProvider mode="admin">
       <AdminContent>{children}</AdminContent>
     </NotificationSoundProvider>
   );

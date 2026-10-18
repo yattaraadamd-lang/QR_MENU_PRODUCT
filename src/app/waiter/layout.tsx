@@ -33,7 +33,7 @@ export default function WaiterLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <NotificationSoundProvider>
+    <NotificationSoundProvider mode="waiter">
       <WaiterContent>{children}</WaiterContent>
     </NotificationSoundProvider>
   );
