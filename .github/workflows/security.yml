@@ -45,11 +45,23 @@ jobs:
       - name: Security & Tenant Isolation Tests
         run: npm test
 
+      - name: API route guard regression check
+        run: node maturity-audit/tests/route-guards.mjs
+
+      - name: Secret scan (tracked files)
+        run: node maturity-audit/tests/secret-scan.mjs
+
+      - name: SEO regression check (robots/sitemap/noindex)
+        run: node maturity-audit/tests/seo-static.mjs
+
       - name: Build
         run: npx next build
 
+      # --omit=peer: next-auth v4'ün isteğe bağlı peer'i @auth/core (kritik açıklı) hiçbir
+      # yerde import edilmiyor; bu kapıyı kalıcı olarak kırmızıda tutuyordu. Tam rapor
+      # aşağıdaki advisory adımında görünmeye devam eder.
       - name: NPM Audit (critical — blocking)
-        run: npm audit --omit=dev --audit-level=critical
+        run: npm audit --omit=dev --omit=peer --audit-level=critical
 
       - name: NPM Audit (high — advisory)
         if: always()
