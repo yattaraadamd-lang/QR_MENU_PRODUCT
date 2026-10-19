@@ -1,0 +1,50 @@
+# Staging blueprint — canlı render.yaml'dan AYRI tutulur; canlı servise dokunmaz.
+# Render → New → Blueprint → bu repo → "Blueprint Path": render.staging.yaml
+# Kurulum adımları: maturity-audit/STAGING-SETUP.md
+#
+# Gizli değerler burada YOK: DATABASE_URL / iyzico anahtarları panelden girilir (sync: false),
+# NEXTAUTH_SECRET ve CUSTOMER_DEVICE_HMAC_SECRET Render tarafından üretilir (generateValue).
+services:
+  - type: web
+    name: qr-menu-platform-staging
+    env: node
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: npm run render-build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+        # Canlıyla aynı kod yolu (HSTS, secure cookie, CORS) test edilsin diye production
+      - key: APP_ENV
+        value: staging
+        # robots.txt "Disallow: /" + tüm yanıtlara X-Robots-Tag: noindex
+      - key: DATABASE_URL
+        sync: false
+        # Staging'e ÖZEL boş veritabanı (pooled). Canlı DB'nin kopyası DEĞİL — bkz. STAGING-SETUP.md
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+        # Aynı staging veritabanının doğrudan (pooler olmayan) bağlantısı; migrate deploy bunu kullanır
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: CUSTOMER_DEVICE_HMAC_SECRET
+        generateValue: true
+        # Render 256-bit (32 bayt) base64 değer üretir; canlıdakiyle aynı OLMAMALI
+      - key: NEXTAUTH_URL
+        value: https://qr-menu-platform-staging.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://qr-menu-platform-staging.onrender.com
+        # Render farklı bir alt alan adı verirse ikisini de panelde düzeltip yeniden deploy edin
+        # (NEXT_PUBLIC_* derleme anında gömülür)
+      - key: IYZICO_API_KEY
+        sync: false
+        # YALNIZ sandbox anahtarı (sandbox-merchant.iyzipay.com)
+      - key: IYZICO_SECRET_KEY
+        sync: false
+      - key: IYZICO_MERCHANT_ID
+        sync: false
+      - key: IYZICO_BASE_URL
+        value: https://sandbox-api.iyzipay.com
+        # Staging'de ASLA canlı iyzico adresi kullanılmaz
+    healthCheckPath: /api/health
