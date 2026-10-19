@@ -84,6 +84,15 @@ const nextConfig = {
             },
           ]
         : []),
+      // Staging (render.staging.yaml → APP_ENV=staging): hiçbir sayfa dizine eklenmez
+      ...(process.env.APP_ENV === "staging"
+        ? [
+            {
+              source: "/:path*",
+              headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+            },
+          ]
+        : []),
       {
         // ✅ Private API routes: no caching
         source: "/api/:path*",

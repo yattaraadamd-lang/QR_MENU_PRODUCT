@@ -5,6 +5,10 @@ import { SITE_URL } from "@/lib/site-url";
 // /api/ ve /qr/ kapalı: QR sayfası açılışta müşteri oturumu oluşturur, JS çalıştıran
 // botların veritabanına yazmasını istemiyoruz. /menu/ ve /auth/ taranabilir ama noindex.
 export default function robots(): MetadataRoute.Robots {
+  // Staging hiçbir şekilde taranmaz/dizine eklenmez (canlıyla yinelenen içerik olmasın)
+  if (process.env.APP_ENV === "staging") {
+    return { rules: [{ userAgent: "*", disallow: "/" }] };
+  }
   return {
     rules: [
       {
