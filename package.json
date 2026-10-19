@@ -11,6 +11,8 @@
     "lint": "next lint",
     "test": "tsx scripts/test-tenant-isolation.ts",
     "test:security": "tsx scripts/test-tenant-isolation.ts",
+    "audit:maturity": "node maturity-audit/tests/route-guards.mjs && node maturity-audit/tests/secret-scan.mjs && node maturity-audit/tests/seo-static.mjs && npm audit --omit=dev --omit=peer --audit-level=critical && tsc --noEmit",
+    "audit:crawl": "node maturity-audit/tests/crawl.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",

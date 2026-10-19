@@ -1,0 +1,552 @@
+{
+  "base": "https://qr-menu-product.onrender.com",
+  "startedAt": "2026-10-19T20:14:18.198Z",
+  "coldStart": {
+    "status": 200,
+    "ms": 2236,
+    "body": "{\"status\":\"healthy\",\"timestamp\":\"2026-10-19T20:14:17.597Z\",\"uptimeSeconds\":76528,\"database\":{\"status\":\"connected\",\"latencyMs\":1812},\"service\":\"qr-menu-platform\",\"version\":\"1.1.0\"}"
+  },
+  "files": {
+    "/robots.txt": {
+      "status": 404,
+      "ms": 135,
+      "contentType": "text/html; charset=utf-8",
+      "location": null,
+      "bodyStart": "<!DOCTYPE html><!--LdN9j8LGiM_kNSdJxXqaG--><html lang=\"tr\" class=\"__variable_16fca7 __variable_5ba5b1\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/4da3161b738b07dd-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"fon"
+    },
+    "/sitemap.xml": {
+      "status": 404,
+      "ms": 115,
+      "contentType": "text/html; charset=utf-8",
+      "location": null,
+      "bodyStart": "<!DOCTYPE html><!--LdN9j8LGiM_kNSdJxXqaG--><html lang=\"tr\" class=\"__variable_16fca7 __variable_5ba5b1\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/4da3161b738b07dd-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"fon"
+    },
+    "/sitemap_index.xml": {
+      "status": 404,
+      "ms": 98,
+      "contentType": "text/html; charset=utf-8",
+      "location": null,
+      "bodyStart": "<!DOCTYPE html><!--LdN9j8LGiM_kNSdJxXqaG--><html lang=\"tr\" class=\"__variable_16fca7 __variable_5ba5b1\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/4da3161b738b07dd-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"fon"
+    },
+    "/llms.txt": {
+      "status": 404,
+      "ms": 65,
+      "contentType": "text/html; charset=utf-8",
+      "location": null,
+      "bodyStart": "<!DOCTYPE html><!--LdN9j8LGiM_kNSdJxXqaG--><html lang=\"tr\" class=\"__variable_16fca7 __variable_5ba5b1\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/4da3161b738b07dd-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"fon"
+    },
+    "/favicon.ico": {
+      "status": 404,
+      "ms": 102,
+      "contentType": "text/html; charset=utf-8",
+      "location": null,
+      "bodyStart": "<!DOCTYPE html><!--LdN9j8LGiM_kNSdJxXqaG--><html lang=\"tr\" class=\"__variable_16fca7 __variable_5ba5b1\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/4da3161b738b07dd-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"fon"
+    },
+    "/manifest.json": {
+      "status": 404,
+      "ms": 126,
+      "contentType": "text/html; charset=utf-8",
+      "location": null,
+      "bodyStart": "<!DOCTYPE html><!--LdN9j8LGiM_kNSdJxXqaG--><html lang=\"tr\" class=\"__variable_16fca7 __variable_5ba5b1\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/4da3161b738b07dd-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"fon"
+    },
+    "/.well-known/security.txt": {
+      "status": 404,
+      "ms": 117,
+      "contentType": "text/html; charset=utf-8",
+      "location": null,
+      "bodyStart": "<!DOCTYPE html><!--LdN9j8LGiM_kNSdJxXqaG--><html lang=\"tr\" class=\"__variable_16fca7 __variable_5ba5b1\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"preload\" href=\"/_next/static/media/4da3161b738b07dd-s.p.woff2\" as=\"font\" crossorigin=\"\" type=\"font/woff2\"/><link rel=\"preload\" href=\"/_next/static/media/636a5ac981f94f8b-s.p.woff2\" as=\"fon"
+    }
+  },
+  "pages": [
+    {
+      "path": "/",
+      "url": "https://qr-menu-product.onrender.com/",
+      "status": 200,
+      "ms": 119,
+      "location": null,
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "s-maxage=31536000",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a4d272fc78ea89de-IST",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-security-policy-report-only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in; connect-src 'self' wss: ws: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "date": "Mon, 19 Oct 2026 20:14:27 GMT",
+        "etag": "\"13c8vxzcr9ou6o\"",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "rndr-id": "f650849c-7933-4c74",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "x-nextjs-cache": "HIT",
+        "x-nextjs-prerender": "1, 1",
+        "x-nextjs-stale-time": "300",
+        "x-render-origin-server": "Render"
+      },
+      "html": {
+        "title": "QR Menü Platformu",
+        "description": "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
+        "robotsMeta": null,
+        "canonical": null,
+        "lang": "tr",
+        "hreflang": [],
+        "jsonLd": [],
+        "h1": [
+          "Restoran ve Kafeler İçin Modern QR Menü Sistemi"
+        ],
+        "textLength": 2211,
+        "textHash": "a54b44937a83de06",
+        "linkCount": 7
+      }
+    },
+    {
+      "path": "/auth/signin",
+      "url": "https://qr-menu-product.onrender.com/auth/signin",
+      "status": 200,
+      "ms": 112,
+      "location": null,
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "s-maxage=31536000",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a4d273043fc789de-IST",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-security-policy-report-only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in; connect-src 'self' wss: ws: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "date": "Mon, 19 Oct 2026 20:14:28 GMT",
+        "etag": "\"1813vh0tpdk6ix\"",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "rndr-id": "f77e362f-f6cd-40f2",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "x-nextjs-cache": "HIT",
+        "x-nextjs-prerender": "1, 1",
+        "x-nextjs-stale-time": "300",
+        "x-render-origin-server": "Render"
+      },
+      "html": {
+        "title": "QR Menü Platformu",
+        "description": "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
+        "robotsMeta": null,
+        "canonical": null,
+        "lang": "tr",
+        "hreflang": [],
+        "jsonLd": [],
+        "h1": [],
+        "textLength": 34,
+        "textHash": "7493e30119817cc1",
+        "linkCount": 0
+      }
+    },
+    {
+      "path": "/auth/signup",
+      "url": "https://qr-menu-product.onrender.com/auth/signup",
+      "status": 200,
+      "ms": 115,
+      "location": null,
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "s-maxage=31536000",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a4d2730bed3c89de-IST",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-security-policy-report-only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in; connect-src 'self' wss: ws: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "date": "Mon, 19 Oct 2026 20:14:29 GMT",
+        "etag": "\"ztpml4xp4z6ek\"",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "rndr-id": "b2f673b0-da30-4afe",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "x-nextjs-cache": "HIT",
+        "x-nextjs-prerender": "1, 1",
+        "x-nextjs-stale-time": "300",
+        "x-render-origin-server": "Render"
+      },
+      "html": {
+        "title": "QR Menü Platformu",
+        "description": "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
+        "robotsMeta": null,
+        "canonical": null,
+        "lang": "tr",
+        "hreflang": [],
+        "jsonLd": [],
+        "h1": [],
+        "textLength": 17,
+        "textHash": "5e71275c933ff7d5",
+        "linkCount": 0
+      }
+    },
+    {
+      "path": "/auth/register",
+      "url": "https://qr-menu-product.onrender.com/auth/register",
+      "status": 200,
+      "ms": 67,
+      "location": null,
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "s-maxage=31536000",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a4d2731369b689de-IST",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-security-policy-report-only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in; connect-src 'self' wss: ws: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "date": "Mon, 19 Oct 2026 20:14:31 GMT",
+        "etag": "\"zbbcrcn2sc8bu\"",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "rndr-id": "c9f6a847-7347-41c9",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "x-nextjs-cache": "HIT",
+        "x-nextjs-prerender": "1, 1",
+        "x-nextjs-stale-time": "300",
+        "x-render-origin-server": "Render"
+      },
+      "html": {
+        "title": "QR Menü Platformu",
+        "description": "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
+        "robotsMeta": null,
+        "canonical": null,
+        "lang": "tr",
+        "hreflang": [],
+        "jsonLd": [],
+        "h1": [
+          "Garson Kayıt"
+        ],
+        "textLength": 317,
+        "textHash": "560bd6de64771e95",
+        "linkCount": 2
+      }
+    },
+    {
+      "path": "/menu/demo-business-id/1",
+      "url": "https://qr-menu-product.onrender.com/menu/demo-business-id/1",
+      "status": 200,
+      "ms": 193,
+      "location": null,
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a4d2731b492289de-IST",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-security-policy-report-only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in; connect-src 'self' wss: ws: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "date": "Mon, 19 Oct 2026 20:14:32 GMT",
+        "link": "</_next/static/media/4da3161b738b07dd-s.p.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </_next/static/media/636a5ac981f94f8b-s.p.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </_next/static/media/9e7b0a821b9dfcb4-s.p.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\", </_next/static/media/af4bf8399d1aacdf-s.p.woff2>; rel=preload; as=\"font\"; crossorigin=\"\"; type=\"font/woff2\"",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "rndr-id": "6821b9dc-fa36-4828",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "x-render-origin-server": "Render"
+      },
+      "html": {
+        "title": "QR Menü Platformu",
+        "description": "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
+        "robotsMeta": null,
+        "canonical": null,
+        "lang": "tr",
+        "hreflang": [],
+        "jsonLd": [],
+        "h1": [],
+        "textLength": 45,
+        "textHash": "fcdcb33d78bb70da",
+        "linkCount": 0
+      }
+    },
+    {
+      "path": "/auth/signin?demo=waiter",
+      "url": "https://qr-menu-product.onrender.com/auth/signin?demo=waiter",
+      "status": 200,
+      "ms": 58,
+      "location": null,
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "s-maxage=31536000",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a4d27322efab89de-IST",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-security-policy-report-only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in; connect-src 'self' wss: ws: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "date": "Mon, 19 Oct 2026 20:14:33 GMT",
+        "etag": "\"1813vh0tpdk6ix\"",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "rndr-id": "89398158-ef2b-4e52",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "x-nextjs-cache": "HIT",
+        "x-nextjs-prerender": "1, 1",
+        "x-nextjs-stale-time": "300",
+        "x-render-origin-server": "Render"
+      },
+      "html": {
+        "title": "QR Menü Platformu",
+        "description": "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
+        "robotsMeta": null,
+        "canonical": null,
+        "lang": "tr",
+        "hreflang": [],
+        "jsonLd": [],
+        "h1": [],
+        "textLength": 34,
+        "textHash": "7493e30119817cc1",
+        "linkCount": 0
+      }
+    },
+    {
+      "path": "/auth/signin?demo=admin",
+      "url": "https://qr-menu-product.onrender.com/auth/signin?demo=admin",
+      "status": 200,
+      "ms": 70,
+      "location": null,
+      "headers": {
+        "alt-svc": "h3=\":443\"; ma=86400",
+        "cache-control": "s-maxage=31536000",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "a4d2732a2e7789de-IST",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-security-policy-report-only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in; connect-src 'self' wss: ws: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "content-type": "text/html; charset=utf-8",
+        "cross-origin-opener-policy": "same-origin",
+        "date": "Mon, 19 Oct 2026 20:14:34 GMT",
+        "etag": "\"1813vh0tpdk6ix\"",
+        "permissions-policy": "camera=(), microphone=(), geolocation=(self), payment=()",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "rndr-id": "1186efbd-bc4e-41df",
+        "server": "cloudflare",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "transfer-encoding": "chunked",
+        "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+        "x-content-type-options": "nosniff",
+        "x-frame-options": "DENY",
+        "x-nextjs-cache": "HIT",
+        "x-nextjs-prerender": "1, 1",
+        "x-nextjs-stale-time": "300",
+        "x-render-origin-server": "Render"
+      },
+      "html": {
+        "title": "QR Menü Platformu",
+        "description": "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
+        "robotsMeta": null,
+        "canonical": null,
+        "lang": "tr",
+        "hreflang": [],
+        "jsonLd": [],
+        "h1": [],
+        "textLength": 34,
+        "textHash": "7493e30119817cc1",
+        "linkCount": 0
+      }
+    }
+  ],
+  "bots": [
+    {
+      "bot": "googlebot_smartphone",
+      "status": 200,
+      "ms": 63,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d273318b8889de-IST"
+    },
+    {
+      "bot": "bingbot",
+      "status": 200,
+      "ms": 65,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d27338ce5089de-IST"
+    },
+    {
+      "bot": "gptbot",
+      "status": 200,
+      "ms": 75,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d273402ad989de-IST"
+    },
+    {
+      "bot": "oai_searchbot",
+      "status": 200,
+      "ms": 57,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d273479ef389de-IST"
+    },
+    {
+      "bot": "chatgpt_user",
+      "status": 200,
+      "ms": 64,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d2734edb2789de-IST"
+    },
+    {
+      "bot": "claudebot",
+      "status": 200,
+      "ms": 62,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d2735628b889de-IST"
+    },
+    {
+      "bot": "claude_user",
+      "status": 200,
+      "ms": 58,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d2735d7df289de-IST"
+    },
+    {
+      "bot": "perplexitybot",
+      "status": 200,
+      "ms": 71,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d27364c90189de-IST"
+    },
+    {
+      "bot": "ccbot",
+      "status": 200,
+      "ms": 69,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d2736c2cee89de-IST"
+    },
+    {
+      "bot": "generic",
+      "status": 200,
+      "ms": 325,
+      "textHash": "a54b44937a83de06",
+      "server": "cloudflare",
+      "cfRay": "a4d27374dafb89de-IST"
+    }
+  ],
+  "determinism": [
+    {
+      "i": 0,
+      "status": 200,
+      "textHash": "a54b44937a83de06",
+      "textLength": 2211
+    },
+    {
+      "i": 1,
+      "status": 200,
+      "textHash": "a54b44937a83de06",
+      "textLength": 2211
+    },
+    {
+      "i": 2,
+      "status": 200,
+      "textHash": "a54b44937a83de06",
+      "textLength": 2211
+    }
+  ],
+  "notFound": {
+    "status": 404,
+    "robotsMeta": "noindex",
+    "title": "404: This page could not be found."
+  },
+  "variants": [
+    {
+      "path": "/index.html",
+      "status": 404,
+      "location": null,
+      "canonical": null,
+      "robotsMeta": "noindex",
+      "title": "404: This page could not be found."
+    },
+    {
+      "path": "//",
+      "status": 308,
+      "location": "/",
+      "canonical": null,
+      "robotsMeta": null,
+      "title": null
+    },
+    {
+      "path": "/?utm_source=audit",
+      "status": 200,
+      "location": null,
+      "canonical": null,
+      "robotsMeta": null,
+      "title": "QR Menü Platformu"
+    },
+    {
+      "path": "/auth/signin/",
+      "status": 308,
+      "location": "/auth/signin",
+      "canonical": null,
+      "robotsMeta": null,
+      "title": null
+    },
+    {
+      "path": "/AUTH/SIGNIN",
+      "status": 404,
+      "location": null,
+      "canonical": null,
+      "robotsMeta": "noindex",
+      "title": "404: This page could not be found."
+    },
+    {
+      "path": "/menu/yok/1",
+      "status": 200,
+      "location": null,
+      "canonical": null,
+      "robotsMeta": null,
+      "title": "QR Menü Platformu"
+    },
+    {
+      "path": "/qr/gecersiz-token",
+      "status": 200,
+      "location": null,
+      "canonical": null,
+      "robotsMeta": null,
+      "title": "QR Menü Platformu"
+    }
+  ],
+  "requestCount": 36,
+  "finishedAt": "2026-10-19T20:15:02.941Z"
+}

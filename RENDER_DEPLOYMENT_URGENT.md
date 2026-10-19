@@ -71,13 +71,13 @@ LqUKoaldFW9QMxw1kg5EyNlZGeRawbt9seqxCzv6FXE=
 
 ### DATABASE_URL (pooled)
 ```
-postgresql://postgres.najpbpmtypxbrbtzafwn:5kOvpdUyuL1inTqt@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true
+postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true
 ```
 ✅ Correct - No change needed
 
 ### DATABASE_URL_UNPOOLED (direct)
 ```
-postgresql://postgres.najpbpmtypxbrbtzafwn:5kOvpdUyuL1inTqt@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
+postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
 ```
 ✅ Correct - No change needed
 
@@ -101,12 +101,12 @@ After updating, your Render environment variables should be:
 
 ```bash
 # ✅ Database
-DATABASE_URL="postgresql://postgres.najpbpmtypxbrbtzafwn:5kOvpdUyuL1inTqt@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DATABASE_URL_UNPOOLED="postgresql://postgres.najpbpmtypxbrbtzafwn:5kOvpdUyuL1inTqt@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DATABASE_URL_UNPOOLED="postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
 
 # ✅ NextAuth
 NEXTAUTH_URL="https://qr-menu-product.onrender.com"
-NEXTAUTH_SECRET="LqUKoaldFW9QMxw1kg5EyNlZGeRawbt9seqxCzv6FXE="
+NEXTAUTH_SECRET="[openssl rand -base64 32 ile üretin]"
 
 # ✅ App
 NEXT_PUBLIC_APP_URL="https://qr-menu-product.onrender.com"
@@ -115,7 +115,7 @@ NEXT_PUBLIC_APP_URL="https://qr-menu-product.onrender.com"
 ENABLE_LOCATION_LOCK="false"
 
 # 🔴 UPDATE THIS - Security P0-04
-CUSTOMER_DEVICE_HMAC_SECRET="8f7e6d5c4b3a2918d6c5b4a39281f0e7a6b5c4d3e2f19081726354a3b2c1d0e9"
+CUSTOMER_DEVICE_HMAC_SECRET="[openssl rand -hex 32 ile üretin]"
 
 # 🔴 ADD THIS - Security P0-08
 SUPER_ADMIN_PASSWORD="Ag9$mK2#xP7!nW5@eL3&vQ8%hT6^jY4*bR1"
