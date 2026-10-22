@@ -118,7 +118,7 @@ export default function BlockedDevicesPage() {
           fontSize: 13,
           fontWeight: 500,
           background: feedback.type === "success" ? "rgba(59,165,92,0.1)" : "rgba(220,38,38,0.1)",
-          color: feedback.type === "success" ? "var(--success)" : "var(--danger)",
+          color: feedback.type === "success" ? "var(--success)" : "var(--danger-text)",
           border: `1px solid ${feedback.type === "success" ? "rgba(59,165,92,0.2)" : "rgba(220,38,38,0.2)"}`,
         }}>
           {feedback.message}

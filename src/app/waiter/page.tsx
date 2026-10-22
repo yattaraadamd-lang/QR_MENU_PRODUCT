@@ -263,7 +263,7 @@ export default function WaiterOrdersPage() {
                     padding: "10px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
                     border: `1.5px solid ${isSelected ? "#ef4444" : "var(--border-color)"}`,
                     background: isSelected ? "rgba(239,68,68,0.08)" : "transparent",
-                    color: isSelected ? "#ef4444" : "var(--text-secondary)",
+                    color: isSelected ? "var(--danger-text)" : "var(--text-secondary)",
                     cursor: "pointer", fontWeight: isSelected ? 600 : 400,
                   }}
                 >
@@ -276,7 +276,7 @@ export default function WaiterOrdersPage() {
           {/* OUT_OF_STOCK Product selection */}
           {selectedReasonCode === "OUT_OF_STOCK" && (
             <div style={{ marginBottom: 16, padding: 12, background: "rgba(244,166,35,0.08)", borderRadius: 10, border: "1px solid rgba(244,166,35,0.25)" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#CF411E", marginBottom: 8 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary-light)", marginBottom: 8 }}>
                 Stokta olmayan ürünü/ürünleri seçin:
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -292,7 +292,7 @@ export default function WaiterOrdersPage() {
                   </label>
                 ))}
               </div>
-              <p style={{ fontSize: 11, color: "#ef4444", marginTop: 8, fontWeight: 600 }}>
+              <p style={{ fontSize: 11, color: "var(--danger-text)", marginTop: 8, fontWeight: 600 }}>
                 ⚠️ Seçilen ürünler stokta yok olarak işaretlenecek ve müşteriler sipariş veremeyecektir.
               </p>
             </div>
@@ -352,7 +352,7 @@ export default function WaiterOrdersPage() {
           <h2 style={{ fontSize: 19, fontWeight: 800 }}>Siparişler</h2>
           {pendingCount > 0 && filter === "active" && (
             <span style={{
-              background: "#ef4444", color: "white", borderRadius: 99,
+              background: "var(--danger)", color: "white", borderRadius: 99,
               fontSize: 11, fontWeight: 800, padding: "2px 8px",
               animation: "pulse-glow 2s infinite",
             }}>{pendingCount} yeni</span>
@@ -476,7 +476,7 @@ export default function WaiterOrdersPage() {
                           onClick={() => setCancelModal(order)}
                           disabled={isLoading}
                           className="btn btn-sm btn-ghost"
-                          style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
+                          style={{ color: "var(--danger-text)", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
                         >
                           <X size={14} />
                         </button>
@@ -491,7 +491,7 @@ export default function WaiterOrdersPage() {
                           onClick={() => setCancelModal(order)}
                           disabled={isLoading}
                           className="btn btn-sm btn-ghost"
-                          style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
+                          style={{ color: "var(--danger-text)", border: "1px solid rgba(239,68,68,0.3)", opacity: isLoading ? 0.6 : 1 }}
                         >
                           <X size={14} />
                         </button>

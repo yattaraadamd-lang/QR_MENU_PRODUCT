@@ -343,7 +343,7 @@ export default function AdminTablesPage() {
                     position: "absolute",
                     top: -6,
                     right: -6,
-                    background: "#ef4444",
+                    background: "var(--danger)",
                     color: "white",
                     borderRadius: 99,
                     fontSize: 10,

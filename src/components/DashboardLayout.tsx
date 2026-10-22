@@ -70,7 +70,7 @@ export default function DashboardLayout({
             onClick={() => signOut({ callbackUrl: "/" })}
             className="btn btn-ghost btn-sm"
             style={{
-              color: "var(--danger)",
+              color: "var(--danger-text)",
               fontSize: 13,
               fontWeight: 600,
               flexShrink: 0,

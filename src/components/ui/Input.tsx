@@ -115,7 +115,7 @@ export default function Input({
         )}
       </div>
       {error && (
-        <p id={errorId} style={{ fontSize: 12, color: "var(--danger)", marginTop: 4, fontWeight: 500 }}>
+        <p id={errorId} style={{ fontSize: 12, color: "var(--danger-text)", marginTop: 4, fontWeight: 500 }}>
           {error}
         </p>
       )}

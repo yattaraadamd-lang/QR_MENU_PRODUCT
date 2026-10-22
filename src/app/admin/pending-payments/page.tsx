@@ -508,7 +508,7 @@ export default function PendingPaymentsPage() {
                     }}
                   />
                   {isCashInsufficient && (
-                    <p style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>
+                    <p style={{ color: "var(--danger-text)", fontSize: 12, marginTop: 4 }}>
                       ⚠️ Alınan tutar ödeme tutarından küçük olamaz.
                     </p>
                   )}

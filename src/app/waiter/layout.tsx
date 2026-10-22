@@ -128,7 +128,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
                   <span style={{
                     position: "absolute",
                     top: -4, right: -8,
-                    background: "#ef4444",
+                    background: "var(--danger)",
                     color: "white",
                     borderRadius: 99,
                     fontSize: 9,

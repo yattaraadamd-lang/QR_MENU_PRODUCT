@@ -157,7 +157,7 @@ export default function WaiterRequestsPage() {
           <h2 style={{ fontSize: 19, fontWeight: 800 }}>Talepler</h2>
           {pendingCount > 0 && filter === "active" && (
             <span style={{
-              background: "#ef4444", color: "white", borderRadius: 99,
+              background: "var(--danger)", color: "white", borderRadius: 99,
               fontSize: 11, fontWeight: 800, padding: "2px 8px",
             }}>{pendingCount} yeni</span>
           )}
@@ -232,7 +232,7 @@ export default function WaiterRequestsPage() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       {expired && isPending && (
-                        <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 700 }}>⏰ Süresi Doldu</span>
+                        <span style={{ fontSize: 11, color: "var(--danger-text)", fontWeight: 700 }}>⏰ Süresi Doldu</span>
                       )}
                       <span className={`badge ${sm.badge}`}>{sm.label}</span>
                     </div>
@@ -266,7 +266,7 @@ export default function WaiterRequestsPage() {
                         borderTop: "1px dashed rgba(244,166,35,0.3)", fontWeight: 800, fontSize: 13
                       }}>
                         <span>Tahmini Toplam:</span>
-                        <span style={{ color: "#CF411E" }}>{Number(req.orderPreview.total || 0).toFixed(2)} ₺</span>
+                        <span style={{ color: "var(--primary-light)" }}>{Number(req.orderPreview.total || 0).toFixed(2)} ₺</span>
                       </div>
                       {req.orderPreview.orderNote && (
                         <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, fontStyle: "italic" }}>
@@ -318,7 +318,7 @@ export default function WaiterRequestsPage() {
                           className="btn btn-sm"
                           style={{
                             flex: 2,
-                            background: "linear-gradient(135deg, #2E8B47, #24713A)",
+                            background: "linear-gradient(135deg, #2B8243, #24713A)",
                             color: "white",
                             border: "none",
                             opacity: (openingTable === req.id || !(codeInputs[req.id] && codeInputs[req.id].length === 6)) ? 0.5 : 1,
@@ -331,7 +331,7 @@ export default function WaiterRequestsPage() {
                           onClick={() => rejectOrderRequest(req)}
                           disabled={rejectingRequest === req.id}
                           className="btn btn-sm btn-ghost"
-                          style={{ color: "#ef4444", fontWeight: 700 }}
+                          style={{ color: "var(--danger-text)", fontWeight: 700 }}
                         >
                           {rejectingRequest === req.id ? "⏳..." : "🛑 Reddet"}
                         </button>
@@ -351,7 +351,7 @@ export default function WaiterRequestsPage() {
                             ✓ Tamamla
                           </button>
                         )}
-                        <button aria-label="Talebi iptal et" onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                        <button aria-label="Talebi iptal et" onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)" }}>
                           ✕
                         </button>
                       </div>
