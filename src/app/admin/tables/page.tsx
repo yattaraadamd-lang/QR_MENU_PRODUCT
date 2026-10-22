@@ -7,7 +7,7 @@ import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  EMPTY:             { label: "Boş",              color: "#816B5D", bg: "rgba(166,138,120,0.12)" },
+  EMPTY:             { label: "Boş",              color: "#A89585", bg: "rgba(166,138,120,0.12)" },
   OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)" },
   HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(244,166,35,0.12)" },
   PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)" },
@@ -385,7 +385,7 @@ export default function AdminTablesPage() {
                     {hasUnpaid && (
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span>Kalan:</span>
-                        <span style={{ fontWeight: 700, color: "#ef4444" }}>{fmt(bill.remainingAmount)} ₺</span>
+                        <span style={{ fontWeight: 700, color: "var(--danger-text)" }}>{fmt(bill.remainingAmount)} ₺</span>
                       </div>
                     )}
                   </div>
@@ -400,7 +400,7 @@ export default function AdminTablesPage() {
 
                 <div className="card-actions" style={{ display: "flex", gap: 5 }}>
                   <button onClick={() => generateQR(table.id)} className="btn btn-sm btn-ghost" style={{ flex: 1, fontSize: 11 }}>📱 QR</button>
-                  <button onClick={() => setDeleteModal({ id: table.id, name: table.tableName || `Masa ${table.tableNumber}` })} aria-label={`${table.tableName || `Masa ${table.tableNumber}`} sil`} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }}>🗑️</button>
+                  <button onClick={() => setDeleteModal({ id: table.id, name: table.tableName || `Masa ${table.tableNumber}` })} aria-label={`${table.tableName || `Masa ${table.tableNumber}`} sil`} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "var(--danger-text)" }}>🗑️</button>
                 </div>
               </div>
             );
@@ -442,7 +442,7 @@ export default function AdminTablesPage() {
                       {[
                         { label: "Toplam Hesap", value: `${fmt(sessionDetail.totalAmount)} ₺`, color: "var(--text-primary)" },
                         { label: "Ödenen", value: `${fmt(sessionDetail.paidAmount)} ₺`, color: "#3BA55C" },
-                        { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "#ef4444" : "#3BA55C" },
+                        { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "var(--danger-text)" : "#3BA55C" },
                       ].map(r => (
                         <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
                           <span style={{ color: "var(--text-secondary)" }}>{r.label}</span>
@@ -451,7 +451,7 @@ export default function AdminTablesPage() {
                       ))}
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
                         <span style={{ color: "var(--text-secondary)" }}>Ödeme Durumu</span>
-                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F4A623" : "#ef4444" }}>
+                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F4A623" : "var(--danger-text)" }}>
                           {sessionDetail.paymentStatus === "PAID" ? "✅ Ödendi" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "⚡ Kısmi" : "❌ Ödenmedi"}
                         </span>
                       </div>
@@ -515,7 +515,7 @@ export default function AdminTablesPage() {
             <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
-              {sessionDetail && <span style={{ color: "#ef4444", fontWeight: 700 }}> · Kalan: {fmt(sessionDetail.remainingAmount)} ₺</span>}
+              {sessionDetail && <span style={{ color: "var(--danger-text)", fontWeight: 700 }}> · Kalan: {fmt(sessionDetail.remainingAmount)} ₺</span>}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
@@ -541,12 +541,12 @@ export default function AdminTablesPage() {
                   <label htmlFor="f-alinan-tutar" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Alınan Tutar (₺) *</label>
                   <input id="f-alinan-tutar" className="input" type="number" step="0.01" min="0.01" value={payReceivedAmount} onChange={e => setPayReceivedAmount(e.target.value)} placeholder="0.00" style={{ fontSize: 18, fontWeight: 700 }} />
                   {payReceivedAmount && payAmount && parseFloat(payReceivedAmount) >= parseFloat(payAmount) && (
-                    <p style={{ marginTop: 6, fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
+                    <p style={{ marginTop: 6, fontSize: 13, color: "var(--success-text)", fontWeight: 600 }}>
                       Para Üstü: {(parseFloat(payReceivedAmount) - parseFloat(payAmount)).toFixed(2)} ₺
                     </p>
                   )}
                   {payReceivedAmount && payAmount && parseFloat(payReceivedAmount) < parseFloat(payAmount) && (
-                    <p style={{ marginTop: 6, fontSize: 13, color: "#EF4444", fontWeight: 600 }}>
+                    <p style={{ marginTop: 6, fontSize: 13, color: "var(--danger-text)", fontWeight: 600 }}>
                       Alınan tutar yetersiz!
                     </p>
                   )}

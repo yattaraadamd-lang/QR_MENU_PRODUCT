@@ -255,7 +255,7 @@ export default function PendingPaymentsPage() {
         <div style={{
           padding: "12px 16px", borderRadius: 10, marginBottom: 16,
           fontSize: 13, fontWeight: 600,
-          background: "rgba(59,165,92,0.1)", color: "var(--success)",
+          background: "rgba(59,165,92,0.1)", color: "var(--success-text)",
           border: "1px solid rgba(59,165,92,0.2)",
           display: "flex", alignItems: "center", gap: 8,
         }}>
@@ -267,7 +267,7 @@ export default function PendingPaymentsPage() {
         <div style={{
           padding: "12px 16px", borderRadius: 10, marginBottom: 16,
           fontSize: 13, fontWeight: 600,
-          background: "rgba(239,68,68,0.1)", color: "#ef4444",
+          background: "rgba(239,68,68,0.1)", color: "var(--danger-text)",
           border: "1px solid rgba(239,68,68,0.2)",
           display: "flex", alignItems: "center", gap: 8,
         }}>
@@ -308,7 +308,7 @@ export default function PendingPaymentsPage() {
 
                   <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8, borderTop: "1px solid var(--border-subtle)", marginBottom: 16 }}>
                     <span style={{ fontWeight: 600 }}>Tahsil Edilecek:</span>
-                    <span style={{ fontWeight: 800, fontSize: 18, color: "var(--primary)" }}>₺{Number(req.amount).toFixed(2)}</span>
+                    <span style={{ fontWeight: 800, fontSize: 18, color: "var(--primary-light)" }}>₺{Number(req.amount).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -367,13 +367,13 @@ export default function PendingPaymentsPage() {
                   {Number(bill.paidAmount) > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                       <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>Ödenen:</span>
-                      <span style={{ fontWeight: 600, color: "var(--success)", fontSize: 14 }}>-{formatCurrency(Number(bill.paidAmount))} ₺</span>
+                      <span style={{ fontWeight: 600, color: "var(--success-text)", fontSize: 14 }}>-{formatCurrency(Number(bill.paidAmount))} ₺</span>
                     </div>
                   )}
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
                     <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>Kalan Tutar:</span>
-                    <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: 18 }}>{formatCurrency(Number(bill.remainingAmount))} ₺</span>
+                    <span style={{ fontWeight: 800, color: "var(--primary-light)", fontSize: 18 }}>{formatCurrency(Number(bill.remainingAmount))} ₺</span>
                   </div>
                 </div>
 
@@ -433,7 +433,7 @@ export default function PendingPaymentsPage() {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--text-secondary)" }}>Kalan Hesap:</span>
-                <span style={{ fontWeight: 800, color: "var(--primary)", fontSize: 18 }}>{formatCurrency(Number(payModal.remainingAmount))} ₺</span>
+                <span style={{ fontWeight: 800, color: "var(--primary-light)", fontSize: 18 }}>{formatCurrency(Number(payModal.remainingAmount))} ₺</span>
               </div>
             </div>
 
@@ -523,7 +523,7 @@ export default function PendingPaymentsPage() {
                   <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>Para Üstü:</span>
                   <span style={{
                     fontSize: 20, fontWeight: 800,
-                    color: changeAmount > 0 ? "var(--success)" : "var(--text-muted)",
+                    color: changeAmount > 0 ? "var(--success-text)" : "var(--text-muted)",
                   }}>
                     ₺{formatCurrency(changeAmount)}
                   </span>

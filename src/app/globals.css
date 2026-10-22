@@ -28,6 +28,7 @@
   --espresso:       #17110E;
 
   --success:  #2E8B47;
+  --success-text: #4CB86C;         /* Metin: koyu zeminlerde (hover dahil) ≥5.5:1 */
   --warning:  #F4A623;
   --danger:   #D92D20;             /* Zemin/kenarlık: beyaz yazıyla 4.83:1 */
   --danger-text: #E8726A;          /* Metin: koyu zeminlerde (hover dahil) ≥4.5:1 */
@@ -628,6 +629,7 @@ dialog.modal-overlay::backdrop { background: transparent; }
   --text-secondary: #6E4F3F;
   --text-muted:     #816B5D;
   --danger-text:    #B42318;       /* Krem/beyaz zeminlerde ≥5.4:1 */
+  --success-text:   #1F6B36;       /* Krem/beyaz zeminlerde ≥6.2:1 */
   --purple-text:    #7E2F5B;
   --border-color:   #F0DFD0;
   --border-subtle:  #F8ECE1;

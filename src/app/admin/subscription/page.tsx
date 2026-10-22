@@ -34,8 +34,8 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   TRIAL: { label: "Deneme", color: "#60a5fa" },
   ACTIVE: { label: "Aktif", color: "#3BA55C" },
   PAST_DUE: { label: "Ödeme Bekleniyor", color: "#F4A623" },
-  CANCELLED: { label: "İptal Edildi", color: "#ef4444" },
-  EXPIRED: { label: "Süresi Doldu", color: "#ef4444" },
+  CANCELLED: { label: "İptal Edildi", color: "var(--danger-text)" },
+  EXPIRED: { label: "Süresi Doldu", color: "var(--danger-text)" },
 };
 
 const fmtLimit = (n: number | null) => (n === null ? "Sınırsız" : n);
@@ -129,7 +129,7 @@ function SubscriptionContent() {
   };
 
   if (loading) return <Loader />;
-  if (!data) return <p style={{ color: "#ef4444", textAlign: "center", padding: 32 }}>Abonelik bilgisi alınamadı.</p>;
+  if (!data) return <p style={{ color: "var(--danger-text)", textAlign: "center", padding: 32 }}>Abonelik bilgisi alınamadı.</p>;
 
   const sub = data.subscription;
   const status = sub ? STATUS_LABEL[sub.status] : null;
@@ -165,7 +165,7 @@ function SubscriptionContent() {
               </p>
             )}
             {sub && !sub.isValid && (
-              <p style={{ fontSize: 13, color: "#ef4444", marginTop: 4 }}>
+              <p style={{ fontSize: 13, color: "var(--danger-text)", marginTop: 4 }}>
                 Aboneliğiniz aktif değil — yeni masa, ürün veya garson ekleyemezsiniz.
               </p>
             )}
@@ -184,7 +184,7 @@ function SubscriptionContent() {
         </div>
 
         {sub?.status === "ACTIVE" && (
-          <button onClick={cancelPaid} className="btn btn-sm btn-ghost" style={{ marginTop: 20, color: "#ef4444" }}>
+          <button onClick={cancelPaid} className="btn btn-sm btn-ghost" style={{ marginTop: 20, color: "var(--danger-text)" }}>
             Aboneliği iptal et
           </button>
         )}

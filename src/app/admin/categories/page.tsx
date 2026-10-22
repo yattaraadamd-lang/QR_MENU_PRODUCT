@@ -91,7 +91,7 @@ function SortableCategoryItem({
         <button onClick={() => onEdit(cat)} className="btn btn-ghost btn-sm" title="Düzenle">
           <Edit3 size={15} />
         </button>
-        <button onClick={() => onDelete(cat)} className="btn btn-ghost btn-sm" style={{ color: "#ef4444" }} title="Sil">
+        <button onClick={() => onDelete(cat)} className="btn btn-ghost btn-sm" style={{ color: "var(--danger-text)" }} title="Sil">
           <Trash2 size={15} />
         </button>
       </div>
