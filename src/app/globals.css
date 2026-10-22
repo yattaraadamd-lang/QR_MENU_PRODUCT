@@ -29,9 +29,11 @@
 
   --success:  #2E8B47;
   --warning:  #F4A623;
-  --danger:   #D92D20;
+  --danger:   #D92D20;             /* Zemin/kenarlık: beyaz yazıyla 4.83:1 */
+  --danger-text: #E8726A;          /* Metin: koyu zeminlerde (hover dahil) ≥4.5:1 */
   --info:     #3B82C4;
   --purple:   #A3477A;             /* Erik / patlıcan */
+  --purple-text: #D27FAC;          /* Metin: koyu zeminlerde ≥4.9:1 */
 
   /* Admin / Garson paneli — Espresso koyu tema */
   --bg-primary:   #17110E;
@@ -372,7 +374,7 @@ body {
 }
 
 .btn-success {
-  background: linear-gradient(135deg, #3B9A55, #2E8B47);
+  background: linear-gradient(135deg, #2B8243, #24713A); /* beyaz yazı ≥4.8:1 */
   color: white;
   box-shadow: 0 4px 14px rgba(46,139,71,0.28);
 }
@@ -386,7 +388,7 @@ body {
 .btn-warning:hover:not(:disabled) { box-shadow: 0 8px 22px rgba(244,166,35,0.4); }
 
 .btn-danger {
-  background: linear-gradient(135deg, #E5483B, #C42E23);
+  background: linear-gradient(135deg, var(--danger), #C42E23); /* beyaz yazı ≥4.8:1 */
   color: white;
   box-shadow: 0 4px 14px rgba(217,45,32,0.28);
 }
@@ -625,6 +627,8 @@ dialog.modal-overlay::backdrop { background: transparent; }
   --text-primary:   #2A1A12;
   --text-secondary: #6E4F3F;
   --text-muted:     #816B5D;
+  --danger-text:    #B42318;       /* Krem/beyaz zeminlerde ≥5.4:1 */
+  --purple-text:    #7E2F5B;
   --border-color:   #F0DFD0;
   --border-subtle:  #F8ECE1;
   --focus-ring:     var(--primary-dark);
@@ -885,7 +889,7 @@ dialog.modal-overlay::backdrop { background: transparent; }
 .notification-badge-count {
   position: absolute; top: -6px; right: -8px;
   min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 999px; background: #EF4444;
+  border-radius: 999px; background: var(--danger);
   color: #fff; font-size: 0.6875rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center; line-height: 1;
   animation: badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);

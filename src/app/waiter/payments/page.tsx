@@ -192,7 +192,7 @@ export default function WaiterPaymentsPage() {
                       </span>
                     )}
                     {isAwaitingApproval && (
-                      <span className="badge" style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6", gap: 4 }}>
+                      <span className="badge" style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa", gap: 4 }}>
                         <CheckCircle2 size={11} /> Admin Onayı Bekleniyor
                       </span>
                     )}
@@ -205,13 +205,13 @@ export default function WaiterPaymentsPage() {
                 </div>
 
                 {isRejected && p.rejectionReason && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.1)", marginBottom: 10, fontSize: 13, color: "#dc2626" }}>
+                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.1)", marginBottom: 10, fontSize: 13, color: "var(--danger-text)" }}>
                     <strong>Red Nedeni:</strong> {p.rejectionReason}
                   </div>
                 )}
 
                 {isAwaitingApproval && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,0.08)", marginBottom: 10, fontSize: 13, color: "#2563eb" }}>
+                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,0.08)", marginBottom: 10, fontSize: 13, color: "#60a5fa" }}>
                     Garson {p.requestedByName ? `(${p.requestedByName})` : ""} admin onayına gönderdi. (Yöntem: {p.method === "CASH" ? "Nakit" : "Kart"}, Tutar: ₺{Number(p.amount).toFixed(2)})
                   </div>
                 )}
@@ -351,7 +351,7 @@ export default function WaiterPaymentsPage() {
               display: "flex", alignItems: "flex-start", gap: 8,
             }}>
               <Info size={16} color="#3b82f6" style={{ flexShrink: 0, marginTop: 1 }} />
-              <p style={{ fontSize: 12, color: "#6E4F3F", lineHeight: 1.5 }}>
+              <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
                 Garson doğrudan ödemeyi tamamlayamaz. Gönderilen bilgiler admin onayından sonra ciroya yansıyacaktır.
               </p>
             </div>

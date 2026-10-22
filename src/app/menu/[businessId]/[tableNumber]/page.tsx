@@ -1314,7 +1314,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
               {Object.values(activeRequests).filter(Boolean).length > 0 && (
                 <span style={{
                   position: "absolute", top: 4, right: 6,
-                  background: "#ef4444", color: "white",
+                  background: "var(--danger)", color: "white",
                   borderRadius: 99, minWidth: 18, height: 18,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 11, fontWeight: 800, padding: "0 4px",

@@ -42,7 +42,7 @@ export default function SuperAdminPaymentsPage() {
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
         <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #A3477A" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Toplam Platform Geliri</p>
-          <p style={{ fontSize: 24, fontWeight: 800, color: "#A3477A" }}>{formatCurrency(totalRevenue)}</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: "var(--purple-text)" }}>{formatCurrency(totalRevenue)}</p>
         </div>
         <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #3BA55C" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Aktif Abonelik</p>

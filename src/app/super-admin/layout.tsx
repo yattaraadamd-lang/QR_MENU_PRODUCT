@@ -45,7 +45,6 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
         width: 260,
         background: "var(--bg-primary)",
         borderRight: "1px solid var(--border-color)",
-        display: "flex",
         flexDirection: "column",
         position: "sticky",
         top: 0,
@@ -53,7 +52,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
       }} className="hidden md:flex">
         <div style={{ padding: "24px 20px", borderBottom: "1px solid var(--border-color)" }}>
           <p style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
-            <span style={{ color: "#A3477A" }}>QR</span> SaaS Admin
+            <span style={{ color: "var(--purple-text)" }}>QR</span> SaaS Admin
           </p>
           <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Super Admin Modu</p>
         </div>
@@ -74,7 +73,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
                   borderRadius: 12,
                   textDecoration: "none",
                   fontWeight: isActive ? 600 : 500,
-                  color: isActive ? "#A3477A" : "var(--text-secondary)",
+                  color: isActive ? "var(--purple-text)" : "var(--text-secondary)",
                   background: isActive ? "rgba(163,71,122,0.1)" : "transparent",
                   transition: "all 0.2s",
                 }}
@@ -90,7 +89,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
           <button
             onClick={() => signOut({ callbackUrl: "/auth/signin" })}
             className="btn btn-ghost"
-            style={{ width: "100%", justifyContent: "flex-start", color: "var(--color-danger)" }}
+            style={{ width: "100%", justifyContent: "flex-start", color: "var(--danger-text)" }}
           >
             🚪 Çıkış Yap
           </button>
@@ -100,11 +99,10 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
       {/* Main Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {/* Mobile Header */}
-        <div className="md:hidden" style={{
+        <div className="flex md:hidden" style={{
           background: "var(--bg-primary)",
           borderBottom: "1px solid var(--border-color)",
           padding: "16px 20px",
-          display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           position: "sticky",
@@ -112,7 +110,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
           zIndex: 40,
         }}>
           <p style={{ fontSize: 18, fontWeight: 800 }}>
-            <span style={{ color: "#A3477A" }}>QR</span> SaaS
+            <span style={{ color: "var(--purple-text)" }}>QR</span> SaaS
           </p>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} aria-label={isMobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={isMobileMenuOpen} style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--text-primary)" }}>
             {isMobileMenuOpen ? "✕" : "☰"}
@@ -121,10 +119,10 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden" style={{
+          <div className="flex md:hidden" style={{
             position: "fixed", top: 60, left: 0, right: 0, bottom: 0,
             background: "var(--bg-primary)", zIndex: 30, padding: 20,
-            display: "flex", flexDirection: "column", gap: 8,
+            flexDirection: "column", gap: 8,
           }}>
             {sidebarLinks.map((link) => (
               <Link
@@ -141,7 +139,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
             <button
               onClick={() => signOut({ callbackUrl: "/auth/signin" })}
               className="btn btn-ghost"
-              style={{ justifyContent: "flex-start", padding: "16px", fontSize: 16, color: "var(--color-danger)", marginTop: "auto" }}
+              style={{ justifyContent: "flex-start", padding: "16px", fontSize: 16, color: "var(--danger-text)", marginTop: "auto" }}
             >
               🚪 Çıkış Yap
             </button>
