@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import SkipLink from "@/components/SkipLink";
 import { SITE_URL } from "@/lib/site-url";
 
 const sans = Plus_Jakarta_Sans({
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#D9441F",
+  themeColor: "#CF411E",
 };
 
 export default function RootLayout({
@@ -44,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="tr" className={`${sans.variable} ${display.variable}`}>
       <body>
+        <SkipLink />
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { CheckCircle2, XCircle, Clock, Banknote, CreditCard, AlertCircle } from "lucide-react";
+import Dialog from "@/components/ui/Dialog";
 
 type Bill = {
   id: string;
@@ -391,17 +392,16 @@ export default function PendingPaymentsPage() {
 
       {/* Reject Modal */}
       {rejectModal && (
-        <div className="modal-overlay" onClick={() => !rejecting && setRejectModal(null)}>
-          <div className="modal-content p-6" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <Dialog onClose={() => !rejecting && setRejectModal(null)} contentClassName="modal-content p-6" contentStyle={{ maxWidth: 400 }}>
             <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Ödeme Talebini Reddet</h3>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
               {rejectModal.table?.tableName || `Masa ${rejectModal.table?.tableNumber}`} ödeme talebini reddetmek üzeresiniz.
             </p>
 
-            <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
+            <label htmlFor="f-red-nedeni" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
               Red Nedeni
             </label>
-            <input
+            <input id="f-red-nedeni"
               className="input"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
@@ -415,17 +415,15 @@ export default function PendingPaymentsPage() {
                 {rejecting ? "İşleniyor..." : "Reddet"}
               </button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* Pay Modal */}
       {payModal && (
-        <div className="modal-overlay" onClick={() => !processingBillId && setPayModal(null)}>
-          <div className="modal-content p-6" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <Dialog onClose={() => !processingBillId && setPayModal(null)} contentClassName="modal-content p-6" contentStyle={{ maxWidth: 440 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-primary)" }}>Ödeme Al</h2>
-              <button onClick={() => !processingBillId && setPayModal(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => !processingBillId && setPayModal(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}>✕</button>
             </div>
 
             <div style={{ marginBottom: 20, padding: 16, background: "var(--bg-hover)", borderRadius: 12 }}>
@@ -441,10 +439,10 @@ export default function PendingPaymentsPage() {
 
             {/* Ödenecek Tutar */}
             <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+              <label htmlFor="f-borctan-tahsil-edilecek-tutar" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                 Borçtan Tahsil Edilecek Tutar (₺)
               </label>
-              <input
+              <input id="f-borctan-tahsil-edilecek-tutar"
                 type="number"
                 value={paymentAmount}
                 onChange={e => setPaymentAmount(e.target.value)}
@@ -458,9 +456,11 @@ export default function PendingPaymentsPage() {
 
             {/* Ödeme Yöntemi */}
             <div style={{ marginBottom: paymentMethod === "CASH" ? 16 : 24 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>Ödeme Yöntemi</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <p id="pay-method-label" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 8 }}>Ödeme Yöntemi</p>
+              <div role="group" aria-labelledby="pay-method-label" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <button
+                  type="button"
+                  aria-pressed={paymentMethod === "CARD"}
                   onClick={() => { setPaymentMethod("CARD"); setReceivedAmount(""); }}
                   style={{
                     padding: "12px", borderRadius: 10, border: `2px solid ${paymentMethod === "CARD" ? "var(--primary)" : "var(--border-color)"}`,
@@ -469,9 +469,11 @@ export default function PendingPaymentsPage() {
                     fontWeight: 600, cursor: "pointer", transition: "all 0.15s"
                   }}
                 >
-                  💳 Kredi Kartı
+                  {paymentMethod === "CARD" && "✓ "}💳 Kredi Kartı
                 </button>
                 <button
+                  type="button"
+                  aria-pressed={paymentMethod === "CASH"}
                   onClick={() => setPaymentMethod("CASH")}
                   style={{
                     padding: "12px", borderRadius: 10, border: `2px solid ${paymentMethod === "CASH" ? "var(--primary)" : "var(--border-color)"}`,
@@ -480,7 +482,7 @@ export default function PendingPaymentsPage() {
                     fontWeight: 600, cursor: "pointer", transition: "all 0.15s"
                   }}
                 >
-                  💵 Nakit
+                  {paymentMethod === "CASH" && "✓ "}💵 Nakit
                 </button>
               </div>
             </div>
@@ -489,10 +491,10 @@ export default function PendingPaymentsPage() {
             {paymentMethod === "CASH" && (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+                  <label htmlFor="f-musteriden-alinan-nakit" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                     Müşteriden Alınan Nakit (₺)
                   </label>
-                  <input
+                  <input id="f-musteriden-alinan-nakit"
                     type="number"
                     value={receivedAmount}
                     onChange={e => setReceivedAmount(e.target.value)}
@@ -537,8 +539,7 @@ export default function PendingPaymentsPage() {
             >
               {processingBillId === payModal.id ? "İşleniyor..." : "Ödemeyi Tamamla"}
             </button>
-          </div>
-        </div>
+          </Dialog>
       )}
     </div>
   );

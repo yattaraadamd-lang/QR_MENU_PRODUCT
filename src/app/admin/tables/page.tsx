@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 import Loader from "@/components/ui/Loader";
+import Dialog from "@/components/ui/Dialog";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  EMPTY:             { label: "Boş",              color: "#A68A78", bg: "rgba(166,138,120,0.12)" },
+  EMPTY:             { label: "Boş",              color: "#816B5D", bg: "rgba(166,138,120,0.12)" },
   OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)" },
   HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(244,166,35,0.12)" },
   PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)" },
@@ -244,20 +245,19 @@ export default function AdminTablesPage() {
 
       {/* Create Modal */}
       {showCreate && (
-        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 28, maxWidth: 380 }}>
+        <Dialog onClose={() => setShowCreate(false)} contentStyle={{ padding: 28, maxWidth: 380 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700 }}>Yeni Masa Ekle</h3>
-              <button onClick={() => setShowCreate(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => setShowCreate(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Masa Numarası *</label>
-                <input className="input" value={createForm.tableNumber} onChange={e => setCreateForm({ ...createForm, tableNumber: e.target.value })} placeholder="Örn: 12" autoFocus />
+                <label htmlFor="f-masa-numarasi" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Masa Numarası *</label>
+                <input id="f-masa-numarasi" className="input" value={createForm.tableNumber} onChange={e => setCreateForm({ ...createForm, tableNumber: e.target.value })} placeholder="Örn: 12" data-autofocus />
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Masa Adı (Opsiyonel)</label>
-                <input className="input" value={createForm.tableName} onChange={e => setCreateForm({ ...createForm, tableName: e.target.value })} placeholder="Örn: Bahçe 3, Teras 1" />
+                <label htmlFor="f-masa-adi-opsiyonel" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Masa Adı (Opsiyonel)</label>
+                <input id="f-masa-adi-opsiyonel" className="input" value={createForm.tableName} onChange={e => setCreateForm({ ...createForm, tableName: e.target.value })} placeholder="Örn: Bahçe 3, Teras 1" />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
@@ -266,14 +266,12 @@ export default function AdminTablesPage() {
               </button>
               <button onClick={() => setShowCreate(false)} className="btn btn-ghost">İptal</button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* QR Modal */}
       {qrModal && (
-        <div className="modal-overlay" onClick={() => setQrModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 28, textAlign: "center", maxWidth: 380 }}>
+        <Dialog onClose={() => setQrModal(null)} contentStyle={{ padding: 28, textAlign: "center", maxWidth: 380 }}>
             <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{qrModal.tableName}</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>QR Kodu yazdırın veya indirin</p>
             <div style={{ background: "white", borderRadius: 16, padding: 16, display: "inline-block", marginBottom: 16 }}>
@@ -284,14 +282,12 @@ export default function AdminTablesPage() {
               <a href={qrModal.qrImageData} download={`qr_${qrModal.tableName}.png`} className="btn btn-primary" style={{ flex: 1, textDecoration: "none" }}>📥 İndir</a>
               <button onClick={() => setQrModal(null)} className="btn btn-ghost">Kapat</button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* Delete Modal */}
       {deleteModal && (
-        <div className="modal-overlay" onClick={() => setDeleteModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 28, maxWidth: 380 }}>
+        <Dialog onClose={() => setDeleteModal(null)} contentStyle={{ padding: 28, maxWidth: 380 }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
               <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Masayı Sil</h3>
@@ -304,8 +300,7 @@ export default function AdminTablesPage() {
               <button onClick={() => setDeleteModal(null)} className="btn btn-ghost" style={{ flex: 1 }}>İptal</button>
               <button onClick={deleteTable} disabled={deleting} className="btn btn-danger" style={{ flex: 1 }}>{deleting ? "Siliniyor..." : "Evet, Sil"}</button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* Tables Grid */}
@@ -332,11 +327,17 @@ export default function AdminTablesPage() {
             const totalBadges = pendingOrders + pendingRequests + (isPaymentRequested ? 1 : 0);
 
             return (
-              <div key={table.id} className="card" onClick={() => openDetail(table)} style={{
+              <div key={table.id} className="card" style={{
                 padding: 16, position: "relative", overflow: "visible", cursor: "pointer",
                 borderLeft: `3px solid ${sm.color}`,
                 transition: "all 0.15s",
               }}>
+                <button
+                  type="button"
+                  className="card-hit"
+                  onClick={() => openDetail(table)}
+                  aria-label={`${table.tableName || `Masa ${table.tableNumber}`}, ${sm.label}${totalBadges > 0 ? `, ${totalBadges} bekleyen işlem` : ""} — detayları aç`}
+                />
                 {totalBadges > 0 && (
                   <span style={{
                     position: "absolute",
@@ -397,9 +398,9 @@ export default function AdminTablesPage() {
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: 5 }} onClick={e => e.stopPropagation()}>
+                <div className="card-actions" style={{ display: "flex", gap: 5 }}>
                   <button onClick={() => generateQR(table.id)} className="btn btn-sm btn-ghost" style={{ flex: 1, fontSize: 11 }}>📱 QR</button>
-                  <button onClick={() => setDeleteModal({ id: table.id, name: table.tableName || `Masa ${table.tableNumber}` })} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }}>🗑️</button>
+                  <button onClick={() => setDeleteModal({ id: table.id, name: table.tableName || `Masa ${table.tableNumber}` })} aria-label={`${table.tableName || `Masa ${table.tableNumber}`} sil`} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }}>🗑️</button>
                 </div>
               </div>
             );
@@ -409,8 +410,7 @@ export default function AdminTablesPage() {
 
       {/* ── Masa Detay Modalı ─────────────────────────────────────────────── */}
       {selectedTable && (
-        <div className="modal-overlay" onClick={() => setSelectedTable(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 0, maxWidth: 500 }}>
+        <Dialog onClose={() => setSelectedTable(null)} contentStyle={{ padding: 0, maxWidth: 500 }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <h3 style={{ fontSize: 17, fontWeight: 800 }}>{selectedTable.tableName || `Masa ${selectedTable.tableNumber}`}</h3>
@@ -423,7 +423,7 @@ export default function AdminTablesPage() {
                   )}
                 </p>
               </div>
-              <button onClick={() => setSelectedTable(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => setSelectedTable(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
 
             <div style={{ padding: "16px 20px", maxHeight: "60vh", overflowY: "auto" }}>
@@ -506,14 +506,12 @@ export default function AdminTablesPage() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* ── Ödeme Alma Modalı ─────────────────────────────────────────────── */}
       {payModal && (
-        <div className="modal-overlay" onClick={() => setPayModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 380 }}>
+        <Dialog onClose={() => setPayModal(false)} contentStyle={{ padding: 24, maxWidth: 380 }}>
             <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
@@ -521,27 +519,27 @@ export default function AdminTablesPage() {
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tutar (₺) *</label>
-                <input className="input" type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0.00" autoFocus style={{ fontSize: 18, fontWeight: 700 }} />
+                <label htmlFor="f-tutar" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Tutar (₺) *</label>
+                <input id="f-tutar" className="input" type="number" step="0.01" min="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="0.00" data-autofocus style={{ fontSize: 18, fontWeight: 700 }} />
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödeme Yöntemi *</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <p id="pay-method-label" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödeme Yöntemi *</p>
+                <div role="group" aria-labelledby="pay-method-label" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {PAYMENT_METHODS.map(m => (
-                    <button key={m.value} onClick={() => setPayMethod(m.value)} style={{
+                    <button key={m.value} type="button" aria-pressed={payMethod === m.value} onClick={() => setPayMethod(m.value)} style={{
                       padding: "10px 12px", borderRadius: 10, fontSize: 13, fontWeight: 600,
                       border: `2px solid ${payMethod === m.value ? "var(--primary)" : "var(--border-color)"}`,
                       background: payMethod === m.value ? "var(--primary-glow)" : "transparent",
                       color: payMethod === m.value ? "var(--primary-light)" : "var(--text-secondary)",
                       cursor: "pointer",
-                    }}>{m.label}</button>
+                    }}>{payMethod === m.value ? "✓ " : ""}{m.label}</button>
                   ))}
                 </div>
               </div>
               {payMethod === "CASH" && (
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Alınan Tutar (₺) *</label>
-                  <input className="input" type="number" step="0.01" min="0.01" value={payReceivedAmount} onChange={e => setPayReceivedAmount(e.target.value)} placeholder="0.00" style={{ fontSize: 18, fontWeight: 700 }} />
+                  <label htmlFor="f-alinan-tutar" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Alınan Tutar (₺) *</label>
+                  <input id="f-alinan-tutar" className="input" type="number" step="0.01" min="0.01" value={payReceivedAmount} onChange={e => setPayReceivedAmount(e.target.value)} placeholder="0.00" style={{ fontSize: 18, fontWeight: 700 }} />
                   {payReceivedAmount && payAmount && parseFloat(payReceivedAmount) >= parseFloat(payAmount) && (
                     <p style={{ marginTop: 6, fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
                       Para Üstü: {(parseFloat(payReceivedAmount) - parseFloat(payAmount)).toFixed(2)} ₺
@@ -555,8 +553,8 @@ export default function AdminTablesPage() {
                 </div>
               )}
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Not (opsiyonel)</label>
-                <input className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
+                <label htmlFor="f-not-opsiyonel" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Not (opsiyonel)</label>
+                <input id="f-not-opsiyonel" className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
@@ -565,14 +563,12 @@ export default function AdminTablesPage() {
               </button>
               <button onClick={() => setPayModal(false)} className="btn btn-ghost">İptal</button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* ── Masa Kapatma Modalı ───────────────────────────────────────────── */}
       {closeModal && (
-        <div className="modal-overlay" onClick={() => setCloseModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 380 }}>
+        <Dialog onClose={() => setCloseModal(false)} contentStyle={{ padding: 24, maxWidth: 380 }}>
             <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>🔒 Masayı Kapat</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
@@ -589,10 +585,10 @@ export default function AdminTablesPage() {
             )}
             {forceClose && (
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Kapatma Nedeni *</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <p id="close-reason-label" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Kapatma Nedeni *</p>
+                <div role="group" aria-labelledby="close-reason-label" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {FORCE_CLOSE_REASONS.map(r => (
-                    <button key={r} onClick={() => setCloseReason(r)} style={{
+                    <button key={r} type="button" aria-pressed={closeReason === r} onClick={() => setCloseReason(r)} style={{
                       padding: "9px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
                       border: `1.5px solid ${closeReason === r ? "var(--primary)" : "var(--border-color)"}`,
                       background: closeReason === r ? "var(--primary-glow)" : "transparent",
@@ -609,8 +605,7 @@ export default function AdminTablesPage() {
               </button>
               <button onClick={() => setCloseModal(false)} className="btn btn-ghost">İptal</button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
     </div>
   );

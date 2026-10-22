@@ -95,32 +95,32 @@ function SignupForm() {
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
-          <label style={labelStyle}>İşletme Adı *</label>
-          <input type="text" name="businessName" value={formData.businessName} onChange={handleChange}
+          <label htmlFor="f-isletme-adi" style={labelStyle}>İşletme Adı *</label>
+          <input id="f-isletme-adi" type="text" name="businessName" value={formData.businessName} onChange={handleChange}
             className="input" placeholder="Lezzet Kafe" required minLength={2} />
         </div>
 
         <div>
-          <label style={labelStyle}>Ad Soyad *</label>
-          <input type="text" name="name" value={formData.name} onChange={handleChange}
+          <label htmlFor="f-ad-soyad" style={labelStyle}>Ad Soyad *</label>
+          <input id="f-ad-soyad" type="text" name="name" value={formData.name} onChange={handleChange}
             className="input" placeholder="Ahmet Yılmaz" required minLength={2} />
         </div>
 
         <div>
-          <label style={labelStyle}>E-posta *</label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange}
+          <label htmlFor="f-e-posta" style={labelStyle}>E-posta *</label>
+          <input id="f-e-posta" type="email" name="email" value={formData.email} onChange={handleChange}
             className="input" placeholder="ornek@email.com" required />
         </div>
 
         <div>
-          <label style={labelStyle}>Şifre *</label>
-          <input type="password" name="password" value={formData.password} onChange={handleChange}
+          <label htmlFor="f-sifre" style={labelStyle}>Şifre *</label>
+          <input id="f-sifre" type="password" name="password" value={formData.password} onChange={handleChange}
             className="input" placeholder="En az 12 karakter, harf ve rakam" required minLength={12} maxLength={72} />
         </div>
 
         <div>
-          <label style={labelStyle}>Telefon</label>
-          <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
+          <label htmlFor="f-telefon" style={labelStyle}>Telefon</label>
+          <input id="f-telefon" type="tel" name="phone" value={formData.phone} onChange={handleChange}
             className="input" placeholder="+90 555 000 0000" />
         </div>
 

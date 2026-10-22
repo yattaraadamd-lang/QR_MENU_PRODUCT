@@ -54,6 +54,12 @@ jobs:
       - name: SEO regression check (robots/sitemap/noindex)
         run: node maturity-audit/tests/seo-static.mjs
 
+      # jsx-a11y "recommended" kuralları hata seviyesinde: div'e onClick, bağlanmamış
+      # label, autoFocus vb. PR'ı kırmızıya düşürür. Otomatik araçlar sorunların
+      # yalnız bir kısmını yakalar; kritik akışlar ekran okuyucuyla da denenmeli.
+      - name: Accessibility lint (jsx-a11y)
+        run: npm run lint:a11y
+
       - name: Build
         run: npx next build
 

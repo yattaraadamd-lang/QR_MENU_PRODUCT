@@ -104,8 +104,8 @@ export default function AdminPaymentsPage() {
         
         {/* ✅ E2E FIX: Date range picker */}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>Tarih Aralığı:</label>
-          <input 
+          <label htmlFor="f-tarih-araligi" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>Tarih Aralığı:</label>
+          <input id="f-tarih-araligi" 
             type="date" 
             className="input" 
             style={{ width: 150 }}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNotificationSound, NotificationItem } from "@/contexts/NotificationSoundContext";
 import { Bell, X, CheckCheck, Volume2, VolumeX } from "lucide-react";
 
@@ -84,6 +84,19 @@ export function NotificationPanel() {
     setIsOpen(false);
   }, []);
 
+  // Açılınca odak panele girer, kapanınca paneli açan butona döner
+  const panelRef = useRef<HTMLElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (isOpen) {
+      returnFocusRef.current = document.activeElement as HTMLElement | null;
+      panelRef.current?.querySelector<HTMLElement>("[data-panel-close]")?.focus();
+    } else if (returnFocusRef.current) {
+      if (panelRef.current?.contains(document.activeElement)) returnFocusRef.current.focus();
+      returnFocusRef.current = null;
+    }
+  }, [isOpen]);
+
   // Close on Escape key
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -117,8 +130,7 @@ export function NotificationPanel() {
       {newNotification && (
         <div
           className={`notification-toast ${newNotification.persistent ? "notification-toast-persistent" : ""}`}
-          onClick={dismissToast}
-          style={{ cursor: "pointer" }}
+          role={newNotification.persistent ? "alert" : "status"}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>
@@ -151,38 +163,41 @@ export function NotificationPanel() {
                 </div>
               )}
             </div>
-            {newNotification.persistent && (
-              <button
-                onClick={(e) => { e.stopPropagation(); dismissToast(); }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--text-muted)",
-                  cursor: "pointer",
-                  padding: 4,
-                  borderRadius: 6,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-                title="Bildirimi kapat"
-              >
-                <X size={16} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={dismissToast}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-muted)",
+                cursor: "pointer",
+                padding: 4,
+                minWidth: 24,
+                minHeight: 24,
+                borderRadius: 6,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+              title="Bildirimi kapat"
+              aria-label="Bildirimi kapat"
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
           </div>
         </div>
       )}
 
       {/* Overlay */}
       <div
+        aria-hidden="true"
         className={`notification-overlay ${isOpen ? "active" : ""}`}
         onClick={closePanel}
       />
 
       {/* Panel */}
-      <div className={`notification-panel ${isOpen ? "open" : ""}`}>
+      <aside ref={panelRef} className={`notification-panel ${isOpen ? "open" : ""}`} aria-label="Bildirimler">
         {/* Header */}
         <div className="notification-panel-header">
           <div className="notification-panel-title">
@@ -243,7 +258,8 @@ export function NotificationPanel() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                transition: "all 0.15s",
+                // "all" olmasın: panelin visibility geçişini miras alıp açılışta odak alamaz
+                transition: "background 0.15s",
               }}
               onMouseEnter={(e) =>
                 ((e.target as HTMLElement).style.background =
@@ -253,8 +269,10 @@ export function NotificationPanel() {
                 ((e.target as HTMLElement).style.background = "transparent")
               }
               title="Paneli kapat"
+              aria-label="Paneli kapat"
+              data-panel-close
             >
-              <X size={18} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -318,6 +336,7 @@ export function NotificationPanel() {
           )}
           <button
             onClick={soundEnabled && audioUnlocked ? disableSound : enableSound}
+            aria-label={soundEnabled && audioUnlocked ? "Sesli bildirimleri kapat" : "Sesli bildirimleri aç"}
             style={{
               background: "none",
               border: "none",
@@ -331,7 +350,7 @@ export function NotificationPanel() {
             {soundEnabled && audioUnlocked ? "Kapat" : "Aç"}
           </button>
         </div>
-      </div>
+      </aside>
     </>
   );
 }
@@ -477,8 +496,9 @@ function NotificationBell({
         position: "relative",
       }}
       title={hasUnread ? `${unreadCount} okunmamış bildirim` : "Bildirimler"}
+      aria-label={hasUnread ? `Bildirimler, ${unreadCount} okunmamış` : "Bildirimler"}
     >
-      <Bell size={18} />
+      <Bell size={18} aria-hidden="true" />
       {count > 0 && (
         <span className={`notification-badge-count ${hasUnread ? "pulse" : ""}`}>
           {count > 99 ? "99+" : count}
@@ -559,8 +579,9 @@ function NotificationCard({
           onDismiss(notification.id);
         }}
         title="Bildirimi kaldır"
+        aria-label="Bildirimi kaldır"
       >
-        <X size={14} />
+        <X size={14} aria-hidden="true" />
       </button>
     </div>
   );

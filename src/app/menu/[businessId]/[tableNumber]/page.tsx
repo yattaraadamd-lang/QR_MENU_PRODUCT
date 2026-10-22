@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, use } from "react";
 import { v4 as uuidv4 } from "uuid";
 import Loader from "@/components/ui/Loader";
+import Dialog from "@/components/ui/Dialog";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -25,13 +26,13 @@ const WAITER_REASONS = [
   "Diğer",
 ];
 
-const BRAND = "#D9441F";      // Paprika — iştah açıcı kırmızı-turuncu
+const BRAND = "#CF411E";      // Paprika — iştah açıcı kırmızı-turuncu
 const BRAND_DARK = "#B23415";
 const BRAND_RGB = "217,68,31";
 
 // Görseli olmayan ürünler için sıcak, iştah açıcı kutucuk degradeleri
 const FOOD_TILES = [
-  "linear-gradient(135deg,#FDBA74,#D9441F)",
+  "linear-gradient(135deg,#FDBA74,#CF411E)",
   "linear-gradient(135deg,#FCD27A,#D9820B)",
   "linear-gradient(135deg,#F6A19A,#B3261E)",
   "linear-gradient(135deg,#BBE2C1,#2E8B47)",
@@ -794,7 +795,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             <p style={{ fontSize: 12, fontWeight: 700, color: "#8C2A14", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
               Masa Doğrulama Kodunuz
             </p>
-            <p style={{ fontSize: 36, fontWeight: 900, color: "#D9441F", letterSpacing: "0.2em", fontFamily: "monospace" }}>
+            <p style={{ fontSize: 36, fontWeight: 900, color: "#CF411E", letterSpacing: "0.2em", fontFamily: "monospace" }}>
               {verificationCode}
             </p>
             <p style={{ fontSize: 12, color: "#78716c", marginTop: 6 }}>
@@ -835,9 +836,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                     <p style={{ fontSize: 13, color: "var(--primary)", fontWeight: 700, marginTop: 2 }}>{(Number(item.product.price) * item.quantity).toFixed(2)} ₺</p>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                    <button onClick={() => updateQty(item.product.id, item.customerNote, -1)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border-color)", background: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}>−</button>
+                    <button aria-label={`${item.product.name} adedini azalt`} className="tap-target" onClick={() => updateQty(item.product.id, item.customerNote, -1)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border-color)", background: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}>−</button>
                     <span style={{ fontWeight: 700, fontSize: 15, width: 24, textAlign: "center", color: "var(--text-primary)" }}>{item.quantity}</span>
-                    <button onClick={() => updateQty(item.product.id, item.customerNote, 1)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "var(--primary)", color: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                    <button aria-label={`${item.product.name} adedini artır`} className="tap-target" onClick={() => updateQty(item.product.id, item.customerNote, 1)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "var(--primary)", color: "white", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                   </div>
                 </div>
               ))}
@@ -897,7 +898,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       `}</style>
 
       {orderBlockedMsg && !sessionToken && (
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "12px 16px 0" }}>
+        <div role="alert" style={{ maxWidth: 1280, margin: "0 auto", padding: "12px 16px 0" }}>
           <div style={{
             padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600,
             background: "rgba(217,68,31,0.12)", color: "#8C2A14", border: "1px solid rgba(217,68,31,0.35)",
@@ -909,10 +910,10 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
 
       {/* Toast */}
       {toast && (
-        <div style={{
+        <div role={toast.type === "err" ? "alert" : "status"} style={{
           position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)",
           zIndex: 200, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600,
-          background: toast.type === "err" ? "var(--danger)" : "var(--success)",
+          background: toast.type === "err" ? "var(--danger)" : "#1F6B36",
           color: "white", boxShadow: "var(--shadow-md)",
           animation: "toastDrop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both", whiteSpace: "nowrap",
           maxWidth: "90vw", textAlign: "center",
@@ -922,8 +923,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       )}
 
       {/* ── Header ── */}
-      <div style={{
-        background: `radial-gradient(420px 180px at 92% -30%, rgba(244,166,35,0.55), transparent 70%), linear-gradient(150deg, #F06A3F 0%, ${BRAND} 45%, ${BRAND_DARK} 100%)`,
+      <header style={{
+        background: `radial-gradient(420px 180px at 92% -30%, rgba(244,166,35,0.55), transparent 70%), linear-gradient(150deg, #D24521 0%, ${BRAND} 45%, ${BRAND_DARK} 100%)`,
         padding: "16px 16px 24px",
         color: "white",
         position: "sticky",
@@ -983,18 +984,18 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             </div>
           )}
         </div>
-      </div>
+      </header>
 
       {/* ── Main Layout ── */}
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 16px" }}>
         <div className="flex flex-col lg:flex-row gap-6" style={{ paddingTop: 16 }}>
 
           {/* Kolon 1: Kategoriler */}
-          <div className="lg:w-64 flex-shrink-0">
+          <nav aria-label="Kategoriler" className="lg:w-64 flex-shrink-0">
             <div className="hidden lg:block">
               <div ref={categoryTabsRef} className="bg-white rounded-xl shadow-sm border p-2 sticky flex-col gap-2" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)", top: 96 }}>
                 {categories.map(cat => (
-                  <button key={cat.id} data-tab-id={cat.id} onClick={() => scrollTo(cat.id)} style={{
+                  <button key={cat.id} data-tab-id={cat.id} aria-current={activeCategory === cat.id ? "true" : undefined} onClick={() => scrollTo(cat.id)} style={{
                     padding: "12px 16px", borderRadius: 10, fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", border: "none", cursor: "pointer", transition: "all 0.2s", textAlign: "left", display: "flex", alignItems: "center", gap: 8,
                     background: activeCategory === cat.id ? "var(--primary)" : "transparent",
                     color: activeCategory === cat.id ? "white" : "var(--text-secondary)",
@@ -1011,11 +1012,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             <div className="lg:hidden sticky bg-[var(--bg-primary)]" style={{ top: 80, zIndex: 30, marginLeft: -16, marginRight: -16, padding: "12px 0" }}>
               <div ref={categoryTabsRef} className="flex gap-2 overflow-x-auto cat-scroll px-4" style={{ scrollPaddingLeft: 16 }}>
                 {categories.map(cat => (
-                  <button key={cat.id} data-tab-id={cat.id} onClick={() => scrollTo(cat.id)} style={{
+                  <button key={cat.id} data-tab-id={cat.id} aria-current={activeCategory === cat.id ? "true" : undefined} onClick={() => scrollTo(cat.id)} style={{
                     padding: "10px 18px", borderRadius: 99, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
                     border: activeCategory === cat.id ? "1.5px solid var(--primary)" : "1.5px solid var(--border-color)",
                     cursor: "pointer", transition: "all 0.2s",
-                    background: activeCategory === cat.id ? `linear-gradient(135deg, #F06A3F, ${BRAND})` : "var(--bg-card)",
+                    background: activeCategory === cat.id ? `linear-gradient(135deg, #D24521, ${BRAND})` : "var(--bg-card)",
                     color: activeCategory === cat.id ? "white" : "var(--text-secondary)",
                     boxShadow: activeCategory === cat.id ? `0 6px 16px rgba(${BRAND_RGB},0.3)` : "0 1px 3px rgba(68,34,18,0.05)",
                     transform: activeCategory === cat.id ? "scale(1.05)" : "scale(1)",
@@ -1026,10 +1027,10 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 ))}
               </div>
             </div>
-          </div>
+          </nav>
 
           {/* Kolon 2: Ürünler */}
-          <div className="flex-1 pb-24 lg:pb-8 pt-0">
+          <main id="main-content" className="flex-1 pb-24 lg:pb-8 pt-0">
             {categories.map(cat => (
               <div key={cat.id} ref={el => { categoryRefs.current[cat.id] = el; }} data-category-id={cat.id} style={{ marginBottom: 40, scrollMarginTop: 160 }}>
                 <h2 style={{ fontSize: 22, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
@@ -1044,9 +1045,16 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                     const sl = stockLabel(p);
                     const ok = orderable(p);
                     return (
-                      <div key={p.id} className="prod-card card lift" onClick={() => ok && setSelectedProduct(p)} style={{
+                      <div key={p.id} className="prod-card card lift" style={{
                         padding: 0, display: "flex", flexDirection: p.image ? "column" : "row", cursor: ok ? "pointer" : "default", opacity: ok ? 1 : 0.65, overflow: "hidden", position: "relative", transition: "transform 0.2s, box-shadow 0.2s", borderRadius: 20,
                       }}>
+                        <button
+                          type="button"
+                          className="card-hit"
+                          onClick={() => setSelectedProduct(p)}
+                          disabled={!ok}
+                          aria-label={`${p.name}, ${Number(p.price).toFixed(2)} ₺ — ayrıntıları gör`}
+                        />
                         {p.image ? (
                           <div style={{ width: "100%", height: 168, background: `url(${p.image}) center/cover`, position: "relative" }}>
                             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, rgba(42,26,18,0.35) 100%)" }} />
@@ -1077,8 +1085,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                           )}
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: "auto" }}>
                             <span style={{ fontSize: 19, fontWeight: 800, color: "var(--primary)", letterSpacing: "-0.01em" }}>{Number(p.price).toFixed(2)} ₺</span>
-                            <button onClick={e => { e.stopPropagation(); addToCart(p); }} disabled={!ok} className="btn btn-sm" style={{
-                              background: ok ? `linear-gradient(135deg, #F06A3F, ${BRAND} 60%, ${BRAND_DARK})` : "var(--bg-hover)",
+                            <button onClick={() => addToCart(p)} disabled={!ok} aria-label={ok ? `${p.name} sepete ekle` : `${p.name} şu an yok`} className="btn btn-sm card-actions" style={{
+                              background: ok ? `linear-gradient(135deg, #D24521, ${BRAND} 60%, ${BRAND_DARK})` : "var(--bg-hover)",
                               color: ok ? "white" : "var(--text-muted)", borderRadius: 99, padding: "8px 16px", fontSize: 13, fontWeight: 700, minHeight: 38,
                               boxShadow: ok ? `0 4px 12px rgba(${BRAND_RGB},0.3)` : "none",
                             }}>
@@ -1092,10 +1100,10 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 </div>
               </div>
             ))}
-          </div>
+          </main>
 
           {/* Kolon 3: Sepet (Desktop) */}
-          <div className="hidden lg:block lg:w-80 flex-shrink-0">
+          <aside aria-label="Sepet" className="hidden lg:block lg:w-80 flex-shrink-0">
             <div className="bg-white rounded-2xl shadow-md border p-5 sticky" style={{
               background: "var(--bg-card)", borderColor: "var(--border-color)", top: 96,
               maxHeight: "calc(100vh - 120px)", display: "flex", flexDirection: "column",
@@ -1110,17 +1118,16 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 {renderCartContent()}
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
 
       {/* ── Product Detail Modal ── */}
       {selectedProduct && (
-        <div className="modal-overlay" onClick={() => setSelectedProduct(null)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
+        <Dialog onClose={() => setSelectedProduct(null)} overlayStyle={{ alignItems: "flex-end" }} contentClassName="modal-content modal-sheet" contentStyle={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>{selectedProduct.name}</h2>
-              <button onClick={() => setSelectedProduct(null)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => setSelectedProduct(null)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ padding: "16px 20px" }}>
               {selectedProduct.description && <p style={{ color: "var(--text-secondary)", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>{selectedProduct.description}</p>}
@@ -1137,7 +1144,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 </div>
               )}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>📝 Özel Not (opsiyonel)</label>
+                <label htmlFor="prod-note" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>📝 Özel Not (opsiyonel)</label>
                 <textarea id="prod-note" placeholder="Örn: Soğansız, az pişmiş..." className="input" style={{ resize: "none", height: 60 }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
@@ -1151,32 +1158,28 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* ── Mobile Cart Modal ── */}
       {showCartMobile && (
-        <div className="modal-overlay lg:hidden" onClick={() => setShowCartMobile(false)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", margin: 0, maxWidth: 600, padding: 0 }}>
+        <Dialog onClose={() => setShowCartMobile(false)} overlayClassName="lg:hidden" overlayStyle={{ alignItems: "flex-end" }} contentClassName="modal-content modal-sheet" contentStyle={{ borderRadius: "20px 20px 0 0", margin: 0, maxWidth: 600, padding: 0 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1, borderRadius: "20px 20px 0 0" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>🛒 Sepetim</h2>
-              <button onClick={() => setShowCartMobile(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => setShowCartMobile(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ padding: "12px 20px 20px", maxHeight: "70vh", overflowY: "auto" }}>
               {renderCartContent()}
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* ── Garson Çağırma Modalı ── */}
       {showWaiterModal && (
-        <div className="modal-overlay" onClick={() => setShowWaiterModal(false)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
+        <Dialog onClose={() => setShowWaiterModal(false)} overlayStyle={{ alignItems: "flex-end" }} contentClassName="modal-content modal-sheet" contentStyle={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>🙋 Garson Çağır</h2>
-              <button onClick={() => setShowWaiterModal(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => setShowWaiterModal(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ padding: "16px 20px" }}>
               <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 14 }}>Garsonun size daha hızlı yardımcı olabilmesi için nedeninizi seçin:</p>
@@ -1203,17 +1206,15 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 {sendingRequest ? "Gönderiliyor..." : "Garson Çağır"}
               </button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* ── Hizmet Menüsü Modalı ── */}
       {showServiceMenu && (
-        <div className="modal-overlay" onClick={() => setShowServiceMenu(false)} style={{ alignItems: "flex-end" }}>
-          <div className="modal-content modal-sheet" onClick={e => e.stopPropagation()} style={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
+        <Dialog onClose={() => setShowServiceMenu(false)} overlayStyle={{ alignItems: "flex-end" }} contentClassName="modal-content modal-sheet" contentStyle={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>Hizmet Talepleri</h2>
-              <button onClick={() => setShowServiceMenu(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => setShowServiceMenu(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 12 }}>
               {[
@@ -1257,8 +1258,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* ── Mobile Bottom Bar — Enhanced with Live Bill ── */}
@@ -1329,7 +1329,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           <button onClick={() => setShowCartMobile(true)} disabled={cartCount === 0} style={{
             flex: authStatus === "AUTHORIZED" ? 3 : 4,
             padding: "12px 16px", borderRadius: 12, border: "none",
-            background: cartCount > 0 ? `linear-gradient(135deg, #F06A3F, ${BRAND} 55%, ${BRAND_DARK})` : "var(--bg-hover)",
+            background: cartCount > 0 ? `linear-gradient(135deg, #D24521, ${BRAND} 55%, ${BRAND_DARK})` : "var(--bg-hover)",
             color: cartCount > 0 ? "white" : "var(--text-muted)",
             cursor: cartCount > 0 ? "pointer" : "not-allowed",
             fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,

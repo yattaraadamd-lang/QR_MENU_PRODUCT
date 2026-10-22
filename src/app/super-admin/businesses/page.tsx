@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Loader from "@/components/ui/Loader";
+import Dialog from "@/components/ui/Dialog";
 
 type Business = {
   id: string;
@@ -161,25 +162,18 @@ export default function SuperAdminBusinessesPage() {
 
       {/* ✅ Yeni İşletme Modal */}
       {showModal && (
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 1000,
-            background: "rgba(0,0,0,0.55)", display: "flex",
-            alignItems: "center", justifyContent: "center", padding: 16,
+        <Dialog
+          onClose={() => setShowModal(false)}
+          contentClassName="card"
+          contentStyle={{
+            width: "100%", maxWidth: 520,
+            maxHeight: "90vh", overflowY: "auto",
+            padding: 28,
           }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
         >
-          <div
-            className="card"
-            style={{
-              width: "100%", maxWidth: 520,
-              maxHeight: "90vh", overflowY: "auto",
-              padding: 28,
-            }}
-          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 20, fontWeight: 700 }}>Yeni İşletme Ekle</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "var(--text-secondary)" }}>✕</button>
+              <button type="button" onClick={() => setShowModal(false)} aria-label="Kapat" style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "var(--text-secondary)", minWidth: 32, minHeight: 32 }}>✕</button>
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -187,10 +181,10 @@ export default function SuperAdminBusinessesPage() {
               <p style={{ fontWeight: 600, fontSize: 13, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>İşletme Bilgileri</p>
 
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                <label htmlFor="f-isletme-adi" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
                   İşletme Adı <span style={{ color: "#ef4444" }}>*</span>
                 </label>
-                <input
+                <input id="f-isletme-adi"
                   className="input"
                   type="text"
                   placeholder="Örn: Lezzet Cafe"
@@ -202,8 +196,8 @@ export default function SuperAdminBusinessesPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>İşletme E-posta</label>
-                  <input
+                  <label htmlFor="f-isletme-e-posta" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>İşletme E-posta</label>
+                  <input id="f-isletme-e-posta"
                     className="input"
                     type="email"
                     placeholder="isletme@ornek.com"
@@ -212,8 +206,8 @@ export default function SuperAdminBusinessesPage() {
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Telefon</label>
-                  <input
+                  <label htmlFor="f-telefon" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Telefon</label>
+                  <input id="f-telefon"
                     className="input"
                     type="tel"
                     placeholder="05xx xxx xx xx"
@@ -224,8 +218,8 @@ export default function SuperAdminBusinessesPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Adres</label>
-                <input
+                <label htmlFor="f-adres" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Adres</label>
+                <input id="f-adres"
                   className="input"
                   type="text"
                   placeholder="İşletme adresi"
@@ -238,8 +232,8 @@ export default function SuperAdminBusinessesPage() {
               <p style={{ fontWeight: 600, fontSize: 13, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 8 }}>Admin Hesabı</p>
 
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Admin Adı</label>
-                <input
+                <label htmlFor="f-admin-adi" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>Admin Adı</label>
+                <input id="f-admin-adi"
                   className="input"
                   type="text"
                   placeholder="Yetkili Kişi Adı"
@@ -249,10 +243,10 @@ export default function SuperAdminBusinessesPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                <label htmlFor="f-admin-e-posta" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
                   Admin E-posta <span style={{ color: "#ef4444" }}>*</span>
                 </label>
-                <input
+                <input id="f-admin-e-posta"
                   className="input"
                   type="email"
                   placeholder="admin@isletme.com"
@@ -263,10 +257,10 @@ export default function SuperAdminBusinessesPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                <label htmlFor="f-admin-sifresi" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
                   Admin Şifresi <span style={{ color: "#ef4444" }}>*</span>
                 </label>
-                <input
+                <input id="f-admin-sifresi"
                   className="input"
                   type="password"
                   placeholder="En az 8 karakter"
@@ -282,12 +276,12 @@ export default function SuperAdminBusinessesPage() {
 
               {/* Hata / Başarı */}
               {formError && (
-                <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#8F2019", fontSize: 13 }}>
+                <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#8F2019", fontSize: 13 }}>
                   ❌ {formError}
                 </div>
               )}
               {formSuccess && (
-                <div style={{ background: "#f0fdf4", border: "1px solid #8EDBA2", borderRadius: 8, padding: "10px 14px", color: "#166534", fontSize: 13 }}>
+                <div role="status" style={{ background: "#f0fdf4", border: "1px solid #8EDBA2", borderRadius: 8, padding: "10px 14px", color: "#166534", fontSize: 13 }}>
                   ✅ {formSuccess}
                 </div>
               )}
@@ -313,8 +307,7 @@ export default function SuperAdminBusinessesPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Dialog from "@/components/ui/Dialog";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -356,49 +357,48 @@ export default function AdminProductsPage() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="modal-overlay" onClick={resetForm}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 28 }}>
+        <Dialog onClose={resetForm} contentStyle={{ padding: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700 }}>{editingId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</h3>
-              <button onClick={resetForm} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}>
+              <button aria-label="Kapat" className="tap-target" onClick={resetForm} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}>
                 <X size={20} />
               </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "65vh", overflowY: "auto", paddingRight: 4 }}>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ürün Adı *</label>
-                <input className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Örn: Türk Kahvesi" />
+                <label htmlFor="f-urun-adi" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ürün Adı *</label>
+                <input id="f-urun-adi" className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Örn: Türk Kahvesi" />
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Açıklama</label>
-                <textarea className="input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Kısa ürün açıklaması..." style={{ height: 64, resize: "none" }} />
+                <label htmlFor="f-aciklama" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Açıklama</label>
+                <textarea id="f-aciklama" className="input" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Kısa ürün açıklaması..." style={{ height: 64, resize: "none" }} />
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Fiyat (₺) *</label>
-                  <input className="input" type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
+                  <label htmlFor="f-fiyat" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Fiyat (₺) *</label>
+                  <input id="f-fiyat" className="input" type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Kategori</label>
-                  <select className="input" value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
+                  <label htmlFor="f-kategori" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Kategori</label>
+                  <select id="f-kategori" className="input" value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
                     <option value="">Kategorisiz</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Stok Durumu</label>
-                <select className="input" value={form.stockStatus} onChange={e => setForm({ ...form, stockStatus: e.target.value as any })}>
+                <label htmlFor="f-stok-durumu" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Stok Durumu</label>
+                <select id="f-stok-durumu" className="input" value={form.stockStatus} onChange={e => setForm({ ...form, stockStatus: e.target.value as any })}>
                   {STOCK_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>İçindekiler</label>
-                <input className="input" value={form.ingredients} onChange={e => setForm({ ...form, ingredients: e.target.value })} placeholder="Espresso, süt, şeker..." />
+                <label htmlFor="f-icindekiler" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>İçindekiler</label>
+                <input id="f-icindekiler" className="input" value={form.ingredients} onChange={e => setForm({ ...form, ingredients: e.target.value })} placeholder="Espresso, süt, şeker..." />
               </div>
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Alerjenler</label>
-                <input className="input" value={form.allergens} onChange={e => setForm({ ...form, allergens: e.target.value })} placeholder="Süt ürünleri, gluten..." />
+                <label htmlFor="f-alerjenler" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Alerjenler</label>
+                <input id="f-alerjenler" className="input" value={form.allergens} onChange={e => setForm({ ...form, allergens: e.target.value })} placeholder="Süt ürünleri, gluten..." />
               </div>
               <div style={{ display: "flex", gap: 20, padding: "4px 0" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
@@ -417,8 +417,7 @@ export default function AdminProductsPage() {
               </button>
               <button onClick={resetForm} className="btn btn-ghost">İptal</button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* Product List */}

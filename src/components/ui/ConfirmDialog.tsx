@@ -2,6 +2,7 @@
 
 import React from "react";
 import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import Dialog from "./Dialog";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -35,12 +36,7 @@ export default function ConfirmDialog({
   const iconColor = isDanger ? "#DC2626" : "#F4A623";
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content"
-        onClick={(e) => e.stopPropagation()}
-        style={{ padding: 24, maxWidth: 400 }}
-      >
+    <Dialog onClose={onClose} contentStyle={{ padding: 24, maxWidth: 400 }}>
         <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
           <div
             style={{
@@ -97,7 +93,6 @@ export default function ConfirmDialog({
             )}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

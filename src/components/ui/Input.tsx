@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -25,7 +25,9 @@ export default function Input({
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
   const inputType = showPasswordToggle ? (showPassword ? "text" : "password") : type;
-  const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
+  const autoId = useId();
+  const inputId = id || autoId;
+  const errorId = `${inputId}-error`;
 
   return (
     <div>
@@ -69,12 +71,16 @@ export default function Input({
             ...(error ? { borderColor: "var(--danger)", boxShadow: "0 0 0 3px rgba(220,38,38,0.12)" } : {}),
             ...style,
           }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
           {...props}
         />
         {showPasswordToggle && (
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+            aria-pressed={showPassword}
             style={{
               position: "absolute",
               right: 12,
@@ -89,7 +95,7 @@ export default function Input({
               alignItems: "center",
             }}
           >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
           </button>
         )}
         {rightIcon && !showPasswordToggle && (
@@ -109,7 +115,7 @@ export default function Input({
         )}
       </div>
       {error && (
-        <p style={{ fontSize: 12, color: "var(--danger)", marginTop: 4, fontWeight: 500 }}>
+        <p id={errorId} style={{ fontSize: 12, color: "var(--danger)", marginTop: 4, fontWeight: 500 }}>
           {error}
         </p>
       )}

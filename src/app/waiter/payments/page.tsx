@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
 import { CreditCard, Banknote, Loader2, Clock, Info, Calculator, ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
+import Dialog from "@/components/ui/Dialog";
 
 export default function WaiterPaymentsPage() {
   const { data: session } = useSession();
@@ -250,8 +251,7 @@ export default function WaiterPaymentsPage() {
 
       {/* Payment Approval Modal */}
       {selectedPayment && (
-        <div className="modal-overlay" onClick={() => setSelectedPayment(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: 24, maxWidth: 460 }}>
+        <Dialog onClose={() => setSelectedPayment(null)} contentStyle={{ padding: 24, maxWidth: 460 }}>
             <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
               <Calculator size={20} /> Ödeme Bilgisini Admin Onayına Gönder
             </h3>
@@ -278,10 +278,10 @@ export default function WaiterPaymentsPage() {
 
             {/* Amount to collect input */}
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text-secondary)" }}>
+              <label htmlFor="f-tahsil-edilecek-tutar" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text-secondary)" }}>
                 Tahsil Edilecek Tutar (₺)
               </label>
-              <input
+              <input id="f-tahsil-edilecek-tutar"
                 type="number"
                 className="input"
                 value={customAmount}
@@ -309,11 +309,11 @@ export default function WaiterPaymentsPage() {
             {/* Received amount (only for CASH) */}
             {paymentMethod === "CASH" && (
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text-secondary)" }}>
+                <label htmlFor="f-musteriden-alinan-nakit" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text-secondary)" }}>
                   Müşteriden Alınan Nakit (₺)
                 </label>
                 <div style={{ position: "relative" }}>
-                  <input
+                  <input id="f-musteriden-alinan-nakit"
                     type="number"
                     className="input"
                     value={receivedAmount}
@@ -373,8 +373,7 @@ export default function WaiterPaymentsPage() {
                 )}
               </button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
     </div>
   );

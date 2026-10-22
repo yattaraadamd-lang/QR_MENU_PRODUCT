@@ -85,19 +85,19 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
           {/* Integrated Premium Notification System (Bell + Sound Control + Toast + Glassmorphism Panel) */}
           <NotificationPanel />
 
-          <button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="btn btn-ghost btn-sm btn-icon" title="Çıkış Yap" style={{ color: "var(--text-secondary)" }}>
-            <LogOut size={18} />
+          <button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="btn btn-ghost btn-sm btn-icon" title="Çıkış Yap" aria-label="Çıkış Yap" style={{ color: "var(--text-secondary)" }}>
+            <LogOut size={18} aria-hidden="true" />
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div key={pathname} className="page-enter" style={{ padding: "16px 14px" }}>
+      <main id="main-content" key={pathname} className="page-enter" style={{ padding: "16px 14px" }}>
         {children}
-      </div>
+      </main>
 
       {/* Bottom nav */}
-      <nav style={{
+      <nav aria-label="Garson menüsü" style={{
         position: "fixed", bottom: 0, left: 0, right: 0,
         background: "var(--bg-secondary)",
         borderTop: "1px solid var(--border-color)",
@@ -109,7 +109,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
           const active = pathname === item.href;
           const badge = badgeMap[item.href] || 0;
           return (
-            <Link key={item.href} href={item.href} style={{
+            <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} style={{
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
               gap: 3, padding: "10px 4px 6px",
               textDecoration: "none", fontSize: 10, fontWeight: active ? 700 : 500,
