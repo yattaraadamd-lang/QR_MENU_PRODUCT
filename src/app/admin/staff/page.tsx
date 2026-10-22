@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import QRCode from "qrcode";
 import Loader from "@/components/ui/Loader";
+import ScrollRegion from "@/components/ui/ScrollRegion";
 
 export default function AdminStaffPage() {
   const { data: session } = useSession();
@@ -121,7 +122,7 @@ export default function AdminStaffPage() {
             Henüz personel yok. Aşağıdan bir davet linki oluşturup garsonlarınıza gönderin.
           </p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <ScrollRegion label="Personel tablosu">
             <table style={{ width: "100%", fontSize: 14 }}>
               <thead style={{ background: "var(--card-bg)", borderBottom: "2px solid var(--border-color)" }}>
                 <tr>
@@ -142,7 +143,7 @@ export default function AdminStaffPage() {
                       </span>
                     </td>
                     <td style={{ padding: "14px 20px", textAlign: "center" }}>
-                      <span className={`badge ${user.isActive ? 'badge-success' : 'badge-error'}`}>
+                      <span className={`badge ${user.isActive ? 'badge-success' : 'badge-danger'}`}>
                         {user.isActive ? '✅ Aktif' : '❌ Pasif'}
                       </span>
                     </td>
@@ -150,7 +151,7 @@ export default function AdminStaffPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollRegion>
         )}
       </div>
 
@@ -248,7 +249,7 @@ export default function AdminStaffPage() {
                     </p>
                   )}
                   {invite.usedAt && (
-                    <p style={{ fontSize: 12, color: "var(--success)" }}>
+                    <p style={{ fontSize: 12, color: "var(--success-text)" }}>
                       Kullanıldı: {new Date(invite.usedAt).toLocaleString("tr-TR")}
                     </p>
                   )}

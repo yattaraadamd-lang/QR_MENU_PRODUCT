@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Loader from "@/components/ui/Loader";
+import ScrollRegion from "@/components/ui/ScrollRegion";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Müşteri Talebi",
@@ -97,25 +98,27 @@ export default function AdminPaymentsPage() {
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <button onClick={() => setFilter("ALL")} className={`btn btn-sm ${filter === "ALL" ? "btn-primary" : "btn-ghost"}`}>Tümü</button>
-        <button onClick={() => setFilter("AWAITING")} className={`btn btn-sm ${filter === "AWAITING" ? "btn-primary" : "btn-ghost"}`}>Onay Bekleyenler</button>
-        <button onClick={() => setFilter("COMPLETED")} className={`btn btn-sm ${filter === "COMPLETED" ? "btn-primary" : "btn-ghost"}`}>Tamamlananlar</button>
-        <button onClick={() => setFilter("REJECTED")} className={`btn btn-sm ${filter === "REJECTED" ? "btn-primary" : "btn-ghost"}`}>Reddedilenler</button>
+        <button onClick={() => setFilter("ALL")} aria-pressed={filter === "ALL"} className={`btn btn-sm ${filter === "ALL" ? "btn-primary" : "btn-ghost"}`}>Tümü</button>
+        <button onClick={() => setFilter("AWAITING")} aria-pressed={filter === "AWAITING"} className={`btn btn-sm ${filter === "AWAITING" ? "btn-primary" : "btn-ghost"}`}>Onay Bekleyenler</button>
+        <button onClick={() => setFilter("COMPLETED")} aria-pressed={filter === "COMPLETED"} className={`btn btn-sm ${filter === "COMPLETED" ? "btn-primary" : "btn-ghost"}`}>Tamamlananlar</button>
+        <button onClick={() => setFilter("REJECTED")} aria-pressed={filter === "REJECTED"} className={`btn btn-sm ${filter === "REJECTED" ? "btn-primary" : "btn-ghost"}`}>Reddedilenler</button>
         
         {/* ✅ E2E FIX: Date range picker */}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <label htmlFor="f-tarih-araligi" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>Tarih Aralığı:</label>
-          <input id="f-tarih-araligi" 
-            type="date" 
-            className="input" 
+        <div role="group" aria-labelledby="tarih-araligi-label" style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          <span id="tarih-araligi-label" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>Tarih Aralığı:</span>
+          <input
+            type="date"
+            aria-label="Başlangıç tarihi"
+            className="input"
             style={{ width: 150 }}
             value={dateRange.start}
             onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
             max={dateRange.end}
           />
-          <span style={{ color: "var(--text-secondary)" }}>-</span>
-          <input 
-            type="date" 
+          <span aria-hidden="true" style={{ color: "var(--text-secondary)" }}>-</span>
+          <input
+            type="date"
+            aria-label="Bitiş tarihi"
             className="input" 
             style={{ width: 150 }}
             value={dateRange.end}
@@ -126,7 +129,7 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
-      <div className="card" style={{ overflowX: "auto" }}>
+      <ScrollRegion label="Ödemeler tablosu" className="card">
         <table className="table" style={{ minWidth: 900 }}>
           <thead>
             <tr>
@@ -159,7 +162,7 @@ export default function AdminPaymentsPage() {
                     p.status === "AWAITING_ADMIN_APPROVAL" ? "badge-warning" :
                     p.status === "PENDING" ? "badge-warning" :
                     p.status === "PAID" ? "badge-success" :
-                    p.status === "REJECTED" ? "badge-danger" : "badge-secondary"
+                    p.status === "REJECTED" ? "badge-danger" : "badge-neutral"
                   }`}>
                     {statusLabels[p.status] || p.status}
                   </span>
@@ -192,7 +195,7 @@ export default function AdminPaymentsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollRegion>
     </div>
   );
 }

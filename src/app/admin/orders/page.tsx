@@ -15,17 +15,22 @@ const statusColors: Record<string, string> = {
 const paymentLabels: Record<string, string> = {
   UNPAID: "Ödenmedi", PAYMENT_REQUESTED: "Ödeme Bekleniyor", PAID: "Ödendi", CANCELLED: "İptal",
 };
-const paymentColors: Record<string, string> = {
-  UNPAID: "#F4A623", PAYMENT_REQUESTED: "#A3477A", PAID: "#3BA55C", CANCELLED: "#ef4444",
+// color: metin (≥4.5:1), bg: aynı tonun saydam zemini
+const paymentColors: Record<string, { color: string; bg: string }> = {
+  UNPAID:            { color: "#F4A623",            bg: "rgba(244,166,35,0.09)" },
+  PAYMENT_REQUESTED: { color: "var(--purple-text)", bg: "rgba(163,71,122,0.09)" },
+  PAID:              { color: "#3BA55C",            bg: "rgba(59,165,92,0.09)" },
+  CANCELLED:         { color: "var(--danger-text)", bg: "rgba(239,68,68,0.09)" },
 };
+const paymentFallback = { color: "var(--text-secondary)", bg: "var(--bg-hover)" };
 
-// Sekme tanımları
+// Sekme tanımları — badgeColor: metin (≥4.5:1), badgeBg: saydam zemin
 const TABS = [
-  { key: "all",      label: "Tümü",           badgeColor: null },
-  { key: "active",   label: "Aktif",           badgeColor: "#F4A623" },
-  { key: "pending_payment", label: "Bekleyen Ödeme", badgeColor: "#A3477A" },
-  { key: "completed",label: "Tamamlanan",      badgeColor: "#3BA55C" },
-  { key: "cancelled",label: "İptal Edilen",    badgeColor: "#ef4444" },
+  { key: "all",      label: "Tümü",           badgeColor: null,                  badgeBg: null },
+  { key: "active",   label: "Aktif",           badgeColor: "#F4A623",            badgeBg: "rgba(244,166,35,0.13)" },
+  { key: "pending_payment", label: "Bekleyen Ödeme", badgeColor: "var(--purple-text)", badgeBg: "rgba(163,71,122,0.13)" },
+  { key: "completed",label: "Tamamlanan",      badgeColor: "#3BA55C",            badgeBg: "rgba(59,165,92,0.13)" },
+  { key: "cancelled",label: "İptal Edilen",    badgeColor: "var(--danger-text)", badgeBg: "rgba(239,68,68,0.13)" },
 ] as const;
 
 type TabKey = typeof TABS[number]["key"];
@@ -207,11 +212,11 @@ export default function AdminOrdersPage() {
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   minWidth: 20, height: 20, borderRadius: 99, fontSize: 11, fontWeight: 800,
                   padding: "0 5px",
-                  // Aktif sekmede: yarı saydam beyaz arka plan, beyaz metin
-                  // Pasif sekmede: renkli arka plan, beyaz metin
+                  // Aktif sekmede: koyulaştırılmış zemin, beyaz metin (≥4.5:1)
+                  // Pasif sekmede: renkli saydam zemin, renkli metin
                   background: isActive
-                    ? "rgba(255,255,255,0.25)"
-                    : (tab.badgeColor ? `${tab.badgeColor}22` : "var(--bg-hover)"),
+                    ? "rgba(0,0,0,0.22)"
+                    : (tab.badgeBg || "var(--bg-hover)"),
                   color: isActive
                     ? "white"
                     : (tab.badgeColor || "var(--text-secondary)"),
@@ -267,12 +272,13 @@ export default function AdminOrdersPage() {
                     <button
                       key={opt.code}
                       type="button"
+                      aria-pressed={isSelected}
                       onClick={() => handleSelectReasonCode(opt.code)}
                       style={{
                         padding: "10px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
                         border: `1.5px solid ${isSelected ? "#ef4444" : "var(--border-color)"}`,
                         background: isSelected ? "rgba(239,68,68,0.08)" : "transparent",
-                        color: isSelected ? "#ef4444" : "var(--text-secondary)",
+                        color: isSelected ? "var(--danger-text)" : "var(--text-secondary)",
                         cursor: "pointer", fontWeight: isSelected ? 600 : 400,
                       }}
                     >
@@ -285,7 +291,7 @@ export default function AdminOrdersPage() {
               {/* OUT_OF_STOCK Ürün Seçimi */}
               {selectedReasonCode === "OUT_OF_STOCK" && (
                 <div style={{ marginBottom: 16, padding: 12, background: "rgba(244,166,35,0.08)", borderRadius: 10, border: "1px solid rgba(244,166,35,0.25)" }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#CF411E", marginBottom: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary-light)", marginBottom: 8 }}>
                     Stokta olmayan ürünü/ürünleri seçin:
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -301,7 +307,7 @@ export default function AdminOrdersPage() {
                       </label>
                     ))}
                   </div>
-                  <p style={{ fontSize: 11, color: "#ef4444", marginTop: 8, fontWeight: 600 }}>
+                  <p style={{ fontSize: 11, color: "var(--danger-text)", marginTop: 8, fontWeight: 600 }}>
                     ⚠️ Seçilen ürünler stokta yok olarak işaretlenecek ve müşteriler sipariş veremeyecektir.
                   </p>
                 </div>
@@ -372,8 +378,8 @@ export default function AdminOrdersPage() {
                   {order.paymentStatus && !["CANCELLED", "REJECTED"].includes(order.status) && (
                     <span style={{
                       fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 6,
-                      color: paymentColors[order.paymentStatus] || "#666",
-                      background: `${paymentColors[order.paymentStatus] || "#666"}18`,
+                      color: (paymentColors[order.paymentStatus] || paymentFallback).color,
+                      background: (paymentColors[order.paymentStatus] || paymentFallback).bg,
                     }}>
                       💰 {paymentLabels[order.paymentStatus] || order.paymentStatus}
                     </span>

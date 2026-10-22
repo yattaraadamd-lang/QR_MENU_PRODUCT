@@ -340,7 +340,7 @@ export function NotificationPanel() {
             style={{
               background: "none",
               border: "none",
-              color: "var(--primary)",
+              color: "var(--primary-light)",
               cursor: "pointer",
               fontSize: "0.75rem",
               fontWeight: 600,

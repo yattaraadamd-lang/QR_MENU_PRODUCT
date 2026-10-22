@@ -34,11 +34,13 @@ type Product = {
 };
 type Category = { id: string; name: string };
 
+// color: kendi saydam zemini (bg) ve kart üzerinde ≥4.5:1 metin rengi
 const STOCK_OPTIONS = [
-  { value: "IN_STOCK",               label: "Stokta Var",    color: "#3BA55C" },
-  { value: "OUT_OF_STOCK",           label: "Stokta Yok",    color: "#ef4444" },
-  { value: "TEMPORARILY_UNAVAILABLE",label: "Geçici Yok",    color: "#F4A623" },
+  { value: "IN_STOCK",               label: "Stokta Var",    color: "var(--success-text)", bg: "rgba(59,165,92,0.12)" },
+  { value: "OUT_OF_STOCK",           label: "Stokta Yok",    color: "var(--danger-text)", bg: "rgba(239,68,68,0.12)" },
+  { value: "TEMPORARILY_UNAVAILABLE",label: "Geçici Yok",    color: "#F4A623",            bg: "rgba(244,166,35,0.12)" },
 ];
+type StockOption = typeof STOCK_OPTIONS[number];
 
 const emptyForm = {
   name: "", description: "", ingredients: "", allergens: "",
@@ -57,7 +59,7 @@ function SortableProductItem({
 }: {
   p: Product;
   isLast: boolean;
-  stockInfo: (s: Product["stockStatus"]) => { value: string; label: string; color: string };
+  stockInfo: (s: Product["stockStatus"]) => StockOption;
   onToggleStock: (p: Product) => void;
   onEdit: (p: Product) => void;
   onDelete: (target: { id: string; name: string }) => void;
@@ -67,12 +69,15 @@ function SortableProductItem({
   });
 
   const si = stockInfo(p.stockStatus);
+  const inStock = stockInfo(p.stockStatus === "IN_STOCK" ? "IN_STOCK" : "OUT_OF_STOCK");
 
+  // Gizli ürünler satırı soluklaştırmak yerine (metin AA altına düşerdi)
+  // ad ve fiyatı ikincil renge çekerek ayrışır; "Gizli" rozeti de eşlik eder.
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 10 : 1,
-    opacity: isDragging ? 0.6 : p.isAvailable ? 1 : 0.55,
+    opacity: isDragging ? 0.6 : 1,
     display: "flex",
     alignItems: "center",
     gap: 12,
@@ -104,15 +109,15 @@ function SortableProductItem({
         <GripVertical size={16} />
       </button>
 
-      <Circle size={10} fill={si.color} color={si.color} style={{ flexShrink: 0 }} />
+      <Circle size={10} style={{ flexShrink: 0, color: si.color, fill: si.color }} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
+          <span style={{ fontWeight: 600, fontSize: 14, color: p.isAvailable ? undefined : "var(--text-secondary)" }}>{p.name}</span>
           {p.isPopular && <span className="badge badge-warning" style={{ fontSize: 10, gap: 3 }}><Star size={10} /> Popüler</span>}
           {!p.isAvailable && <span className="badge badge-neutral" style={{ fontSize: 10 }}>Gizli</span>}
           {p.stockStatus !== "IN_STOCK" && (
-            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: `${si.color}18`, color: si.color }}>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: si.bg, color: si.color }}>
               {si.label}
             </span>
           )}
@@ -122,7 +127,7 @@ function SortableProductItem({
         </p>
       </div>
 
-      <span style={{ fontWeight: 700, fontSize: 15, color: "var(--primary-light)", flexShrink: 0 }}>
+      <span style={{ fontWeight: 700, fontSize: 15, color: p.isAvailable ? "var(--primary-light)" : "var(--text-secondary)", flexShrink: 0 }}>
         {Number(p.price).toFixed(2)} ₺
       </span>
 
@@ -137,20 +142,20 @@ function SortableProductItem({
             fontSize: 11,
             fontWeight: 700,
             border: "none",
-            background: p.stockStatus === "IN_STOCK" ? "rgba(59,165,92,0.12)" : "rgba(239,68,68,0.12)",
-            color: p.stockStatus === "IN_STOCK" ? "#3BA55C" : "#ef4444",
+            background: inStock.bg,
+            color: inStock.color,
             cursor: "pointer",
             transition: "all 0.2s",
             display: "flex", alignItems: "center", gap: 4,
           }}
         >
-          <Circle size={8} fill={p.stockStatus === "IN_STOCK" ? "#3BA55C" : "#ef4444"} color={p.stockStatus === "IN_STOCK" ? "#3BA55C" : "#ef4444"} />
+          <Circle size={8} style={{ fill: "currentColor" }} />
           {p.stockStatus === "IN_STOCK" ? "Stokta" : "Yok"}
         </button>
         <button onClick={() => onEdit(p)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px" }} title="Düzenle">
           <Edit3 size={14} />
         </button>
-        <button onClick={() => onDelete({ id: p.id, name: p.name })} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "#ef4444" }} title="Sil">
+        <button onClick={() => onDelete({ id: p.id, name: p.name })} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "var(--danger-text)" }} title="Sil">
           <Trash2 size={14} />
         </button>
       </div>
@@ -339,7 +344,7 @@ export default function AdminProductsPage() {
         <div style={{ position: "relative" }}>
           <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
           <input
-            className="input" value={search} onChange={e => setSearch(e.target.value)}
+            className="input" aria-label="Ürün ara" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Ürün ara..." style={{ maxWidth: 220, fontSize: 13, paddingLeft: 36 }}
           />
         </div>

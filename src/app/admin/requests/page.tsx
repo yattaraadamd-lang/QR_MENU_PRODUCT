@@ -124,14 +124,16 @@ export default function AdminRequestsPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
+              aria-pressed={filter === f}
               className={`btn btn-sm ${filter === f ? "btn-primary" : "btn-ghost"}`}
             >
               {f === "active" ? "Aktif" : f === "completed" ? "Tamamlanan" : f === "cancelled" ? "İptal Edilen" : "Tümü"}
               {counts[f] > 0 && (
                 <span style={{
                   marginLeft: 6,
-                  background: f === "cancelled" ? "#ef4444" : "rgba(255,255,255,0.3)",
-                  color: filter === f ? "white" : "var(--text-secondary)",
+                  // Seçili sekmede koyulaştırılmış zemin + beyaz; diğerlerinde saydam zemin (≥4.5:1)
+                  background: filter === f ? "rgba(0,0,0,0.22)" : f === "cancelled" ? "rgba(239,68,68,0.13)" : "var(--bg-hover)",
+                  color: filter === f ? "white" : f === "cancelled" ? "var(--danger-text)" : "var(--text-secondary)",
                   borderRadius: 10,
                   padding: "1px 6px",
                   fontSize: 11,
@@ -188,8 +190,8 @@ export default function AdminRequestsPage() {
                     <>
                       {req.verificationCode && (
                         <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(244,166,35,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#8C2A14" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
-                          <span style={{ fontSize: 20, fontWeight: 900, color: "#CF411E", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#FCD27A" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
+                          <span style={{ fontSize: 20, fontWeight: 900, color: "var(--primary-light)", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
                         </div>
                       )}
                       <button
@@ -206,7 +208,7 @@ export default function AdminRequestsPage() {
                       >
                         {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç ve Müşteriyi Yetkilendir"}
                       </button>
-                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)" }}>
                         ✕ Reddet
                       </button>
                     </>
@@ -217,14 +219,14 @@ export default function AdminRequestsPage() {
                       <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
                         ✓ Tamamla
                       </button>
-                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)" }}>
                         ✕ İptal
                       </button>
                     </>
                   )}
                   {/* ✅ ORDER_REQUEST IN_PROGRESS/SEEN durumundaysa iptal et */}
                   {req.requestType === "ORDER_REQUEST" && ["SEEN", "IN_PROGRESS"].includes(req.status) && (
-                    <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444", flex: 1 }}>
+                    <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)", flex: 1 }}>
                       ✕ İptal Et
                     </button>
                   )}
