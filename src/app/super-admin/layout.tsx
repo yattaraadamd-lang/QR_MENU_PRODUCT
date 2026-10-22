@@ -41,7 +41,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-secondary)" }}>
       {/* Sidebar */}
-      <div style={{
+      <aside style={{
         width: 260,
         background: "var(--bg-primary)",
         borderRight: "1px solid var(--border-color)",
@@ -52,9 +52,9 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
         height: "100vh",
       }} className="hidden md:flex">
         <div style={{ padding: "24px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <h1 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
+          <p style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
             <span style={{ color: "#A3477A" }}>QR</span> SaaS Admin
-          </h1>
+          </p>
           <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Super Admin Modu</p>
         </div>
 
@@ -65,6 +65,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={isActive ? "page" : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -94,7 +95,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
             🚪 Çıkış Yap
           </button>
         </div>
-      </div>
+      </aside>
 
       {/* Main Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -110,10 +111,10 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
           top: 0,
           zIndex: 40,
         }}>
-          <h1 style={{ fontSize: 18, fontWeight: 800 }}>
+          <p style={{ fontSize: 18, fontWeight: 800 }}>
             <span style={{ color: "#A3477A" }}>QR</span> SaaS
-          </h1>
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--text-primary)" }}>
+          </p>
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} aria-label={isMobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={isMobileMenuOpen} style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--text-primary)" }}>
             {isMobileMenuOpen ? "✕" : "☰"}
           </button>
         </div>
@@ -147,9 +148,9 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
           </div>
         )}
 
-        <div key={pathname} className="page-enter" style={{ padding: "24px 32px", flex: 1, overflowY: "auto" }}>
+        <main id="main-content" key={pathname} className="page-enter" style={{ padding: "24px 32px", flex: 1, overflowY: "auto" }}>
           {children}
-        </div>
+        </main>
       </div>
     </div>
   );

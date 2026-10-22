@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
 import { Check, X, ChefHat, UtensilsCrossed, Clock, AlertTriangle, Loader2, ClipboardList } from "lucide-react";
+import Dialog from "@/components/ui/Dialog";
 
 type OrderItem = {
   id?: string;
@@ -238,8 +239,7 @@ export default function WaiterOrdersPage() {
     }
 
     return (
-      <div className="modal-overlay" onClick={() => !isSubmitting && resetModalState()}>
-        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 420, width: "90vw" }}>
+      <Dialog onClose={() => !isSubmitting && resetModalState()} contentStyle={{ padding: 24, maxWidth: 420, width: "90vw" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <AlertTriangle size={20} color="#ef4444" />
             <h3 style={{ fontSize: 18, fontWeight: 700 }}>
@@ -276,7 +276,7 @@ export default function WaiterOrdersPage() {
           {/* OUT_OF_STOCK Product selection */}
           {selectedReasonCode === "OUT_OF_STOCK" && (
             <div style={{ marginBottom: 16, padding: 12, background: "rgba(244,166,35,0.08)", borderRadius: 10, border: "1px solid rgba(244,166,35,0.25)" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#D9441F", marginBottom: 8 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#CF411E", marginBottom: 8 }}>
                 Stokta olmayan ürünü/ürünleri seçin:
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -301,16 +301,16 @@ export default function WaiterOrdersPage() {
           {/* OTHER optional/required text */}
           {selectedReasonCode === "OTHER" && (
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
+              <label htmlFor="f-aciklama" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
                 Açıklama *
               </label>
-              <textarea
+              <textarea id="f-aciklama"
                 className="input"
                 value={customReasonText}
                 onChange={e => setCustomReasonText(e.target.value)}
                 placeholder="İptal/red nedenini detaylandırın..."
                 style={{ height: 70, resize: "none", width: "100%", fontSize: 13 }}
-                autoFocus
+                data-autofocus
               />
             </div>
           )}
@@ -334,8 +334,7 @@ export default function WaiterOrdersPage() {
               Vazgeç
             </button>
           </div>
-        </div>
-      </div>
+        </Dialog>
     );
   };
 
@@ -473,7 +472,7 @@ export default function WaiterOrdersPage() {
                         <button onClick={() => updateStatus(order.id, "PREPARING")} disabled={isLoading} className="btn btn-sm btn-primary" style={{ flex: 1, gap: 4 }}>
                           {isLoading ? <Loader2 size={14} className="animate-spin" /> : <ChefHat size={14} />} Hazırlanıyor
                         </button>
-                        <button
+                        <button aria-label="Siparişi iptal et"
                           onClick={() => setCancelModal(order)}
                           disabled={isLoading}
                           className="btn btn-sm btn-ghost"
@@ -488,7 +487,7 @@ export default function WaiterOrdersPage() {
                         <button onClick={() => updateStatus(order.id, "SERVED")} disabled={isLoading} className="btn btn-sm btn-success" style={{ flex: 1, gap: 4 }}>
                           {isLoading ? <Loader2 size={14} className="animate-spin" /> : <UtensilsCrossed size={14} />} Servis Edildi
                         </button>
-                        <button
+                        <button aria-label="Siparişi iptal et"
                           onClick={() => setCancelModal(order)}
                           disabled={isLoading}
                           className="btn btn-sm btn-ghost"

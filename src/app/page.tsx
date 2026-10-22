@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import {
   QrCode,
   ShoppingCart,
@@ -26,10 +26,11 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { EASE_OUT, Reveal, RevealGroup, Tilt, fadeUp, stagger } from "@/components/landing/motion";
+import Dialog from "@/components/ui/Dialog";
 
 // Özellik kartlarının ikon renkleri iştah açıcı palette döner
 const TONES = [
-  { fg: "#D9441F", bg: "#FFE9DF" }, // paprika
+  { fg: "#CF411E", bg: "#FFE9DF" }, // paprika
   { fg: "#B4600C", bg: "#FEF0C7" }, // safran
   { fg: "#2E8B47", bg: "#E3F3E6" }, // fesleğen
   { fg: "#B3261E", bg: "#FDE3E1" }, // domates
@@ -77,7 +78,7 @@ const STEPS = [
 ];
 
 const PREVIEW_ITEMS = [
-  { emoji: "🍕", name: "Margherita Pizza", desc: "Taş fırın, mozzarella, fesleğen", price: "245", bg: "linear-gradient(135deg,#FDBA74,#D9441F)", popular: true },
+  { emoji: "🍕", name: "Margherita Pizza", desc: "Taş fırın, mozzarella, fesleğen", price: "245", bg: "linear-gradient(135deg,#FDBA74,#CF411E)", popular: true },
   { emoji: "🥗", name: "Akdeniz Salata", desc: "Roka, nar, keçi peyniri", price: "165", bg: "linear-gradient(135deg,#BBE2C1,#2E8B47)" },
   { emoji: "☕", name: "Türk Kahvesi", desc: "Lokum ile servis", price: "70", bg: "linear-gradient(135deg,#E7C9A9,#6E4F3F)" },
 ];
@@ -90,12 +91,18 @@ const INGREDIENTS = [
   { emoji: "🌿", top: "70%", left: "94%", z: 110, size: 48, delay: 2.2 },
 ];
 
-const float = (delay: number, distance = 10) => ({
-  animate: { y: [0, -distance, 0] },
-  transition: { duration: 4, repeat: Infinity, ease: "easeInOut" as const, delay },
-});
+// Dekoratif döngüler tek tur (≤5 sn) oynar ve durur; "hareketi azalt"
+// açıkken hiç oynamaz. Giriş animasyonları kısa olduğu için her zaman oynar.
+const float = (still: boolean | null, delay: number, distance = 10) =>
+  still
+    ? {}
+    : {
+        animate: { y: [0, -distance, 0] },
+        transition: { duration: 4, ease: "easeInOut" as const, delay },
+      };
 
 function PhoneMockup() {
+  const still = useReducedMotion();
   return (
     <motion.div
       initial={{ opacity: 0, y: 40, rotateX: 16 }}
@@ -127,7 +134,7 @@ function PhoneMockup() {
               boxShadow: "0 16px 30px rgba(68,34,18,0.18), inset 0 -6px 12px rgba(68,34,18,0.06)",
               border: "1px solid #F8ECE1",
             }}
-            {...float(it.delay, 12)}
+            {...float(still, it.delay, 12)}
           >
             {it.emoji}
           </motion.div>
@@ -139,7 +146,7 @@ function PhoneMockup() {
         >
           <div className="overflow-hidden rounded-[32px]" style={{ background: "#FFF8F1" }}>
             {/* Menü başlığı */}
-            <div className="px-4 pb-5 pt-6 text-white" style={{ background: "linear-gradient(160deg,#F06A3F,#D9441F 55%,#B23415)" }}>
+            <div className="px-4 pb-5 pt-6 text-white" style={{ background: "linear-gradient(160deg,#D24521,#CF411E 55%,#B23415)" }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xl" style={{ background: "rgba(255,255,255,0.18)" }}>
                   🍽️
@@ -161,7 +168,7 @@ function PhoneMockup() {
                   className="whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold"
                   style={
                     i === 0
-                      ? { background: "#D9441F", color: "white", boxShadow: "0 4px 10px rgba(217,68,31,0.3)" }
+                      ? { background: "#CF411E", color: "white", boxShadow: "0 4px 10px rgba(217,68,31,0.3)" }
                       : { background: "white", color: "#6E4F3F", border: "1px solid #F0DFD0" }
                   }
                 >
@@ -192,10 +199,10 @@ function PhoneMockup() {
                       {p.name}
                       {p.popular && <span className="ml-1 text-[10px]" style={{ color: "#B3261E" }}>★</span>}
                     </p>
-                    <p className="truncate text-[11px]" style={{ color: "#A68A78" }}>{p.desc}</p>
-                    <p className="mt-0.5 text-[14px] font-extrabold" style={{ color: "#D9441F" }}>{p.price} ₺</p>
+                    <p className="truncate text-[11px]" style={{ color: "#816B5D" }}>{p.desc}</p>
+                    <p className="mt-0.5 text-[14px] font-extrabold" style={{ color: "#CF411E" }}>{p.price} ₺</p>
                   </div>
-                  <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-lg font-bold text-white" style={{ background: "#D9441F" }}>
+                  <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-lg font-bold text-white" style={{ background: "#CF411E" }}>
                     +
                   </span>
                 </motion.div>
@@ -206,7 +213,7 @@ function PhoneMockup() {
             <div className="px-4 pb-5">
               <motion.div
                 className="flex items-center justify-center gap-2 rounded-2xl py-3 text-[13px] font-bold text-white"
-                style={{ background: "linear-gradient(135deg,#F06A3F,#D9441F)", boxShadow: "0 8px 18px rgba(217,68,31,0.35)" }}
+                style={{ background: "linear-gradient(135deg,#D24521,#CF411E)", boxShadow: "0 8px 18px rgba(217,68,31,0.35)" }}
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 260, damping: 18, delay: 1.2 }}
@@ -222,26 +229,26 @@ function PhoneMockup() {
         <motion.div
           className="absolute -left-6 top-24 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
           style={{ z: 70, boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0" }}
-          {...float(0)}
+          {...float(still, 0)}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "#E3F3E6", color: "#2E8B47" }}>
             <BellRing size={16} />
           </span>
           <div>
             <p className="text-[12px] font-bold" style={{ color: "#2A1A12" }}>Yeni sipariş</p>
-            <p className="text-[11px]" style={{ color: "#A68A78" }}>Masa 5 · az önce</p>
+            <p className="text-[11px]" style={{ color: "#816B5D" }}>Masa 5 · az önce</p>
           </div>
         </motion.div>
         <motion.div
           className="absolute -right-6 bottom-28 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
           style={{ z: 50, boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0" }}
-          {...float(1.2)}
+          {...float(still, 1.2)}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "#FEF0C7", color: "#B4600C" }}>
             <TrendingUp size={16} />
           </span>
           <div>
-            <p className="text-[11px]" style={{ color: "#A68A78" }}>Bugünkü ciro</p>
+            <p className="text-[11px]" style={{ color: "#816B5D" }}>Bugünkü ciro</p>
             <p className="text-[13px] font-extrabold" style={{ color: "#2A1A12" }}>₺12.480</p>
           </div>
         </motion.div>
@@ -253,7 +260,7 @@ function PhoneMockup() {
 function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: string; desc: string }) {
   return (
     <Reveal className="mx-auto mb-12 max-w-2xl text-center">
-      <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#D9441F" }}>
+      <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: "#CF411E" }}>
         {eyebrow}
       </p>
       <h2 className="font-display text-3xl font-semibold sm:text-4xl" style={{ color: "#2A1A12" }}>
@@ -269,6 +276,7 @@ const MOTION_CARD_STYLE = { transition: "border-color 0.2s, box-shadow 0.2s" };
 
 export default function HomePage() {
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const still = useReducedMotion();
 
   return (
     <MotionConfig reducedMotion="never">
@@ -291,14 +299,14 @@ export default function HomePage() {
                 <QrCode size={19} color="white" />
               </motion.span>
               <span className="font-display text-xl font-semibold" style={{ color: "#2A1A12" }}>
-                QR<span style={{ color: "#D9441F" }}>Menü</span>
+                QR<span style={{ color: "#CF411E" }}>Menü</span>
               </span>
             </Link>
 
             <div className="hidden items-center gap-7 text-sm font-semibold md:flex" style={{ color: "#6E4F3F" }}>
-              <a href="#ozellikler" className="transition-colors hover:text-[#D9441F]">Özellikler</a>
-              <a href="#nasil-calisir" className="transition-colors hover:text-[#D9441F]">Nasıl Çalışır</a>
-              <a href="#demo" className="transition-colors hover:text-[#D9441F]">Demo</a>
+              <a href="#ozellikler" className="transition-colors hover:text-[#CF411E]">Özellikler</a>
+              <a href="#nasil-calisir" className="transition-colors hover:text-[#CF411E]">Nasıl Çalışır</a>
+              <a href="#demo" className="transition-colors hover:text-[#CF411E]">Demo</a>
             </div>
 
             <div className="flex items-center gap-2">
@@ -312,6 +320,7 @@ export default function HomePage() {
           </div>
         </motion.nav>
 
+        <main id="main-content">
         {/* ── Hero ───────────────────────────────────────────────────────────── */}
         <section className="relative px-4 pb-20 pt-28 sm:px-6 lg:pt-36">
           <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
@@ -334,8 +343,8 @@ export default function HomePage() {
                 <motion.span
                   className="text-gradient-warm"
                   style={{ backgroundSize: "200% 100%", display: "inline" }}
-                  animate={{ backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                  animate={still ? undefined : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
+                  transition={{ duration: 5, ease: "easeInOut" }}
                 >
                   Modern QR Menü
                 </motion.span>{" "}
@@ -441,7 +450,7 @@ export default function HomePage() {
                       <Icon size={26} />
                       <span
                         className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-[11px] font-extrabold"
-                        style={{ color: "#D9441F", boxShadow: "0 2px 8px rgba(68,34,18,0.15)" }}
+                        style={{ color: "#CF411E", boxShadow: "0 2px 8px rgba(68,34,18,0.15)" }}
                       >
                         {s.num}
                       </span>
@@ -485,9 +494,10 @@ export default function HomePage() {
             </RevealGroup>
           </div>
         </section>
+        </main>
 
         {/* ── CTA / Footer ───────────────────────────────────────────────────── */}
-        <section className="px-4 pb-10 sm:px-6">
+        <footer className="px-4 pb-10 sm:px-6">
           <Reveal
             className="relative mx-auto max-w-6xl overflow-hidden rounded-[32px] px-6 py-16 text-center sm:px-12"
             style={{ background: "linear-gradient(140deg,#2A1A12 0%,#17110E 100%)" }}
@@ -496,8 +506,9 @@ export default function HomePage() {
               aria-hidden
               className="absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full blur-3xl"
               style={{ background: "radial-gradient(circle, rgba(240,106,63,0.45), rgba(244,166,35,0.2) 50%, transparent 70%)" }}
-              animate={{ opacity: [0.7, 1, 0.7], scale: [1, 1.08, 1] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              whileInView={still ? undefined : { opacity: [0.7, 1, 0.7], scale: [1, 1.08, 1] }}
+              viewport={{ once: true }}
+              transition={{ duration: 5, ease: "easeInOut" }}
             />
             <div className="relative mx-auto max-w-2xl">
               <h2 className="font-display text-3xl font-semibold text-white sm:text-4xl">
@@ -520,30 +531,22 @@ export default function HomePage() {
               </div>
             </div>
           </Reveal>
-          <p className="mt-8 text-center text-[13px]" style={{ color: "#A68A78" }}>
+          <p className="mt-8 text-center text-[13px]" style={{ color: "#816B5D" }}>
             © {new Date().getFullYear()} QR Menü Platformu. Tüm hakları saklıdır.
           </p>
-        </section>
+        </footer>
 
         {/* ── Demo Modal ─────────────────────────────────────────────────────── */}
         <AnimatePresence>
           {showDemoModal && (
-            <motion.div
+            <Dialog
               key="demo-modal"
-              className="modal-overlay"
-              style={{ animation: "none" }}
-              onClick={() => setShowDemoModal(false)}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              onClose={() => setShowDemoModal(false)}
+              contentClassName=""
+              contentStyle={{ width: "100%", maxWidth: 460 }}
             >
               <motion.div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="demo-modal-title"
                 className="modal-content"
-                onClick={(e) => e.stopPropagation()}
                 style={{ maxWidth: 460, padding: 0, borderRadius: 28, animation: "none" }}
                 initial={{ opacity: 0, scale: 0.92, y: 24 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -589,7 +592,7 @@ export default function HomePage() {
                   })}
                 </motion.div>
               </motion.div>
-            </motion.div>
+            </Dialog>
           )}
         </AnimatePresence>
       </div>

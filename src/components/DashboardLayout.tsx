@@ -36,7 +36,7 @@ export default function DashboardLayout({
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
             {/* Mobile Menu Button */}
-            <button
+            <button aria-label={mobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden btn btn-ghost btn-sm"
               style={{ padding: "6px" }}

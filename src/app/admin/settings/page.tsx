@@ -68,31 +68,31 @@ export default function AdminSettingsPage() {
       <div className="card" style={{ padding: 24, maxWidth: 600 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>İşletme Adı</label>
-            <input className="input" value={business?.name || ""} onChange={(e) => setBusiness({ ...business, name: e.target.value })} />
+            <label htmlFor="f-isletme-adi" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>İşletme Adı</label>
+            <input id="f-isletme-adi" className="input" value={business?.name || ""} onChange={(e) => setBusiness({ ...business, name: e.target.value })} />
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Açıklama</label>
-            <textarea className="input" value={business?.description || ""} onChange={(e) => setBusiness({ ...business, description: e.target.value })} style={{ height: 80, resize: "none" }} />
+            <label htmlFor="f-aciklama" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Açıklama</label>
+            <textarea id="f-aciklama" className="input" value={business?.description || ""} onChange={(e) => setBusiness({ ...business, description: e.target.value })} style={{ height: 80, resize: "none" }} />
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Slug</label>
-            <input className="input" value={business?.slug || ""} disabled style={{ opacity: 0.6 }} />
+            <label htmlFor="f-slug" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Slug</label>
+            <input id="f-slug" className="input" value={business?.slug || ""} disabled style={{ opacity: 0.6 }} />
             <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>Slug değiştirilemez</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Telefon</label>
-              <input className="input" value={business?.phone || ""} onChange={(e) => setBusiness({ ...business, phone: e.target.value })} />
+              <label htmlFor="f-telefon" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Telefon</label>
+              <input id="f-telefon" className="input" value={business?.phone || ""} onChange={(e) => setBusiness({ ...business, phone: e.target.value })} />
             </div>
             <div>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>E-posta</label>
-              <input className="input" value={business?.email || ""} onChange={(e) => setBusiness({ ...business, email: e.target.value })} />
+              <label htmlFor="f-e-posta" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>E-posta</label>
+              <input id="f-e-posta" className="input" value={business?.email || ""} onChange={(e) => setBusiness({ ...business, email: e.target.value })} />
             </div>
           </div>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Adres</label>
-            <textarea className="input" value={business?.address || ""} onChange={(e) => setBusiness({ ...business, address: e.target.value })} style={{ height: 60, resize: "none" }} />
+            <label htmlFor="f-adres" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Adres</label>
+            <textarea id="f-adres" className="input" value={business?.address || ""} onChange={(e) => setBusiness({ ...business, address: e.target.value })} style={{ height: 60, resize: "none" }} />
           </div>
 
 

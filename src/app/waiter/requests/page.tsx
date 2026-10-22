@@ -266,7 +266,7 @@ export default function WaiterRequestsPage() {
                         borderTop: "1px dashed rgba(244,166,35,0.3)", fontWeight: 800, fontSize: 13
                       }}>
                         <span>Tahmini Toplam:</span>
-                        <span style={{ color: "#D9441F" }}>{Number(req.orderPreview.total || 0).toFixed(2)} ₺</span>
+                        <span style={{ color: "#CF411E" }}>{Number(req.orderPreview.total || 0).toFixed(2)} ₺</span>
                       </div>
                       {req.orderPreview.orderNote && (
                         <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, fontStyle: "italic" }}>
@@ -285,10 +285,11 @@ export default function WaiterRequestsPage() {
                   {/* 6 Haneli Doğrulama Kodu Girişi — ORDER_REQUEST için */}
                   {isOrder && isPending && !expired && (
                     <div style={{ marginTop: 10 }}>
-                      <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+                      <label htmlFor={`code-${req.id}`} style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
                         🔑 Müşteri Doğrulama Kodu (6 Haneli):
                       </label>
                       <input
+                        id={`code-${req.id}`}
                         type="text"
                         maxLength={6}
                         placeholder="Örn: 482913"
@@ -350,7 +351,7 @@ export default function WaiterRequestsPage() {
                             ✓ Tamamla
                           </button>
                         )}
-                        <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
+                        <button aria-label="Talebi iptal et" onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "#ef4444" }}>
                           ✕
                         </button>
                       </div>

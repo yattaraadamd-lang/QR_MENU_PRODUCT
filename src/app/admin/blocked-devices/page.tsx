@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import Dialog from "@/components/ui/Dialog";
 
 type Block = {
   id: string;
@@ -262,11 +263,10 @@ export default function BlockedDevicesPage() {
 
       {/* Unblock Modal */}
       {unblockTarget && (
-        <div className="modal-overlay" onClick={() => !unblocking && setUnblockTarget(null)}>
-          <div className="modal-content p-6" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <Dialog onClose={() => !unblocking && setUnblockTarget(null)} contentClassName="modal-content p-6" contentStyle={{ maxWidth: 440 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--text-primary)" }}>Engeli Kaldır</h2>
-              <button
+              <button aria-label="Kapat" className="tap-target"
                 onClick={() => !unblocking && setUnblockTarget(null)}
                 style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}
               >
@@ -301,10 +301,10 @@ export default function BlockedDevicesPage() {
             </div>
 
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+              <label htmlFor="f-aciklama-istege-bagli" style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
                 Açıklama (isteğe bağlı)
               </label>
-              <textarea
+              <textarea id="f-aciklama-istege-bagli"
                 value={unblockNote}
                 onChange={e => setUnblockNote(e.target.value.slice(0, 500))}
                 className="input"
@@ -336,8 +336,7 @@ export default function BlockedDevicesPage() {
                 {unblocking ? "İşleniyor..." : "Engeli Kaldır"}
               </button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
     </div>
   );

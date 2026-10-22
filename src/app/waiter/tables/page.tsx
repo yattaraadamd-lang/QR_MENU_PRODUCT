@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 import Loader from "@/components/ui/Loader";
+import Dialog from "@/components/ui/Dialog";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  EMPTY:             { label: "Boş",              color: "#A68A78", bg: "rgba(166,138,120,0.12)", icon: "⚪" },
+  EMPTY:             { label: "Boş",              color: "#816B5D", bg: "rgba(166,138,120,0.12)", icon: "⚪" },
   OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)",  icon: "🔵" },
   HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(244,166,35,0.12)",  icon: "🟡" },
   PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)",   icon: "🟢" },
@@ -228,12 +229,19 @@ export default function WaiterTablesPage() {
             const isThisTableLoading = actionLoadingTableId === table.id;
 
             return (
-              <div key={table.id} className="card" onClick={() => !isThisTableLoading && openDetail(table)} style={{
+              <div key={table.id} className="card" aria-busy={isThisTableLoading} style={{
                 padding: 14, cursor: isThisTableLoading ? "wait" : "pointer", position: "relative", overflow: "visible",
                 borderLeft: `3px solid ${sm.color}`,
                 opacity: isThisTableLoading ? 0.6 : 1,
                 transition: "opacity 0.2s",
               }}>
+                <button
+                  type="button"
+                  className="card-hit"
+                  onClick={() => openDetail(table)}
+                  disabled={isThisTableLoading}
+                  aria-label={`${table.tableName || `Masa ${table.tableNumber}`}, ${sm.label}${totalBadges > 0 ? `, ${totalBadges} bekleyen işlem` : ""} — detayları aç`}
+                />
                 {totalBadges > 0 && (
                   <span style={{
                     position: "absolute",
@@ -316,8 +324,7 @@ export default function WaiterTablesPage() {
 
       {/* ── Masa Detay Modalı ─────────────────────────────────────────────── */}
       {selectedTable && (
-        <div className="modal-overlay" onClick={() => setSelectedTable(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 0, maxWidth: 480 }}>
+        <Dialog onClose={() => setSelectedTable(null)} contentStyle={{ padding: 0, maxWidth: 480 }}>
             {/* Header */}
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
@@ -331,7 +338,7 @@ export default function WaiterTablesPage() {
                   )}
                 </p>
               </div>
-              <button onClick={() => setSelectedTable(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={() => setSelectedTable(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
 
             <div style={{ padding: "16px 20px", maxHeight: "65vh", overflowY: "auto" }}>
@@ -420,8 +427,7 @@ export default function WaiterTablesPage() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* ── Ödeme Alma Modalı ─────────────────────────────────────────────── */}
@@ -431,8 +437,7 @@ export default function WaiterTablesPage() {
         const change = payMethod === "CASH" && received > 0 ? received - dueAmount : 0;
 
         return (
-          <div className="modal-overlay" onClick={() => setPayModal(false)}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 400 }}>
+          <Dialog onClose={() => setPayModal(false)} contentStyle={{ padding: 24, maxWidth: 400 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
               <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
                 {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
@@ -440,8 +445,8 @@ export default function WaiterTablesPage() {
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödenecek Tutar (₺) *</label>
-                  <input
+                  <label htmlFor="f-odenecek-tutar" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödenecek Tutar (₺) *</label>
+                  <input id="f-odenecek-tutar"
                     className="input"
                     type="number"
                     step="0.01"
@@ -449,16 +454,16 @@ export default function WaiterTablesPage() {
                     value={payAmount}
                     onChange={e => setPayAmount(e.target.value)}
                     placeholder="0.00"
-                    autoFocus
+                    data-autofocus
                     style={{ fontSize: 18, fontWeight: 700 }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödeme Yöntemi *</label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <p id="pay-method-label" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ödeme Yöntemi *</p>
+                  <div role="group" aria-labelledby="pay-method-label" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     {PAYMENT_METHODS.map(m => (
-                      <button key={m.value} onClick={() => {
+                      <button key={m.value} type="button" aria-pressed={payMethod === m.value} onClick={() => {
                         setPayMethod(m.value);
                         if (m.value !== "CASH") setReceivedAmount(""); // ✅ Clear received amount for non-cash
                       }} style={{
@@ -467,7 +472,7 @@ export default function WaiterTablesPage() {
                         background: payMethod === m.value ? "var(--primary-glow)" : "transparent",
                         color: payMethod === m.value ? "var(--primary-light)" : "var(--text-secondary)",
                         cursor: "pointer",
-                      }}>{m.label}</button>
+                      }}>{payMethod === m.value ? "✓ " : ""}{m.label}</button>
                     ))}
                   </div>
                 </div>
@@ -475,10 +480,10 @@ export default function WaiterTablesPage() {
                 {/* ✅ Nakit için alınan tutar alanı */}
                 {payMethod === "CASH" && (
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    <label htmlFor="f-musteriden-alinan-nakit" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       Müşteriden Alınan Nakit (₺) *
                     </label>
-                    <input
+                    <input id="f-musteriden-alinan-nakit"
                       className="input"
                       type="number"
                       step="0.01"
@@ -514,8 +519,8 @@ export default function WaiterTablesPage() {
                 )}
 
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Not (opsiyonel)</label>
-                  <input className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
+                  <label htmlFor="f-not-opsiyonel" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Not (opsiyonel)</label>
+                  <input id="f-not-opsiyonel" className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
@@ -529,15 +534,13 @@ export default function WaiterTablesPage() {
                 </button>
                 <button onClick={() => { setPayModal(false); setReceivedAmount(""); }} className="btn btn-ghost">İptal</button>
               </div>
-            </div>
-          </div>
+            </Dialog>
         );
       })()}
 
       {/* ── Masa Kapatma Modalı ───────────────────────────────────────────── */}
       {closeModal && (
-        <div className="modal-overlay" onClick={() => setCloseModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 380 }}>
+        <Dialog onClose={() => setCloseModal(false)} contentStyle={{ padding: 24, maxWidth: 380 }}>
             <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>🔒 Masayı Kapat</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
@@ -546,7 +549,7 @@ export default function WaiterTablesPage() {
             {closeError && (
               <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
                 ⚠️ {closeError}
-                <p style={{ marginTop: 8, fontSize: 11, color: "#A68A78" }}>
+                <p style={{ marginTop: 8, fontSize: 11, color: "#816B5D" }}>
                   Masada aktif sipariş varken kapatmak için admin yetkisi gereklidir.
                 </p>
               </div>
@@ -563,8 +566,7 @@ export default function WaiterTablesPage() {
               </button>
               <button onClick={() => setCloseModal(false)} className="btn btn-ghost">İptal</button>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
     </div>
   );

@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import Dialog from "@/components/ui/Dialog";
 
 type Category = {
   id: string;
@@ -265,29 +266,28 @@ export default function AdminCategoriesPage() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="modal-overlay" onClick={resetForm}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
+        <Dialog onClose={resetForm} contentStyle={{ padding: 24 }}>
             <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
               {editingId ? "Kategori Düzenle" : "Yeni Kategori"}
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: "block", color: "var(--text-secondary)" }}>
+                <label htmlFor="f-kategori-adi" style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: "block", color: "var(--text-secondary)" }}>
                   Kategori Adı *
                 </label>
-                <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Örn: Sıcak İçecekler" />
+                <input id="f-kategori-adi" className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Örn: Sıcak İçecekler" />
               </div>
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: "block", color: "var(--text-secondary)" }}>
+                <label htmlFor="f-ikon-emoji" style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: "block", color: "var(--text-secondary)" }}>
                   İkon (Emoji)
                 </label>
-                <input className="input" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="Örn: ☕" />
+                <input id="f-ikon-emoji" className="input" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="Örn: ☕" />
               </div>
               <div>
-                <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: "block", color: "var(--text-secondary)" }}>
+                <label htmlFor="f-siralama-degeri" style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: "block", color: "var(--text-secondary)" }}>
                   Sıralama Değeri
                 </label>
-                <input className="input" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })} />
+                <input id="f-siralama-degeri" className="input" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })} />
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button onClick={handleSubmit} disabled={saving || !form.name.trim()} className="btn btn-primary" style={{ flex: 1, gap: 6 }}>
@@ -296,8 +296,7 @@ export default function AdminCategoriesPage() {
                 <button onClick={resetForm} className="btn btn-ghost">İptal</button>
               </div>
             </div>
-          </div>
-        </div>
+          </Dialog>
       )}
 
       {/* Categories List with Drag and Drop */}

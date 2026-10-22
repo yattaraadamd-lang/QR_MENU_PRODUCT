@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle, ArrowLeft, BellRing, ChefHat, TrendingUp } from "lucide-react";
 import Input from "@/components/ui/Input";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import { EASE_OUT, fadeUp, stagger } from "@/components/landing/motion";
 import Loader from "@/components/ui/Loader";
 
@@ -23,6 +23,7 @@ function SignInForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const still = useReducedMotion();
 
   // Auto-fill based on demo query parameter
   useEffect(() => {
@@ -76,14 +77,14 @@ function SignInForm() {
       {/* ── Marka paneli (desktop) ─────────────────────────────────────────── */}
       <aside
         className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"
-        style={{ background: "linear-gradient(150deg,#F06A3F 0%,#D9441F 40%,#8C2A14 100%)" }}
+        style={{ background: "linear-gradient(150deg,#F06A3F 0%,#CF411E 40%,#8C2A14 100%)" }}
       >
         <motion.div
           aria-hidden
           className="absolute -right-24 -top-24 h-96 w-96 rounded-full blur-3xl"
           style={{ background: "radial-gradient(circle, rgba(244,166,35,0.55), transparent 70%)" }}
-          animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+          animate={still ? undefined : { scale: [1, 1.15, 1], opacity: [0.8, 1, 0.8] }}
+          transition={{ duration: 5, ease: "easeInOut" }}
         />
         <div
           aria-hidden
@@ -111,10 +112,10 @@ function SignInForm() {
                 style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(6px)" }}
                 whileHover={{ scale: 1.12, rotate: 6 }}
               >
-                {/* İç span sonsuz süzülmeyi taşır; dış span giriş animasyonunu */}
+                {/* İç span tek turluk süzülmeyi taşır (≤5 sn, "hareketi azalt"ta hiç); dış span giriş animasyonunu */}
                 <motion.span
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 1 + i * 0.4 }}
+                  animate={still ? undefined : { y: [0, -6, 0] }}
+                  transition={{ duration: 3.2, ease: "easeInOut", delay: 1 + i * 0.4 }}
                 >
                   {e}
                 </motion.span>
@@ -147,7 +148,7 @@ function SignInForm() {
       </aside>
 
       {/* ── Form ───────────────────────────────────────────────────────────── */}
-      <main className="flex items-center justify-center px-4 py-10 sm:px-8">
+      <main id="main-content" className="flex items-center justify-center px-4 py-10 sm:px-8">
         <motion.div className="w-full max-w-[420px]" initial="hidden" animate="show" variants={stagger(0.08, 0.05)}>
           <motion.div variants={fadeUp} className="mb-8 text-center lg:text-left">
             <div
@@ -230,13 +231,13 @@ function SignInForm() {
             <div className="mt-6 flex flex-col gap-2 text-center text-[13px]" style={{ color: "#6E4F3F" }}>
               <p>
                 İşletmeniz için hesap mı açacaksınız?{" "}
-                <Link href="/auth/signup" className="font-bold hover:underline" style={{ color: "#D9441F" }}>
+                <Link href="/auth/signup" className="font-bold hover:underline" style={{ color: "#CF411E" }}>
                   Ücretsiz Deneyin
                 </Link>
               </p>
               <p>
                 Garson hesabınız yok mu?{" "}
-                <Link href="/auth/register" className="font-bold hover:underline" style={{ color: "#D9441F" }}>
+                <Link href="/auth/register" className="font-bold hover:underline" style={{ color: "#CF411E" }}>
                   Kayıt Ol
                 </Link>
               </p>
@@ -264,14 +265,14 @@ function SignInForm() {
                     <strong className="block" style={{ color: "#2A1A12" }}>{d.role}</strong>
                     <span className="block truncate text-xs">{d.email}</span>
                   </span>
-                  <ArrowRight size={14} color="#D9441F" className="flex-shrink-0" />
+                  <ArrowRight size={14} color="#CF411E" className="flex-shrink-0" />
                 </button>
               ))}
             </div>
           </motion.div>
 
           <motion.div variants={fadeUp} className="mt-6 text-center">
-            <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] font-semibold hover:underline" style={{ color: "#A68A78" }}>
+            <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] font-semibold hover:underline" style={{ color: "#816B5D" }}>
               <ArrowLeft size={14} /> Ana Sayfaya Dön
             </Link>
           </motion.div>

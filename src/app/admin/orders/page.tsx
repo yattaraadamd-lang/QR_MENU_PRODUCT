@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Dialog from "@/components/ui/Dialog";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Bekliyor", ACCEPTED: "Kabul Edildi", PREPARING: "Hazırlanıyor",
@@ -250,8 +251,7 @@ export default function AdminOrdersPage() {
         }
 
         return (
-          <div className="modal-overlay" onClick={() => !isSubmitting && resetCancelState()}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: 24, maxWidth: 440, width: "90vw" }}>
+          <Dialog onClose={() => !isSubmitting && resetCancelState()} contentStyle={{ padding: 24, maxWidth: 440, width: "90vw" }}>
               <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Siparişi İptal Et</h3>
               <div style={{ marginBottom: 16, padding: 12, background: "var(--bg-secondary)", borderRadius: 8 }}>
                 <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Masa:</strong> {selectedOrder.table?.tableName || `Masa ${selectedOrder.table?.tableNumber}`}</p>
@@ -285,7 +285,7 @@ export default function AdminOrdersPage() {
               {/* OUT_OF_STOCK Ürün Seçimi */}
               {selectedReasonCode === "OUT_OF_STOCK" && (
                 <div style={{ marginBottom: 16, padding: 12, background: "rgba(244,166,35,0.08)", borderRadius: 10, border: "1px solid rgba(244,166,35,0.25)" }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#D9441F", marginBottom: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#CF411E", marginBottom: 8 }}>
                     Stokta olmayan ürünü/ürünleri seçin:
                   </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -309,16 +309,17 @@ export default function AdminOrdersPage() {
 
               {/* Açıklama alanı */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <label htmlFor="f-iptal-aciklama" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Açıklama {selectedReasonCode === "OTHER" ? "*" : "(Opsiyonel)"}
                 </label>
                 <textarea
+                  id="f-iptal-aciklama"
                   className="input"
                   value={cancelReasonText}
                   onChange={e => setCancelReasonText(e.target.value)}
                   placeholder="İptal nedenini detaylandırın..."
                   style={{ height: 70, resize: "none", width: "100%", fontSize: 13 }}
-                  autoFocus={selectedReasonCode === "OTHER"}
+                  data-autofocus={selectedReasonCode === "OTHER" || undefined}
                 />
               </div>
 
@@ -338,8 +339,7 @@ export default function AdminOrdersPage() {
                   Vazgeç
                 </button>
               </div>
-            </div>
-          </div>
+            </Dialog>
         );
       })()}
 

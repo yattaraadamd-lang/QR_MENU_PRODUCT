@@ -95,10 +95,10 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            <label htmlFor="f-ad-soyad" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
               Ad Soyad *
             </label>
-            <input
+            <input id="f-ad-soyad"
               type="text"
               name="name"
               value={formData.name}
@@ -110,10 +110,10 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            <label htmlFor="f-e-posta" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
               E-posta *
             </label>
-            <input
+            <input id="f-e-posta"
               type="email"
               name="email"
               value={formData.email}
@@ -125,10 +125,10 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            <label htmlFor="f-sifre" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
               Şifre *
             </label>
-            <input
+            <input id="f-sifre"
               type="password"
               name="password"
               value={formData.password}
@@ -142,10 +142,10 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            <label htmlFor="f-telefon" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
               Telefon
             </label>
-            <input
+            <input id="f-telefon"
               type="tel"
               name="phone"
               value={formData.phone}
@@ -156,10 +156,10 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
+            <label htmlFor="f-davet-kodu-veya-linki" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
               Davet Kodu veya Linki *
             </label>
-            <input
+            <input id="f-davet-kodu-veya-linki"
               type="text"
               name="inviteCode"
               value={formData.inviteCode}

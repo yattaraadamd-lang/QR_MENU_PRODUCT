@@ -3,7 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -83,6 +83,20 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { counts } = useBadgeCounts(); // ✅ PERF: default 30sn (önceki: 8sn)
 
+  // Mobil kenar çubuğu: açılınca odak ilk linke gider, Esc kapatıp odağı menü butonuna döndürür
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    document.querySelector<HTMLElement>("#admin-sidebar nav a")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setSidebarOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
   const badgeMap: Record<string, number> = {
     "/admin/orders": counts.orders,
     "/admin/requests": counts.requests,
@@ -97,6 +111,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       {sidebarOpen && (
         <div
+          aria-hidden="true"
           onClick={() => setSidebarOpen(false)}
           style={{
             position: "fixed",
@@ -109,6 +124,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
       )}
 
       <aside
+        id="admin-sidebar"
         style={{
           width: 248,
           background: "var(--bg-secondary)",
@@ -119,8 +135,10 @@ function AdminContent({ children }: { children: React.ReactNode }) {
           top: 0,
           bottom: 0,
           left: sidebarOpen ? 0 : -248,
+          // Mobilde kapalıyken linkler klavye odağı almasın (kayma bitince gizlenir)
+          visibility: sidebarOpen ? "visible" : "hidden",
           zIndex: 50,
-          transition: "left 0.25s cubic-bezier(0.4,0,0.2,1)",
+          transition: `left 0.25s cubic-bezier(0.4,0,0.2,1), visibility ${sidebarOpen ? "0s" : "0.25s"}`,
         }}
         className="lg-left-0"
       >
@@ -206,6 +224,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      aria-current={isActive ? "page" : undefined}
                       onClick={() => setSidebarOpen(false)}
                       style={{
                         display: "flex",
@@ -219,7 +238,9 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                         background: isActive ? "var(--primary-glow)" : "transparent",
                         textDecoration: "none",
                         marginBottom: 1,
-                        transition: "all 0.15s",
+                        // "all" olmasın: kenar çubuğunun visibility geçişini miras alıp
+                        // açılış anında gizli kalır ve odak alamaz
+                        transition: "background 0.15s, color 0.15s, border-color 0.15s",
                         borderLeft: isActive ? "2px solid var(--primary)" : "2px solid transparent",
                       }}
                     >
@@ -308,7 +329,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main style={{ flex: 1, marginLeft: 0, minWidth: 0 }} className="lg-ml-260">
+      <main id="main-content" style={{ flex: 1, marginLeft: 0, minWidth: 0 }} className="lg-ml-260">
         {/* Top Header bar for Desktop + Mobile */}
         <div
           style={{
@@ -325,7 +346,11 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
+              ref={menuButtonRef}
               onClick={() => setSidebarOpen(true)}
+              aria-label="Menüyü aç"
+              aria-expanded={sidebarOpen}
+              aria-controls="admin-sidebar"
               style={{
                 background: "none",
                 border: "none",
@@ -337,7 +362,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
               }}
               className="lg-hidden"
             >
-              <Menu size={22} />
+              <Menu size={22} aria-hidden="true" />
             </button>
 
             <span className="lg-hidden" style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
@@ -365,6 +390,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
 
           .lg-left-0 {
             left: 0 !important;
+            visibility: visible !important;
           }
 
           .lg-ml-260 {

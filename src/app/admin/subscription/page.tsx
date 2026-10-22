@@ -239,30 +239,30 @@ function SubscriptionContent() {
             <form onSubmit={startCheckout} style={{ display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={labelStyle}>Ad *</label>
-                  <input className="input" required value={billing.name} onChange={(e) => setBilling({ ...billing, name: e.target.value })} />
+                  <label htmlFor="f-ad" style={labelStyle}>Ad *</label>
+                  <input id="f-ad" className="input" required value={billing.name} onChange={(e) => setBilling({ ...billing, name: e.target.value })} />
                 </div>
                 <div>
-                  <label style={labelStyle}>Soyad *</label>
-                  <input className="input" required value={billing.surname} onChange={(e) => setBilling({ ...billing, surname: e.target.value })} />
+                  <label htmlFor="f-soyad" style={labelStyle}>Soyad *</label>
+                  <input id="f-soyad" className="input" required value={billing.surname} onChange={(e) => setBilling({ ...billing, surname: e.target.value })} />
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Cep Telefonu *</label>
-                <input className="input" required placeholder="+905551234567" value={billing.gsmNumber} onChange={(e) => setBilling({ ...billing, gsmNumber: e.target.value })} />
+                <label htmlFor="f-cep-telefonu" style={labelStyle}>Cep Telefonu *</label>
+                <input id="f-cep-telefonu" className="input" required placeholder="+905551234567" value={billing.gsmNumber} onChange={(e) => setBilling({ ...billing, gsmNumber: e.target.value })} />
               </div>
               <div>
-                <label style={labelStyle}>T.C. Kimlik No *</label>
-                <input className="input" required inputMode="numeric" maxLength={11} value={billing.identityNumber} onChange={(e) => setBilling({ ...billing, identityNumber: e.target.value })} />
+                <label htmlFor="f-t-c-kimlik-no" style={labelStyle}>T.C. Kimlik No *</label>
+                <input id="f-t-c-kimlik-no" className="input" required inputMode="numeric" maxLength={11} value={billing.identityNumber} onChange={(e) => setBilling({ ...billing, identityNumber: e.target.value })} />
                 <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>Fatura için iyzico tarafından zorunlu tutulur.</p>
               </div>
               <div>
-                <label style={labelStyle}>Şehir *</label>
-                <input className="input" required value={billing.city} onChange={(e) => setBilling({ ...billing, city: e.target.value })} />
+                <label htmlFor="f-sehir" style={labelStyle}>Şehir *</label>
+                <input id="f-sehir" className="input" required value={billing.city} onChange={(e) => setBilling({ ...billing, city: e.target.value })} />
               </div>
               <div>
-                <label style={labelStyle}>Fatura Adresi *</label>
-                <input className="input" required value={billing.address} onChange={(e) => setBilling({ ...billing, address: e.target.value })} />
+                <label htmlFor="f-fatura-adresi" style={labelStyle}>Fatura Adresi *</label>
+                <input id="f-fatura-adresi" className="input" required value={billing.address} onChange={(e) => setBilling({ ...billing, address: e.target.value })} />
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="button" className="btn btn-ghost" onClick={() => setSelectedPlan(null)}>Vazgeç</button>
