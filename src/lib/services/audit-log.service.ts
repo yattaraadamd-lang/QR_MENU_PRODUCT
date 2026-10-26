@@ -9,6 +9,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getClientIp } from "@/lib/unified-rate-limit";
 import crypto from "crypto";
 
 // Fields that must NEVER appear in audit log JSON
@@ -71,6 +72,18 @@ export interface AuditLogParams {
 }
 
 /**
+ * İsteğin IP, user-agent ve x-request-id bilgisini audit kaydına uygun biçimde çıkarır.
+ * IP burada ham döner; createAuditLog onu saklamadan önce hash'ler.
+ */
+export function auditRequestContext(headers: Headers): Pick<AuditLogParams, "ip" | "userAgent" | "requestId"> {
+  return {
+    ip: getClientIp({ headers } as Request),
+    userAgent: headers.get("user-agent"),
+    requestId: headers.get("x-request-id"),
+  };
+}
+
+/**
  * Create an audit log entry.
  * 
  * This is fire-and-forget: errors are caught and logged, never thrown.
@@ -120,7 +133,11 @@ export const AuditActions = {
   
   // User
   USER_REGISTERED: "USER_REGISTERED",
+  USER_CREATED: "USER_CREATED",
   USER_DEACTIVATED: "USER_DEACTIVATED",
+  USER_REACTIVATED: "USER_REACTIVATED",
+  USER_DELETED: "USER_DELETED",
+  USER_EMAIL_CHANGED: "USER_EMAIL_CHANGED",
   USER_ROLE_CHANGED: "USER_ROLE_CHANGED",
   USER_PASSWORD_CHANGED: "USER_PASSWORD_CHANGED",
   

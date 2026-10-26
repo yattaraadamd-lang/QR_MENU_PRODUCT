@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/auth-guard";
+import { createAuditLog, auditRequestContext, AuditActions } from "@/lib/services/audit-log.service";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 // POST — Yeni işletme oluştur (işletme adı + admin hesabı)
 export async function POST(request: NextRequest) {
   try {
-    const { error, response } = await requireSuperAdmin();
+    const { error, response, session } = await requireSuperAdmin();
     if (error) return response;
 
     const body = await request.json();
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
     // ✅ İşletme + Admin kullanıcıyı aynı transaction'da oluştur
     const hashedPassword = await bcrypt.hash(passwordStr, 12);
 
-    const business = await prisma.$transaction(async (tx) => {
+    const { business, adminUserId } = await prisma.$transaction(async (tx) => {
       const newBusiness = await tx.business.create({
         data: {
           name: String(name).trim(),
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      await tx.user.create({
+      const adminUser = await tx.user.create({
         data: {
           businessId: newBusiness.id,
           name: adminName ? String(adminName).trim() : `${String(name).trim()} Admin`,
@@ -136,9 +137,22 @@ export async function POST(request: NextRequest) {
           role: "ADMIN",
           isActive: true,
         },
+        select: { id: true },
       });
 
-      return newBusiness;
+      return { business: newBusiness, adminUserId: adminUser.id };
+    });
+
+    createAuditLog({
+      ...auditRequestContext(request.headers),
+      businessId: business.id,
+      actorUserId: session.user.id,
+      actorRole: "SUPER_ADMIN",
+      action: AuditActions.USER_CREATED,
+      entityType: "User",
+      entityId: adminUserId,
+      after: { role: "ADMIN" },
+      metadata: { withNewBusiness: true },
     });
 
     return NextResponse.json(
