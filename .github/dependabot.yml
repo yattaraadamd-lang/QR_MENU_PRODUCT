@@ -1,0 +1,36 @@
+# Haftalık bağımlılık güncelleme PR'ları. Her PR Security CI'dan (tsc, test, build,
+# npm audit) geçer. Küçük/yama sürümleri tek PR'da toplanır; büyük sürümler ayrı
+# PR olarak gelir, çünkü kırıcı değişiklik içerebilirler (ör. next-auth v5, prisma 6).
+# Güvenlik açığı düzeltmeleri için GitHub'da Settings → Code security altında
+# "Dependabot security updates" de açık olmalı; o PR'lar haftayı beklemez.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Istanbul
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"

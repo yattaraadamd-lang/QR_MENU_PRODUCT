@@ -52,8 +52,14 @@ const nextConfig = {
             value: "same-origin",
           },
           {
+            // Chromium ihlalleri Reporting API ile bu uca gönderir (CSP'deki report-to adı)
+            key: "Reporting-Endpoints",
+            value: 'csp-endpoint="/api/csp-report"',
+          },
+          {
             // ✅ CSP: Report-only mode for safe rollout
-            // Gradually tighten by moving to Content-Security-Policy once violations are analyzed
+            // Gradually tighten by moving to Content-Security-Policy once violations are analyzed.
+            // İhlaller /api/csp-report'a gelir ve Render loglarında [CSP_VIOLATION] olarak görünür.
             key: "Content-Security-Policy-Report-Only",
             value: [
               "default-src 'self'",
@@ -65,6 +71,9 @@ const nextConfig = {
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
+              // report-uri: Firefox/Safari; report-to: Chromium (ikisi de varsa report-to'yu kullanır)
+              "report-uri /api/csp-report",
+              "report-to csp-endpoint",
             ].join("; "),
           },
         ],

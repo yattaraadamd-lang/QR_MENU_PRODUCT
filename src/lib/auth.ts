@@ -4,6 +4,44 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "./prisma";
 import { checkRateLimit, getClientIp, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
+import { createAuditLog, auditRequestContext, AuditActions } from "./services/audit-log.service";
+
+/**
+ * Kilitlenmeyi pencere başına bir kez kaydeder: kilitliyken gelen her deneme audit
+ * tablosuna satır yazarsa saldırgan veritabanını doldurabilir. Hedef hesap varsa
+ * kayda bağlanır; girilen e-posta metni hiçbir zaman saklanmaz.
+ */
+async function logLoginLockout(
+  scope: "email" | "ip",
+  key: string,
+  resetAt: number,
+  email: string,
+  context: ReturnType<typeof auditRequestContext>
+) {
+  try {
+    const once = await checkRateLimit(`lockout_logged:${key}`, {
+      maxRequests: 1,
+      windowMs: Math.max(1000, resetAt - Date.now()),
+    });
+    if (!once.allowed) return;
+
+    const target =
+      scope === "email"
+        ? await prisma.user.findUnique({ where: { email }, select: { id: true, businessId: true } })
+        : null;
+
+    await createAuditLog({
+      ...context,
+      businessId: target?.businessId,
+      action: AuditActions.LOGIN_LOCKOUT,
+      entityType: target ? "User" : null,
+      entityId: target?.id,
+      metadata: { scope },
+    });
+  } catch (error) {
+    console.error("[Auth] Lockout audit failed:", (error as Error)?.message);
+  }
+}
 
 /**
  * 🔒 SECURITY FIX P0: Login Rate Limiting
@@ -37,21 +75,28 @@ export const authOptions: NextAuthOptions = {
           // ✅ SECURITY: Email normalization
           const normalizedEmail = credentials.email.trim().toLowerCase();
 
+          const headerEntries = Object.entries(req?.headers ?? {}).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string"
+          );
+          const headers = new Headers(headerEntries);
+          const auditContext = auditRequestContext(headers);
+
           // ✅ P0 FIX: Rate limit login attempts by email AND by IP
           // (yalnız e-posta limiti, tek IP'den çok sayıda hesabın denenmesini engellemez)
           // FAIL-CLOSED: if checkRateLimit throws, deny the attempt
           try {
-            const headerEntries = Object.entries(req?.headers ?? {}).filter(
-              (entry): entry is [string, string] => typeof entry[1] === "string"
-            );
-            const clientIp = getClientIp({ headers: new Headers(headerEntries) } as Request);
+            const clientIp = getClientIp({ headers } as Request);
+            const emailKey = `login:${normalizedEmail}`;
+            const ipKey = `login_ip:${clientIp}`;
 
             const [rlEmail, rlIp] = await Promise.all([
-              checkRateLimit(`login:${normalizedEmail}`, UNIFIED_RATE_LIMITS.LOGIN),
-              checkRateLimit(`login_ip:${clientIp}`, UNIFIED_RATE_LIMITS.LOGIN_IP),
+              checkRateLimit(emailKey, UNIFIED_RATE_LIMITS.LOGIN),
+              checkRateLimit(ipKey, UNIFIED_RATE_LIMITS.LOGIN_IP),
             ]);
             const rl = !rlEmail.allowed ? rlEmail : rlIp;
             if (!rl.allowed) {
+              const scope = !rlEmail.allowed ? "email" : "ip";
+              void logLoginLockout(scope, scope === "email" ? emailKey : ipKey, rl.resetAt, normalizedEmail, auditContext);
               const waitMinutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60000));
               throw new Error(
                 `Çok fazla giriş denemesi. Lütfen ${waitMinutes} dakika sonra tekrar deneyin.`
@@ -73,11 +118,17 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (!user || !user.isActive || user.deletedAt) {
-            // ✅ SECURITY: Constant-time-ish behavior — still hash even if user not found
-            // This reduces timing difference between "user exists" and "user doesn't exist"
-            if (!user) {
-              await bcrypt.hash(credentials.password, 10);
-            }
+            // ✅ SECURITY: Constant-time-ish behavior — still hash when the account is
+            // missing or inactive, so response time doesn't reveal which accounts exist
+            await bcrypt.hash(credentials.password, 10);
+            createAuditLog({
+              ...auditContext,
+              businessId: user?.businessId,
+              action: AuditActions.LOGIN_FAILURE,
+              entityType: user ? "User" : null,
+              entityId: user?.id,
+              metadata: { reason: user ? "inactive" : "unknown_user" },
+            });
             return null;
           }
 
@@ -87,8 +138,26 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isPasswordValid) {
+            createAuditLog({
+              ...auditContext,
+              businessId: user.businessId,
+              action: AuditActions.LOGIN_FAILURE,
+              entityType: "User",
+              entityId: user.id,
+              metadata: { reason: "bad_password" },
+            });
             return null;
           }
+
+          createAuditLog({
+            ...auditContext,
+            businessId: user.businessId,
+            actorUserId: user.id,
+            actorRole: user.role,
+            action: AuditActions.LOGIN_SUCCESS,
+            entityType: "User",
+            entityId: user.id,
+          });
 
         return {
           id: user.id,

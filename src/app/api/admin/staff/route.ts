@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateBody, createStaffSchema } from "@/lib/validation";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
+import { createAuditLog, auditRequestContext, AuditActions } from "@/lib/services/audit-log.service";
 import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
@@ -107,6 +108,18 @@ export async function POST(request: NextRequest) {
         isActive: true,
         createdAt: true,
       },
+    });
+
+    // ✅ SECURITY: Yeni hesap = yeni yetki; özellikle ADMIN oluşturma izlenebilir olmalı
+    createAuditLog({
+      ...auditRequestContext(request.headers),
+      businessId,
+      actorUserId: authResult.session.userId,
+      actorRole: authResult.session.role,
+      action: AuditActions.USER_CREATED,
+      entityType: "User",
+      entityId: newStaff.id,
+      after: { role: newStaff.role },
     });
 
     return NextResponse.json(
