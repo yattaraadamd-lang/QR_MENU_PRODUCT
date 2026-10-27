@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
 import { TableStatus } from "@prisma/client";
+import { openTable } from "@/lib/services/table-flow.service";
 
 // POST /api/admin/tables/[id]/open - Masayı aç (TableSession + Bill oluştur)
 export async function POST(
@@ -37,13 +38,11 @@ export async function POST(
       );
     }
 
-    // ✅ Zaten aktif TableSession var mı kontrol et
-    const existingSession = await prisma.tableSession.findFirst({
-      where: { tableId: params.id, businessId, status: "ACTIVE" },
-      select: { id: true },
-    });
+    // ✅ TableSession + Bill + Table.status tek transaction'da; aktif oturum varsa (eşzamanlı
+    // açılışta kazananınki dahil) yenisi oluşturulmaz
+    const { tableSession, isNew } = await openTable(params.id, businessId);
 
-    if (existingSession) {
+    if (!isNew) {
       // Session zaten var — masa zaten açık, sadece status güncelle
       await prisma.table.update({
         where: { id: params.id },
@@ -63,54 +62,19 @@ export async function POST(
       );
     }
 
-    // ✅ Transaction: TableSession + Bill + Table.status güncelle
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. TableSession oluştur
-      const tableSession = await tx.tableSession.create({
-        data: {
-          businessId,
-          tableId: params.id,
-          status: "ACTIVE",
-        },
-      });
-
-      // 2. Bill (adisyon) oluştur
-      await tx.bill.create({
-        data: {
-          businessId,
-          tableId: params.id,
-          tableSessionId: tableSession.id,
-          totalAmount: 0,
-          paidAmount: 0,
-          remainingAmount: 0,
-          paymentStatus: "UNPAID",
-          status: "OPEN",
-        },
-      });
-
-      // 3. Table durumunu OCCUPIED yap
-      const updatedTable = await tx.table.update({
-        where: { id: params.id },
-        data: { status: TableStatus.OCCUPIED },
-        select: {
-          id: true,
-          tableNumber: true,
-          tableName: true,
-          status: true,
-        },
-      });
-
-      return { tableSession, updatedTable };
-    });
-
     console.log(
-      `[OPEN TABLE] tableId=${params.id} sessionId=${result.tableSession.id} businessId=${businessId}`
+      `[OPEN TABLE] tableId=${params.id} sessionId=${tableSession.id} businessId=${businessId}`
     );
 
     return NextResponse.json({
       message: "Masa başarıyla açıldı",
-      table: result.updatedTable,
-      tableSessionId: result.tableSession.id,
+      table: {
+        id: table.id,
+        tableNumber: table.tableNumber,
+        tableName: table.tableName,
+        status: TableStatus.OCCUPIED,
+      },
+      tableSessionId: tableSession.id,
     });
   } catch (error) {
     console.error("Masa açma hatası:", error);

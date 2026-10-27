@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { generateDeviceKey, hashDeviceKey, checkDeviceBlock } from "@/lib/security/device-block";
 import { qrTokensMatch } from "@/lib/qr-token";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
+import { openTable } from "@/lib/services/table-flow.service";
 
 export const dynamic = "force-dynamic";
 
@@ -273,33 +274,8 @@ export async function POST(request: NextRequest) {
           });
 
           if (demoWaiter) {
-            activeTableSession = await prisma.tableSession.create({
-              data: {
-                businessId: "demo-business-id",
-                tableId: table.id,
-                status: "ACTIVE",
-                startedAt: new Date(),
-              },
-            });
-
-            // Create bill for table session
-            await prisma.bill.create({
-              data: {
-                businessId: "demo-business-id",
-                tableId: table.id,
-                tableSessionId: activeTableSession.id,
-                status: "OPEN",
-                totalAmount: 0,
-                paidAmount: 0,
-                remainingAmount: 0,
-              },
-            });
-
-            // Update table status
-            await prisma.table.update({
-              where: { id: table.id },
-              data: { status: "OCCUPIED" },
-            });
+            // Oturum + adisyon + OCCUPIED tek transaction'da; eşzamanlı okutmada tek oturum
+            activeTableSession = (await openTable(table.id, "demo-business-id")).tableSession;
           }
         }
 

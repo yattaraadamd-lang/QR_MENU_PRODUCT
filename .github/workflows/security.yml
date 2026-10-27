@@ -154,3 +154,8 @@ jobs:
         run: |
           npx tsx prisma/seed.ts
           node prisma/seed-plans.cjs --create-only
+
+      # Masa başına tek aktif oturum / tek bekleyen sipariş talebi: kısmi unique indeksler
+      # migration'da ve openTable eşzamanlı çağrılarda tek oturum bırakıyor mu
+      - name: Concurrency tests (real Postgres)
+        run: npm run test:db

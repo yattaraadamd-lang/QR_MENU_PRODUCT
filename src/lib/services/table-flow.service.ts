@@ -44,8 +44,21 @@ function isValidTransition(from: string, to: string, force = false): boolean {
 /**
  * Masayı açar: Table → OCCUPIED, yeni TableSession + Bill oluşturur.
  * İdempotent: Zaten aktif session varsa mevcut olanı döner.
+ *
+ * Eşzamanlı iki çağrı aynı anda "aktif oturum yok" görebilir; ikinci oturumu
+ * table_sessions_unique_active_per_table indeksi reddeder (P2002) ve o transaction
+ * geri alınır. Bir kez yeniden denenince kazananın oturumu isNew: false ile döner.
  */
 export async function openTable(tableId: string, businessId: string) {
+  try {
+    return await openTableOnce(tableId, businessId);
+  } catch (error) {
+    if ((error as { code?: string })?.code !== "P2002") throw error;
+    return openTableOnce(tableId, businessId);
+  }
+}
+
+async function openTableOnce(tableId: string, businessId: string) {
   return prisma.$transaction(async (tx) => {
     // Masa kontrolü
     const table = await tx.table.findFirst({

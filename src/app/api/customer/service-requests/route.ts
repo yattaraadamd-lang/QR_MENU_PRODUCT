@@ -390,7 +390,50 @@ export async function POST(request: NextRequest) {
         });
 
         return newRequest;
+      }).catch((error) => {
+        // Eşzamanlı ikinci talep (çift tıklama ya da aynı masadan ikinci cihaz): yukarıdaki
+        // kontroller ikisinde de boş görür; ikinci kaydı masa başına tek bekleyen sipariş
+        // talebi indeksi ya da aynı idempotencyKey reddeder
+        if (error?.code === "P2002") return null;
+        throw error;
       });
+
+      if (!serviceRequest) {
+        const winner = await prisma.serviceRequest.findFirst({
+          where: {
+            tableId,
+            businessId,
+            requestType: "ORDER_REQUEST",
+            status: { in: ["PENDING", "SEEN"] },
+          },
+        });
+
+        if (winner && winner.customerSessionId === customerSession.id) {
+          return NextResponse.json(
+            {
+              message: "Bekleyen sipariş talebiniz var. Garson onayı bekleniyor.",
+              code: "ORDER_REQUEST_PENDING",
+              serviceRequest: {
+                id: winner.id,
+                verificationCode: winner.verificationCode,
+                expiresAt: winner.expiresAt?.toISOString(),
+                status: winner.status,
+              },
+            },
+            { status: 200 }
+          );
+        }
+
+        return NextResponse.json(
+          winner
+            ? {
+                error: "Bu masa için başka bir cihazın bekleyen sipariş talebi var. Garson onayından sonra o cihaz sipariş verebilir.",
+                code: "TABLE_REQUEST_PENDING",
+              }
+            : { error: "Bu masa için zaten bekleyen bir talep var.", code: "DUPLICATE_REQUEST" },
+          { status: 409 }
+        );
+      }
 
       // Socket.IO (verificationCode garson socket yayınına dahil edilmez)
       try {
