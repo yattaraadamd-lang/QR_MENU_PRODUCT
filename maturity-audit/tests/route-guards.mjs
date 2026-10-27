@@ -10,7 +10,8 @@ const ROOT = join(process.cwd(), "src", "app", "api");
 
 // Bilerek herkese açık olan uç noktalar ve neden açık oldukları.
 const PUBLIC_ROUTES = {
-  "/api/health": "Render sağlık kontrolü",
+  "/api/health": "hazırlık kontrolü (DB dahil; harici uptime izleme)",
+  "/api/health/live": "Render canlılık kontrolü (DB'siz, gövdesinde yalnız status)",
   "/api/csp-report": "tarayıcı CSP ihlal raporları (yalnız log, 16 KB + IP başına rate limit)",
   "/api/auth/[...nextauth]": "next-auth giriş akışı (kendi CSRF token'ı var)",
   "/api/auth/me": "oturum yoksa 401 döner",

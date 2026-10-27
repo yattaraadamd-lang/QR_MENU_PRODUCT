@@ -34,4 +34,4 @@ services:
       - key: IYZICO_BASE_URL
         value: https://sandbox-api.iyzipay.com
         # Canlıya geçerken: https://api.iyzipay.com
-    healthCheckPath: /api/health
+    healthCheckPath: /api/health/live

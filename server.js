@@ -62,6 +62,8 @@ const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
   const httpServer = createServer((req, res) => {
+    // Kapanırken keep-alive bağlantı yanıttan sonra kapansın; yeni istek yeni instance'a gider
+    if (global.__serverShuttingDown) res.setHeader("Connection", "close");
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
   });
@@ -198,7 +200,34 @@ app.prepare().then(() => {
       // ✅ Production readiness checks (non-fatal at this point — fatal checks are above)
       if (!dev) {
         console.log('🔒 Production security checks passed');
-        console.log(`   CORS origins: ${allowedOrigins.join(', ') || '(none — all origins blocked!)'}`); 
+        console.log(`   CORS origins: ${allowedOrigins.join(', ') || '(none — all origins blocked!)'}`);
       }
     });
+
+  // ─── Kontrollü kapanış ───────────────────────────────────────────────
+  // Render deploy/yeniden başlatmada SIGTERM gönderir, ~30 sn sonra öldürür. Yeni bağlantı
+  // kabul edilmez, açık istekler bitirilir, soketler "server shutting down" ile kapanır
+  // (istemciler yeni instance'a yeniden bağlanır); bu sırada /api/health 503 döner.
+  // İkinci sinyal (once) Node'un varsayılanına düşer ve süreci hemen sonlandırır.
+  const SHUTDOWN_TIMEOUT_MS = 10_000;
+  const shutdown = (signal) => {
+    if (global.__serverShuttingDown) return;
+    global.__serverShuttingDown = true;
+    console.log(`[Server] ${signal} alındı; yeni bağlantı kabul edilmiyor, açık istekler bitiriliyor`);
+
+    setTimeout(() => {
+      console.error(`[Server] ${SHUTDOWN_TIMEOUT_MS / 1000} sn içinde kapanmadı; açık bağlantılar kesiliyor`);
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS).unref();
+
+    // io.close soketleri kapatır, ardından httpServer.close ile dinlemeyi bırakıp açık istekleri bekler
+    io.close(async () => {
+      await require("./src/lib/prisma-runtime.cjs").prisma.$disconnect().catch(() => {});
+      console.log("[Server] Kapanış tamamlandı");
+      process.exit(0);
+    });
+    httpServer.closeIdleConnections();
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
 });
