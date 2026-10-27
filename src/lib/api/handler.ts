@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z, type ZodSchema } from "zod";
+import { logger } from "@/lib/logger";
 
 export class ApiError extends Error {
   constructor(
@@ -59,37 +60,58 @@ function validate<T>(schema: ZodSchema<T>, data: unknown): T {
   return result.data;
 }
 
+const SLOW_REQUEST_MS = 1000;
+
 /**
  * Route handler'ı sarar: ApiError kendi durum koduyla, beklenmeyen hata 500 ile döner.
  * 500 yanıtında iç ayrıntı (stack, Prisma mesajı) yer almaz; log requestId ile aranır.
+ *
+ * Her istek için tek log satırı (method, path, status, durationMs): 5xx error, yavaş (≥1 sn)
+ * warn, 4xx info, diğerleri debug — müşteri ekranları sürekli yokladığı için başarılı istekler
+ * production'da varsayılan olarak yazılmaz (LOG_LEVEL=debug ile açılır).
  */
 export function withApiHandler(
   name: string,
   handler: (request: NextRequest) => Promise<Response>
 ): (request: NextRequest) => Promise<Response> {
   return async (request) => {
-    try {
-      return await handler(request);
-    } catch (error) {
-      // Middleware'in ürettiği kimlik: yanıt başlığı, bu gövde, log ve audit kaydı aynı değeri taşır
-      const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+    const startedAt = Date.now();
+    // Middleware'in ürettiği kimlik: yanıt başlığı, bu gövde, log ve audit kaydı aynı değeri taşır
+    const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+    const log = logger.child({ requestId, route: name });
 
+    let response: Response;
+    let unhandled: unknown;
+    try {
+      response = await handler(request);
+    } catch (error) {
       if (error instanceof ApiError) {
-        return NextResponse.json(
+        response = NextResponse.json(
           { error: error.message, code: error.code, requestId },
           { status: error.status, headers: { "Cache-Control": "no-store, private" } }
         );
+      } else {
+        unhandled = error;
+        response = NextResponse.json(
+          { error: "Sunucu hatası. Lütfen tekrar deneyin.", code: "INTERNAL_ERROR", requestId },
+          { status: 500, headers: { "Cache-Control": "no-store, private" } }
+        );
       }
-
-      console.error(`[${name}]`, {
-        requestId,
-        code: (error as { code?: string })?.code,
-        message: (error as Error)?.message,
-      });
-      return NextResponse.json(
-        { error: "Sunucu hatası. Lütfen tekrar deneyin.", code: "INTERNAL_ERROR", requestId },
-        { status: 500, headers: { "Cache-Control": "no-store, private" } }
-      );
     }
+
+    const durationMs = Date.now() - startedAt;
+    const entry = {
+      method: request.method,
+      path: request.nextUrl.pathname,
+      status: response.status,
+      durationMs,
+      ...(unhandled !== undefined ? { err: unhandled } : {}),
+    };
+    if (response.status >= 500) log.error(entry, unhandled !== undefined ? "İşlenmeyen hata" : "Sunucu hatası yanıtı");
+    else if (durationMs >= SLOW_REQUEST_MS) log.warn(entry, "Yavaş istek");
+    else if (response.status >= 400) log.info(entry, "İstemci hatası");
+    else log.debug(entry, "İstek");
+
+    return response;
   };
 }

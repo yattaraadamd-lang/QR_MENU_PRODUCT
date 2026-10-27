@@ -12,6 +12,8 @@
 import { hashDeviceKey, generateDeviceKey } from "../src/lib/security/device-block";
 import { checkPlanQuota } from "../src/lib/services/subscription-guard.service";
 import { cuidSchema, priceSchema, createTableSchema, createOrderSchema } from "../src/lib/validation";
+import { createLogger } from "../src/lib/logger";
+import { Prisma } from "@prisma/client";
 
 let passedCount = 0;
 let failedCount = 0;
@@ -80,6 +82,55 @@ async function runTests() {
     assert(!invalidOrder.success, "Rejects empty items array in order");
   } catch (err: any) {
     assert(false, "Input validation tests threw error", err.message);
+  }
+
+  // ── Test Suite 4: Structured Log Redaction ───────────────────────────
+  console.log("\n📦 Suite 4: Structured Log Redaction & Prisma Error Serializer");
+  try {
+    const lines: string[] = [];
+    const log = createLogger({ write: (chunk: string) => { lines.push(chunk); } });
+    const last = () => JSON.parse(lines[lines.length - 1]);
+
+    log.child({ requestId: "req-123" }).info(
+      {
+        password: "parola-123",
+        user: { sessionToken: "cs_gizli", email: "a@b.c" },
+        req: { headers: { cookie: "sid=gizli", "x-session-token": "cs_baslik" } },
+        payment: { customer: { identityNumber: "12345678901" } },
+      },
+      "redaction"
+    );
+    const redacted = lines[lines.length - 1];
+    assert(last().requestId === "req-123", "Log line carries bound requestId");
+    assert(
+      !["parola-123", "cs_gizli", "sid=gizli", "cs_baslik", "12345678901"].some((secret) => redacted.includes(secret)),
+      "Sensitive fields are redacted (password, nested token, cookie, x-session-token, identityNumber)",
+      redacted
+    );
+    assert(last().user.email === "a@b.c", "Non-sensitive fields are kept");
+
+    const prismaError = new Prisma.PrismaClientKnownRequestError(
+      "\nInvalid `prisma.customerSession.findUnique()` invocation:\n\n{\n  where: { sessionToken: \"hash-gizli\" }\n}\n\nUnique constraint failed on the fields: (`sessionToken`)",
+      { code: "P2002", clientVersion: "5.22.0" }
+    );
+    log.error({ err: prismaError }, "prisma");
+    const serialized = last().err;
+    assert(
+      serialized.code === "P2002" &&
+        serialized.prismaCall === "customerSession.findUnique" &&
+        serialized.message === "Unique constraint failed on the fields: (`sessionToken`)",
+      "Prisma error keeps code, call and reason",
+      JSON.stringify(serialized)
+    );
+    assert(
+      !lines[lines.length - 1].includes("hash-gizli") && serialized.stack === undefined,
+      "Prisma error drops query arguments and stack"
+    );
+
+    log.error({ err: new Error("beklenmeyen") }, "generic");
+    assert(last().err.message === "beklenmeyen" && typeof last().err.stack === "string", "Generic error keeps message and stack");
+  } catch (err: any) {
+    assert(false, "Log redaction tests threw error", err.message);
   }
 
   // ── Summary ──────────────────────────────────────────────────────────

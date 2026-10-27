@@ -8,8 +8,9 @@
  * - userAgent is truncated to essential info
  */
 
-import { headers as incomingHeaders } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { currentRequestId } from "@/lib/request-id";
 import { getClientIp } from "@/lib/unified-rate-limit";
 import crypto from "crypto";
 
@@ -85,24 +86,15 @@ export function auditRequestContext(headers: Headers): Pick<AuditLogParams, "ip"
 }
 
 /**
- * Middleware'in isteğe yazdığı x-request-id. Servisler (ödeme, iptal) ve requestId
- * aktarmayan route'lar da kimliği buradan alır; istek kapsamı dışında (betikler) null.
- */
-async function currentRequestId(): Promise<string | null> {
-  try {
-    return (await incomingHeaders()).get("x-request-id");
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Create an audit log entry.
  *
  * This is fire-and-forget: errors are caught and logged, never thrown.
  * Audit logging should NEVER block or break the main business operation.
+ * requestId verilmezse middleware'in x-request-id'si istekten okunur (servisler, requestId
+ * aktarmayan route'lar); istek kapsamı dışında null.
  */
 export async function createAuditLog(params: AuditLogParams): Promise<void> {
+  const requestId = params.requestId || (await currentRequestId());
   try {
     await prisma.auditLog.create({
       data: {
@@ -112,7 +104,7 @@ export async function createAuditLog(params: AuditLogParams): Promise<void> {
         action: params.action,
         entityType: params.entityType || null,
         entityId: params.entityId || null,
-        requestId: params.requestId || (await currentRequestId()),
+        requestId,
         ipHash: hashIp(params.ip || null),
         userAgentInfo: truncateUserAgent(params.userAgent || null),
         beforeJson: redactSensitiveFields(params.before) as any,
@@ -122,11 +114,11 @@ export async function createAuditLog(params: AuditLogParams): Promise<void> {
     });
   } catch (error) {
     // ❌ NEVER let audit logging break the main operation
-    console.error("[AUDIT_LOG_ERROR]", {
-      action: params.action,
-      error: (error as any)?.message,
-      // Do NOT log sensitive params
-    });
+    // Do NOT log sensitive params: yalnız eylem, varlık ve hata (Prisma ayrıntısı serializer'da kırpılır)
+    logger.error(
+      { requestId, action: params.action, entityType: params.entityType, entityId: params.entityId, err: error },
+      "Audit kaydı yazılamadı"
+    );
   }
 }
 

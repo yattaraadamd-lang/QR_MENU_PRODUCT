@@ -4,6 +4,9 @@ const nextConfig = {
   poweredByHeader: false,
   // ✅ PERF: React Strict Mode
   reactStrictMode: true,
+  // pino transport'lar için dinamik require / worker thread kullanır; bundle'a alınmasın
+  // (bu Next sürümünün varsayılan harici paket listesinde yok)
+  serverExternalPackages: ["pino", "thread-stream"],
   images: {
     // ✅ PERF: Modern image formatları — AVIF %50, WebP %30 daha küçük
     formats: ["image/avif", "image/webp"],
