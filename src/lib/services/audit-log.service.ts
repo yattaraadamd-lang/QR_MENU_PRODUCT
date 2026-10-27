@@ -8,6 +8,7 @@
  * - userAgent is truncated to essential info
  */
 
+import { headers as incomingHeaders } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getClientIp } from "@/lib/unified-rate-limit";
 import crypto from "crypto";
@@ -84,8 +85,20 @@ export function auditRequestContext(headers: Headers): Pick<AuditLogParams, "ip"
 }
 
 /**
+ * Middleware'in isteğe yazdığı x-request-id. Servisler (ödeme, iptal) ve requestId
+ * aktarmayan route'lar da kimliği buradan alır; istek kapsamı dışında (betikler) null.
+ */
+async function currentRequestId(): Promise<string | null> {
+  try {
+    return (await incomingHeaders()).get("x-request-id");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Create an audit log entry.
- * 
+ *
  * This is fire-and-forget: errors are caught and logged, never thrown.
  * Audit logging should NEVER block or break the main business operation.
  */
@@ -99,7 +112,7 @@ export async function createAuditLog(params: AuditLogParams): Promise<void> {
         action: params.action,
         entityType: params.entityType || null,
         entityId: params.entityId || null,
-        requestId: params.requestId || null,
+        requestId: params.requestId || (await currentRequestId()),
         ipHash: hashIp(params.ip || null),
         userAgentInfo: truncateUserAgent(params.userAgent || null),
         beforeJson: redactSensitiveFields(params.before) as any,
