@@ -177,6 +177,95 @@ export const createPaymentSchema = z.object({
 });
 
 // ============================================================================
+// Customer API Schemas (QR menü — kimliksiz/oturum token'lı uçlar)
+// ============================================================================
+
+/** NUL ve eşi olmayan surrogate Postgres'e yazılamıyor; route 500 dönüyordu */
+function hasUnstorableChars(value: string): boolean {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code === 0) return true;
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        i++;
+        continue;
+      }
+      return true;
+    }
+    if (code >= 0xdc00 && code <= 0xdfff) return true;
+  }
+  return false;
+}
+
+function customerTextSchema(max: number, label: string) {
+  return z
+    .string()
+    .max(max, `${label} maksimum ${max} karakter olabilir.`)
+    .refine((value) => !hasUnstorableChars(value), `${label} geçersiz karakter içeriyor.`);
+}
+
+// İstemci `ord_<uuid>` / `or_<uuid>` üretir; uzunluk kuralları route'ta kendi mesajlarıyla kalır
+const idempotencyKeySchema = z.string().regex(/^[A-Za-z0-9_-]+$/, "Geçersiz idempotency key formatı.");
+
+export const customerSessionCreateSchema = z.object({
+  businessId: cuidSchema,
+  tableId: cuidSchema,
+  qrToken: z.string().max(200).nullish(),
+  existingToken: z.string().max(200).nullish(),
+});
+
+export const customerOrderCreateSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: cuidSchema,
+        quantity: z
+          .number()
+          .int("Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır.")
+          .min(1, "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır.")
+          .max(100, "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır."),
+        customerNote: customerTextSchema(200, "Ürün notu").nullish(),
+      })
+    )
+    .min(1, "Geçersiz sipariş bilgileri")
+    .max(50, "Bir siparişte maksimum 50 farklı ürün olabilir."),
+  note: customerTextSchema(500, "Sipariş notu").nullish(),
+  idempotencyKey: idempotencyKeySchema
+    .min(8, "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır.")
+    .max(128, "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır.")
+    .nullish(),
+});
+
+// requestType listesi ve PAYMENT_REQUEST yönlendirmesi route'ta kendi mesajlarıyla kalır
+export const customerServiceRequestCreateSchema = z.object({
+  businessId: cuidSchema,
+  tableId: cuidSchema,
+  requestType: z.string().max(50),
+  note: customerTextSchema(500, "Not alanı").nullish(),
+  reason: customerTextSchema(200, "Sebep alanı").nullish(),
+  orderNote: customerTextSchema(500, "Sipariş notu").nullish(),
+  idempotencyKey: idempotencyKeySchema.nullish(),
+  // Yalnız ORDER_REQUEST önizlemesi; adet route'ta 1-99 aralığına sıkıştırılıyor
+  items: z
+    .array(
+      z.object({
+        productId: cuidSchema,
+        quantity: z.number().finite().nullish(),
+        customerNote: customerTextSchema(200, "Ürün notu").nullish(),
+      })
+    )
+    .max(50, "Bir siparişte maksimum 50 farklı ürün olabilir.")
+    .nullish(),
+});
+
+export const customerPaymentRequestSchema = z.object({
+  businessId: cuidSchema,
+  tableId: cuidSchema,
+  note: customerTextSchema(500, "Not alanı").nullish(),
+});
+
+// ============================================================================
 // Query Parameter Schemas
 // ============================================================================
 

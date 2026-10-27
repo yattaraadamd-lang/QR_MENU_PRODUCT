@@ -5,6 +5,8 @@ import { generateDeviceKey, hashDeviceKey, checkDeviceBlock } from "@/lib/securi
 import { qrTokensMatch } from "@/lib/qr-token";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
 import { openTable } from "@/lib/services/table-flow.service";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { customerSessionCreateSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -59,17 +61,14 @@ function addSecurityHeaders(res: NextResponse): NextResponse {
  * - Token loglama YAPILMAZ.
  * - Cihaz anahtarı HttpOnly cookie olarak saklanır.
  */
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler("CUSTOMER_SESSION_CREATE", createSession);
+
+async function createSession(request: NextRequest) {
+  // Kimlik alanları ID biçiminde olmalı (NUL/surrogate içeren id Postgres'te 500 veriyordu);
+  // bozuk gövde / yanlış tip 400 olur (withApiHandler, Cache-Control: no-store ile)
+  const { businessId, tableId, qrToken, existingToken } = await parseJson(request, customerSessionCreateSchema);
+
   try {
-    const body = await request.json();
-    const { businessId, tableId, qrToken, existingToken } = body;
-
-    if (!businessId || !tableId || typeof businessId !== "string" || typeof tableId !== "string") {
-      return addSecurityHeaders(
-        NextResponse.json({ error: "Geçersiz oturum bilgileri" }, { status: 400 })
-      );
-    }
-
     // ─── Masa kontrolü
     const table = await prisma.table.findFirst({
       where: { id: tableId, businessId, isActive: true, isDeleted: false },

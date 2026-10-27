@@ -33,3 +33,25 @@ Kritik veya yüksek seviye bir bulgu doğrulanırsa düzeltmesi bu dalda yapıla
 
 _Staging kurulduktan sonra doldurulacak: her betiğin özet metrikleri (istek sayısı, hata oranı,
 p95, 5xx, 429 davranışı), fuzz'da hatalı yanıt veren uç ve girdi listesi, yapılan düzeltmeler._
+
+### Yerel fuzz (2026-10-27)
+
+Staging henüz kurulmadığı için `fuzz-customer.mjs` yerelde koşturuldu: `next build` +
+`NODE_ENV=production node server.js`, seed edilmiş geçici Postgres 16. Yetkili sipariş
+senaryolarının atlanmaması için boş bir demo masası kullanıldı (`FUZZ_TABLE_NUMBER=4`).
+
+| Uç | Önce (main `0b08667`) | Sonra |
+|---|---|---|
+| `POST /api/customer/session` | 146 deneme, 12 × 500 | 146 deneme, 0 hata |
+| `POST /api/customer/orders` | 292 deneme, 16 × 500 | 292 deneme, 0 hata |
+| `POST /api/customer/service-requests` | 245 deneme, 6 × 500 | 245 deneme, 0 hata |
+| `POST /api/customer/payment-requests` | 113 deneme, 6 × 500 | 113 deneme, 0 hata |
+
+- **E1, E2 (bu dört uç), E3, E4 düzeltildi:** gövde route'a girmeden `parseJson` + zod
+  şemasıyla doğrulanıyor (`src/lib/api/handler.ts`, `src/lib/validation.ts` → Customer API
+  Schemas); hatalı girdi `{ error, code, requestId }` ile 400 dönüyor.
+- **Ek bulgu:** eşi olmayan surrogate (`\ud800`) içeren id'ler de 500 veriyordu; aynı şemalar
+  reddediyor. Serbest metin alanları (notlar) NUL ve eşsiz surrogate içeremez.
+- **Açık kalan:** `GET /api/customer/active-requests` sorgudaki NUL'u Postgres'e iletiyor;
+  hata yakalanıp 200 dönüyor ama Prisma hatasının tamamı loglanıyor. 100 KB'lık sorgu
+  dizesinde bağlantı yanıtsız kapanıyor. `auth/invite/verify` (E2) bu dört ucun dışında.

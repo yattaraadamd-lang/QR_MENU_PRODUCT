@@ -6,6 +6,8 @@ import { validateViewSession, validateAuthorizedTableSession } from "@/lib/secur
 import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { customerServiceRequestCreateSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +19,15 @@ function generateVerificationCode(): string {
 }
 
 // POST /api/customer/service-requests
-export async function POST(request: NextRequest) {
-  let requestBody: any = null; // Catch bloğunda erişmek için
-  
+export const POST = withApiHandler("CUSTOMER_SERVICE_REQUEST", createServiceRequest);
+
+async function createServiceRequest(request: NextRequest) {
+  // Alan tipleri, not/sebep uzunlukları ve önizleme kalemleri şemada doğrulanır; bozuk
+  // gövde / yanlış tip 400 olur (withApiHandler). Catch bloğu idempotencyKey'i buradan okur.
+  const requestBody = await parseJson(request, customerServiceRequestCreateSchema);
+
   try {
-    const body = await request.json();
-    requestBody = body; // Save for catch block
-    const { businessId, tableId, requestType, note, reason, idempotencyKey, items, orderNote } = body;
+    const { businessId, tableId, requestType, note, reason, idempotencyKey, items, orderNote } = requestBody;
 
     if (!businessId || !tableId || !requestType) {
       return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
@@ -48,14 +52,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
-    }
-
-    // ✅ Note ve reason validasyonu
-    if (note && note.length > 500) {
-      return NextResponse.json({ error: "Not alanı maksimum 500 karakter olabilir." }, { status: 400 });
-    }
-    if (reason && reason.length > 200) {
-      return NextResponse.json({ error: "Sebep alanı maksimum 200 karakter olabilir." }, { status: 400 });
     }
 
     const isOrderRequest = requestType === "ORDER_REQUEST";

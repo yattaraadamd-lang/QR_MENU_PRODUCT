@@ -4,18 +4,18 @@ import { emitToBusinessRoom } from "@/lib/socket-server";
 import { requestPayment } from "@/lib/services/table-flow.service";
 import { validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { customerPaymentRequestSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler("CUSTOMER_PAYMENT_REQUEST", createPaymentRequest);
+
+async function createPaymentRequest(request: NextRequest) {
+  // Bozuk gövde / yanlış tip 400 olur (withApiHandler); aşağıdaki catch'e düşmez
+  const { businessId, tableId, note } = await parseJson(request, customerPaymentRequestSchema);
+
   try {
-    const body = await request.json();
-    const { businessId, tableId, note } = body;
-
-    if (!businessId || !tableId) {
-      return NextResponse.json({ error: "Geçersiz talep bilgileri" }, { status: 400 });
-    }
-
     // ✅ P0-05 FIX: SECURITY - Require AUTHORIZED session, not VIEW_ONLY
     // Payment requests must come from a garson-approved session
     const sessionCheck = await validateAuthorizedTableSession(request);
@@ -30,14 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Oturum bu masa veya işletme için geçerli değil." },
         { status: 403 }
-      );
-    }
-
-    // ✅ GÜVENLIK: Note validasyonu
-    if (note && note.length > 500) {
-      return NextResponse.json(
-        { error: "Not alanı maksimum 500 karakter olabilir." },
-        { status: 400 }
       );
     }
 
