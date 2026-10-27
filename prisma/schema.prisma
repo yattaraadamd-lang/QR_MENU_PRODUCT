@@ -61,6 +61,7 @@ model User {
   business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   orders        Order[]
   notifications Notification[]
+  revokedAccessBlocks CustomerAccessBlock[]
 
   @@map("users")
 }
@@ -462,6 +463,8 @@ model CustomerAccessBlock {
   revocationNote  String?
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  // FK 20260802095237 migration'ında var; şemada ilişki olmadığı için diff onu silmek istiyordu
+  revokedBy User? @relation(fields: [revokedById], references: [id], onDelete: SetNull)
 
   @@index([businessId, deviceKeyHash, revokedAt])
   @@map("customer_access_blocks")

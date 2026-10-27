@@ -94,12 +94,63 @@ jobs:
             echo "✅ No obvious hardcoded secrets found"
           fi
 
-      - name: Verify migrations are tracked
+  # Migration geçmişi tek başına şemayı kurabiliyor mu? Eskiden tablolar db push ile
+  # oluştuğu için boş veritabanında migrate deploy yarıda kırılıyordu ve bunu hiçbir adım
+  # görmüyordu (staging, CI ve yedekten geri yükleme bu yüzden güvenilir değildi).
+  migrations:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Yalnız bu işin geçici Postgres konteyneri; gerçek veritabanı ya da gizli anahtar yok.
+    env:
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+      DATABASE_URL_UNPOOLED: "postgresql://ci:ci@localhost:5432/ci"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Migrations apply to an empty database
+        run: npx prisma migrate deploy
+
+      # --exit-code: fark varsa 2 döner. Prisma kısmi indeksleri (WHERE'li) karşılaştırmaya
+      # katmaz; elle yazılmış bu tür indeksler kapıyı kırmızıya düşürmez.
+      - name: Migration history matches schema.prisma (drift gate)
         run: |
-          if [ -d "prisma/migrations" ]; then
-            echo "✅ prisma/migrations/ directory exists"
-            ls -la prisma/migrations/
-          else
-            echo "⚠️  prisma/migrations/ directory not found"
-            echo "   This may be expected if no migrations exist yet"
+          if ! npx prisma migrate diff \
+               --from-url "$DATABASE_URL" \
+               --to-schema-datamodel prisma/schema.prisma \
+               --exit-code > /dev/null; then
+            echo "::error::Migration geçmişi schema.prisma ile uyuşmuyor. Eksik SQL:"
+            npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script
+            echo "Şemayı değiştirdiyseniz: npx prisma migrate dev --create-only --name <ad>"
+            exit 1
           fi
+
+      - name: Seed runs on the migrated database
+        run: |
+          npx tsx prisma/seed.ts
+          node prisma/seed-plans.cjs --create-only
