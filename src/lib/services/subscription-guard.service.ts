@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { getRequestLogger } from "@/lib/logger";
 
 export type QuotaType = "TABLE" | "WAITER" | "PRODUCT";
 
@@ -127,8 +128,9 @@ export async function checkPlanQuota(
 
     return { allowed: true, limit, current, status: subscription.status };
   } catch (error) {
-    console.error("[SUBSCRIPTION_GUARD_ERROR]", error);
     // On unexpected error, fail open to avoid blocking legitimate operations, but log
+    const log = await getRequestLogger({ module: "subscription-guard" });
+    log.error({ err: error, businessId, quotaType }, "Plan kotası denetlenemedi; izin verildi (fail open)");
     return { allowed: true };
   }
 }
