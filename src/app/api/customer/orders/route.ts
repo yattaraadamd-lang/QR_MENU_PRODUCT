@@ -4,6 +4,8 @@ import { OrderStatus } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { customerOrderCreateSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -11,23 +13,15 @@ export const dynamic = "force-dynamic";
 const CUSTOMER_TABLE_SELECT = { id: true, tableNumber: true, tableName: true } as const;
 
 // POST /api/customer/orders
-export async function POST(request: NextRequest) {
-  let body: any;
+export const POST = withApiHandler("CUSTOMER_ORDER_CREATE", createOrder);
+
+async function createOrder(request: NextRequest) {
+  // Kalem sayısı, adet, ürün id'si, not uzunlukları ve idempotency key biçimi şemada
+  // doğrulanır; bozuk gövde / yanlış tip 400 olur (withApiHandler)
+  const body = await parseJson(request, customerOrderCreateSchema);
+
   try {
-    body = await request.json();
     const { items, note, idempotencyKey } = body;
-
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: "Geçersiz sipariş bilgileri" }, { status: 400 });
-    }
-
-    // ✅ Note validasyonu
-    if (note && note.length > 500) {
-      return NextResponse.json(
-        { error: "Sipariş notu maksimum 500 karakter olabilir." },
-        { status: 400 }
-      );
-    }
 
     // ✅ GÜVENLİK: Yetkili masa oturumu doğrulaması
     const sessionCheck = await validateAuthorizedTableSession(request);
@@ -57,13 +51,6 @@ export async function POST(request: NextRequest) {
     // ✅ P0-10 FIX: Idempotency check with tenant+session scope
     // Prevent cross-tenant data leakage by scoping to businessId + customerSessionId
     if (idempotencyKey) {
-      if (typeof idempotencyKey !== "string" || idempotencyKey.length < 8 || idempotencyKey.length > 128) {
-        return NextResponse.json(
-          { error: "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır." },
-          { status: 400 }
-        );
-      }
-
       const existingOrder = await prisma.order.findFirst({
         where: {
           idempotencyKey,
@@ -130,37 +117,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "İşletme şu anda hizmet vermiyor." }, { status: 403 });
     }
 
-    // ✅ Maksimum ürün çeşidi kontrolü
-    if (items.length > 50) {
-      return NextResponse.json(
-        { error: "Bir siparişte maksimum 50 farklı ürün olabilir." },
-        { status: 400 }
-      );
-    }
-
     // ✅ Ürün kontrolleri ve sunucu tarafı fiyat doğrulaması
     let totalPrice = 0;
     const orderItems: any[] = [];
 
     for (const item of items) {
-      const quantity = Number(item.quantity);
-      if (!quantity || quantity < 1 || quantity > 100 || !Number.isInteger(quantity)) {
-        return NextResponse.json(
-          { error: "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır." },
-          { status: 400 }
-        );
-      }
-
-      if (!item.productId || typeof item.productId !== "string") {
-        return NextResponse.json({ error: "Geçersiz ürün ID'si." }, { status: 400 });
-      }
-
-      if (item.customerNote && item.customerNote.length > 200) {
-        return NextResponse.json(
-          { error: "Ürün notu maksimum 200 karakter olabilir." },
-          { status: 400 }
-        );
-      }
+      const quantity = item.quantity;
 
       const product = await prisma.product.findFirst({
         where: { id: item.productId, businessId, isDeleted: false },
