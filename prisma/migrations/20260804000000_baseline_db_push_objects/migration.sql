@@ -9,8 +9,13 @@
 -- Canlıda: migrate deploy henüz uygulanmamış bu migration'ı bir kez çalıştırır. Her ifade
 -- IF NOT EXISTS ya da istisna bloğu içinde olduğu için var olan nesnelere dokunmaz.
 -- Canlıda gerçekten eksik bir yabancı anahtar ya da unique indeks varsa ve mevcut satırlar
--- onu ihlal ediyorsa deploy durmaz: kısıt NOT VALID bırakılır / indeks atlanır ve build
--- loguna WARNING düşer (Render'da Shell olmadığı için yarım kalan migration kurtarılamaz).
+-- onu ihlal ediyorsa deploy durmaz: kısıt NOT VALID bırakılır / indeks atlanır (Render'da
+-- Shell olmadığı için yarım kalan migration kurtarılamaz). Prisma Postgres WARNING'lerini
+-- göstermez; deploy sonrası şu iki sorgu boş dönmeli:
+--   SELECT conname FROM pg_constraint WHERE NOT convalidated;
+--   SELECT i FROM unnest(ARRAY['bills_tableSessionId_key', 'orders_idempotencyKey_key',
+--     'service_requests_idempotencyKey_key', 'product_modifier_assignments_productId_modifierId_key']) i
+--   WHERE to_regclass(quote_ident(i)) IS NULL;
 --
 -- Sonraki migration'ların oluşturduğu nesneler bilerek burada YOK:
 --   20260804103500: payments onay sütunları, PaymentStatus yeni değerleri, iki payments indeksi
