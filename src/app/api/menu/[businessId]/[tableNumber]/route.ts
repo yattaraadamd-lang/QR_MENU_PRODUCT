@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+/** If-None-Match zayıf karşılaştırma (RFC 9110): W/ öneki yok sayılır; liste ve * desteklenir */
+function etagMatches(header: string | null, etag: string): boolean {
+  if (!header) return false;
+  const bare = (tag: string) => tag.trim().replace(/^W\//, "");
+  return header.split(",").some((tag) => tag.trim() === "*" || bare(tag) === bare(etag));
+}
 
 export async function GET(
   request: NextRequest,
@@ -115,7 +123,7 @@ export async function GET(
       }),
     ]);
 
-    const response = NextResponse.json({
+    const body = JSON.stringify({
       business,
       table,
       categories,
@@ -124,10 +132,18 @@ export async function GET(
       // 🔒 SECURITY: Kimliksiz endpoint — iç masa oturumu ID'si döndürülmez (istemci kullanmıyor)
     });
 
-    // ✅ PERF: Menü verisi kısa süreli cache'lenebilir (CDN/browser)
-    response.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+    // ✅ PERF: Menü sayfası periyodik yenilemede If-None-Match gönderir; değişmediyse gövdesiz
+    // 304 döner. ETag gövdenin özeti: stok, fiyat, masa durumu ve tableSessionActive dahil her
+    // alanı kapsar (updatedAt tabanlı bir ETag silinen kategoriyi kaçırırdı).
+    // Cache-Control next.config'den gelir (/api → no-store, private); önbelleği istemci tutar.
+    const etag = `W/"${crypto.createHash("sha1").update(body).digest("base64url")}"`;
+    if (etagMatches(request.headers.get("if-none-match"), etag)) {
+      return new NextResponse(null, { status: 304, headers: { ETag: etag } });
+    }
 
-    return response;
+    return new NextResponse(body, {
+      headers: { "Content-Type": "application/json", ETag: etag },
+    });
   } catch (error) {
     console.error("Menü yükleme hatası:", error);
     return NextResponse.json({ error: "Menü yüklenirken bir hata oluştu" }, { status: 500 });
