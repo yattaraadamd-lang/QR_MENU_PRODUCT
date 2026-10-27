@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { processAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { staffPaymentSchema, toPaymentMethod } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(
+export const POST = withApiHandler("POST /api/admin/payments/[id]/approve", handlePost);
+
+async function handlePost(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -27,8 +31,14 @@ export async function POST(
     }
 
     const businessId = getBusinessId(session);
-    const body = await request.json();
-    const { amount, method, receivedAmount, note, idempotencyKey } = body;
+    const { amount, method: rawMethod, receivedAmount, note, idempotencyKey } = await parseJson(request, staffPaymentSchema);
+    const method = toPaymentMethod(rawMethod);
+    if (!method) {
+      return NextResponse.json(
+        { success: false, error: "Ödeme yöntemi zorunludur.", code: "PAYMENT_METHOD_REQUIRED" },
+        { status: 400 }
+      );
+    }
 
     const result = await processAdminPayment({
       paymentId,
@@ -82,6 +92,7 @@ export async function POST(
       isIdempotent: result.isIdempotent,
     });
   } catch (error: any) {
+    if (error instanceof ApiError) throw error;
     console.error("[ADMIN_PAYMENT_APPROVE_FAILED]", {
       endpoint: "/api/admin/payments/[id]/approve",
       code: error?.code,

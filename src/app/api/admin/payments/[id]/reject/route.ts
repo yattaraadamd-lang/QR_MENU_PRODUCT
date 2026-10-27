@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { rejectPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { paymentRejectSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(
+export const POST = withApiHandler("POST /api/admin/payments/[id]/reject", handlePost);
+
+async function handlePost(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -27,8 +31,7 @@ export async function POST(
     }
 
     const businessId = getBusinessId(session);
-    const body = await request.json();
-    const { reason } = body;
+    const { reason } = await parseJson(request, paymentRejectSchema);
 
     const payment = await rejectPayment({
       paymentId,
@@ -53,6 +56,7 @@ export async function POST(
       payment,
     });
   } catch (error: any) {
+    if (error instanceof ApiError) throw error;
     console.error("[ADMIN_PAYMENT_REJECT_FAILED]", {
       endpoint: "/api/admin/payments/[id]/reject",
       code: error?.code,

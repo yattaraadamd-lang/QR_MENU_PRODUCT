@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-guard";
 import { createDirectAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { staffPaymentSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(
+export const POST = withApiHandler("POST /api/admin/pending-payments/[id]/pay", handlePost);
+
+async function handlePost(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -17,7 +21,7 @@ export async function POST(
     const { error, response, session } = await requireAdmin();
     if (error) return response;
 
-    const body = await request.json();
+    const body = await parseJson(request, staffPaymentSchema);
 
     const rawMethod = body.method || body.paymentMethod;
     let method: "CASH" | "CARD" | "ONLINE" | "OTHER";
@@ -79,6 +83,7 @@ export async function POST(
       isIdempotent: result.isIdempotent,
     });
   } catch (error: any) {
+    if (error instanceof ApiError) throw error;
     console.error("[ADMIN_PENDING_PAYMENT_PAY_FAILED]", {
       endpoint: "/api/admin/pending-payments/[id]/pay",
       code: error?.code,

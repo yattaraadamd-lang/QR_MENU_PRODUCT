@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { TableStatus } from "@prisma/client";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { waiterTableStatusSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -49,26 +51,22 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT /api/waiter/tables — Masa durumu güncelle
-export async function PUT(request: NextRequest) {
-  try {
-    const { error, response, session } = await requireWaiterOrAdmin();
-    if (error) return response!;
-    const businessId = getBusinessId(session);
-    const body = await request.json();
-    const { tableId, status } = body;
+export const PUT = withApiHandler("PUT /api/waiter/tables", handlePut);
 
-    if (!tableId || !status) return NextResponse.json({ error: "tableId ve status gerekli" }, { status: 400 });
-    if (!["EMPTY", "CLEANING_NEEDED"].includes(status)) {
-      return NextResponse.json({ error: "Garsonlar masayı sadece boş veya temizlenmesi gerekiyor olarak işaretleyebilir" }, { status: 400 });
-    }
+async function handlePut(request: NextRequest) {
+  const { error, response, session } = await requireWaiterOrAdmin();
+  if (error) return response!;
+  const businessId = getBusinessId(session);
+  const { tableId, status } = await parseJson(request, waiterTableStatusSchema);
 
-    const table = await prisma.table.findFirst({ where: { id: tableId, businessId } });
-    if (!table) return NextResponse.json({ error: "Masa bulunamadı" }, { status: 404 });
-
-    const updated = await prisma.table.update({ where: { id: tableId }, data: { status: status as TableStatus } });
-    return NextResponse.json({ message: "Masa durumu güncellendi", table: updated });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Masa güncellenirken hata oluştu" }, { status: 500 });
+  if (!tableId || !status) return NextResponse.json({ error: "tableId ve status gerekli" }, { status: 400 });
+  if (!["EMPTY", "CLEANING_NEEDED"].includes(status)) {
+    return NextResponse.json({ error: "Garsonlar masayı sadece boş veya temizlenmesi gerekiyor olarak işaretleyebilir" }, { status: 400 });
   }
+
+  const table = await prisma.table.findFirst({ where: { id: tableId, businessId } });
+  if (!table) return NextResponse.json({ error: "Masa bulunamadı" }, { status: 404 });
+
+  const updated = await prisma.table.update({ where: { id: tableId }, data: { status: status as TableStatus } });
+  return NextResponse.json({ message: "Masa durumu güncellendi", table: updated });
 }

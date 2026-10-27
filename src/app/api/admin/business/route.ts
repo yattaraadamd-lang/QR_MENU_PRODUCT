@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
-import { validateBody, updateBusinessSchema } from "@/lib/validation";
+import { updateBusinessSchema } from "@/lib/validation";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -44,46 +45,35 @@ export async function GET() {
 }
 
 // PUT /api/admin/business - İşletme bilgilerini güncelle
-export async function PUT(request: NextRequest) {
-  try {
-    const { error, response, session } = await requireAdmin();
-    if (error) return response!;
+export const PUT = withApiHandler("PUT /api/admin/business", handlePut);
 
-    const businessId = getBusinessId(session);
+async function handlePut(request: NextRequest) {
+  const { error, response, session } = await requireAdmin();
+  if (error) return response!;
 
-    if (!businessId) {
-      return NextResponse.json(
-        { error: "İşletme ID bulunamadı" },
-        { status: 400 }
-      );
-    }
+  const businessId = getBusinessId(session);
 
-    // ✅ SECURITY: Tip/uzunluk doğrulaması; bilinmeyen alanlar (ör. isActive) atılır
-    const validation = validateBody(updateBusinessSchema, await request.json());
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
-    const { email, logo, ...rest } = validation.data;
-
-    const business = await prisma.business.update({
-      where: { id: businessId },
-      data: {
-        ...rest,
-        ...(email !== undefined && { email: email || null }),
-        ...(logo !== undefined && { logo: logo || null }),
-      },
-    });
-
-    return NextResponse.json({
-      message: "İşletme güncellendi",
-      business,
-    });
-  } catch (error) {
-    console.error("İşletme güncelleme hatası:", error);
-
+  if (!businessId) {
     return NextResponse.json(
-      { error: "İşletme güncellenirken bir hata oluştu" },
-      { status: 500 }
+      { error: "İşletme ID bulunamadı" },
+      { status: 400 }
     );
   }
+
+  // ✅ SECURITY: Tip/uzunluk doğrulaması; bilinmeyen alanlar (ör. isActive) atılır
+  const { email, logo, ...rest } = await parseJson(request, updateBusinessSchema);
+
+  const business = await prisma.business.update({
+    where: { id: businessId },
+    data: {
+      ...rest,
+      ...(email !== undefined && { email: email || null }),
+      ...(logo !== undefined && { logo: logo || null }),
+    },
+  });
+
+  return NextResponse.json({
+    message: "İşletme güncellendi",
+    business,
+  });
 }

@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { createDirectAdminPayment, PaymentError } from "@/lib/services/payment.service";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { staffPaymentSchema, toPaymentMethod } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/waiter/payments/collect — Ödeme al (garson ve admin)
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler("POST /api/waiter/payments/collect", handlePost);
+
+async function handlePost(request: NextRequest) {
   let userRole: string | undefined;
 
   try {
@@ -15,8 +19,8 @@ export async function POST(request: NextRequest) {
 
     userRole = session?.user?.role;
     const businessId = getBusinessId(session);
-    const body = await request.json();
-    const { tableSessionId, amount, method, note, receivedAmount } = body;
+    const { tableSessionId, amount, method: rawMethod, note, receivedAmount } = await parseJson(request, staffPaymentSchema);
+    const method = toPaymentMethod(rawMethod);
 
     // ✅ Validation
     if (!tableSessionId || !amount || !method) {
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
     const result = await createDirectAdminPayment({
       billId: tableSession.bill.id,
       amount: normalizedAmount,
-      method: method === "CREDIT_CARD" ? "CARD" : method,
+      method, // "CREDIT_CARD" → CARD eşlemesi toPaymentMethod'da
       receivedAmount: normalizedReceivedAmount,
       note: note || null,
       adminId: session!.user.id,
@@ -110,6 +114,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ payment: result.payment, bill: result.bill, changeAmount: result.changeAmount }, { status: 201 });
   } catch (e: any) {
+    if (e instanceof ApiError) throw e;
     console.error("[PAYMENT_COLLECT_FAILED]", {
       endpoint: "/api/waiter/payments/collect",
       code: e?.code,
