@@ -5,6 +5,7 @@ import { validateBody, updateOrderStatusSchema, isValidCuid } from "@/lib/valida
 import { OrderStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
 import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
+import { openTable } from "@/lib/services/table-flow.service";
 
 // PUT /api/waiter/orders/[id]/status - Sipariş durumu güncelle
 export async function PUT(
@@ -130,39 +131,9 @@ export async function PUT(
 
     // ✅ PENDING -> ACCEPTED: TableSession ve Bill oluştur
     if (order.status === "PENDING" && status === "ACCEPTED") {
-      let tableSession = await prisma.tableSession.findFirst({
-        where: { tableId: order.tableId, businessId, status: "ACTIVE" },
-        include: { bill: true },
-      });
-
-      if (!tableSession) {
-        tableSession = await prisma.tableSession.create({
-          data: {
-            businessId,
-            tableId: order.tableId,
-            status: "ACTIVE",
-          },
-          include: { bill: true },
-        });
-
-        await prisma.bill.create({
-          data: {
-            businessId,
-            tableId: order.tableId,
-            tableSessionId: tableSession.id,
-            totalAmount: 0,
-            paidAmount: 0,
-            remainingAmount: 0,
-            paymentStatus: "UNPAID",
-            status: "OPEN",
-          },
-        });
-
-        tableSession = await prisma.tableSession.findFirst({
-          where: { id: tableSession.id },
-          include: { bill: true },
-        });
-      }
+      // Aktif oturum yoksa oturum + adisyon tek transaction'da açılır; eşzamanlı
+      // açılışta ikinci bir oturum oluşmaz, kazananınki döner
+      const { tableSession } = await openTable(order.tableId, businessId);
 
       if (tableSession) {
         await prisma.order.update({

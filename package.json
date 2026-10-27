@@ -12,6 +12,7 @@
     "lint:a11y": "eslint src --max-warnings=0",
     "test": "tsx scripts/test-tenant-isolation.ts",
     "test:security": "tsx scripts/test-tenant-isolation.ts",
+    "test:db": "tsx scripts/test-table-concurrency.ts",
     "audit:maturity": "node maturity-audit/tests/route-guards.mjs && node maturity-audit/tests/secret-scan.mjs && node maturity-audit/tests/seo-static.mjs && npm audit --omit=dev --omit=peer --audit-level=critical && tsc --noEmit",
     "audit:crawl": "node maturity-audit/tests/crawl.mjs",
     "db:generate": "prisma generate",
