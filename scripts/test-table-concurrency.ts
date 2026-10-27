@@ -101,7 +101,24 @@ async function runTests(businessId: string, tableId: string) {
     `oluşan: ${created}, P2002: ${uniqueViolations}`);
 }
 
+// Test kendi kayıtlarını yazıp siler; yalnız yerel/CI Postgres'te çalışır. DATABASE_URL
+// verilmezse Prisma .env'i (uzak geliştirme veritabanı) okur, oraya yazılmasın.
+function assertLocalDatabase() {
+  let host = "";
+  try {
+    host = new URL(process.env.DATABASE_URL ?? "").hostname;
+  } catch {
+    /* geçersiz ya da tanımsız */
+  }
+  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(host)) {
+    console.error(`❌ test:db yalnız yerel Postgres'te çalışır (DATABASE_URL host: ${host || "yok"}).`);
+    process.exit(2);
+  }
+}
+
 async function main() {
+  assertLocalDatabase();
+
   console.log("=================================================");
   console.log("🚀 Running Table Concurrency Tests (Postgres)");
   console.log("=================================================\n");

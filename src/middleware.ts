@@ -1,5 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import type { NextFetchEvent, NextRequest } from "next/server";
 import type { NextRequestWithAuth } from "next-auth/middleware";
 
 /**
@@ -91,10 +92,42 @@ function getAllowedOrigins(): string[] {
   return origins;
 }
 
-export default withAuth(
+// ─── Request Correlation (x-request-id) ─────────────────────────────────────
+// Kimlik her istekte sunucuda üretilir; istemcinin gönderdiği değer kullanılmaz (audit
+// kayıtları istemcinin seçtiği kimlikle karıştırılamasın). İsteğe de yazılır: route
+// handler'lar, withApiHandler ve createAuditLog aynı kimliği okur; yanıtta da döner.
+function correlate(req: NextRequest) {
+  const requestId = crypto.randomUUID();
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-request-id", requestId);
+  const withRequestId = (res: NextResponse) => {
+    res.headers.set("x-request-id", requestId);
+    return res;
+  };
+  return { requestHeaders, withRequestId };
+}
+
+/** İsteği korelasyon kimliğiyle iletir ve güvenlik başlıklarını ekler */
+function forward({ requestHeaders, withRequestId }: ReturnType<typeof correlate>) {
+  const response = withRequestId(NextResponse.next({ request: { headers: requestHeaders } }));
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains"
+    );
+  }
+  return response;
+}
+
+const authMiddleware = withAuth(
   function middleware(req: NextRequestWithAuth) {
     const pathname = req.nextUrl.pathname;
     const isApiRoute = pathname.startsWith("/api/");
+    const correlation = correlate(req);
+    const { withRequestId } = correlation;
 
     // ─── CSRF/Origin validation for staff API mutations ─────────────────
     if (isApiRoute && isStaffApi(pathname) && MUTATION_METHODS.includes(req.method)) {
@@ -105,9 +138,8 @@ export default withAuth(
       // If origin is present AND we have configured origins AND origin is not allowed → block
       // If origin is absent (same-origin requests from some browsers) → allow (safe with SameSite cookies)
       if (origin && allowedOrigins.length > 0 && !allowedOrigins.includes(origin)) {
-        return NextResponse.json(
-          { error: "Cross-origin mutation rejected." },
-          { status: 403 }
+        return withRequestId(
+          NextResponse.json({ error: "Cross-origin mutation rejected." }, { status: 403 })
         );
       }
 
@@ -118,28 +150,14 @@ export default withAuth(
         !contentType.includes("application/json") &&
         !contentType.includes("multipart/form-data")
       ) {
-        return NextResponse.json(
-          { error: "Invalid content type. JSON required." },
-          { status: 415 }
+        return withRequestId(
+          NextResponse.json({ error: "Invalid content type. JSON required." }, { status: 415 })
         );
       }
     }
 
-    // ─── Request Correlation (x-request-id) ───────────────────────────
-    const requestId = req.headers.get("x-request-id") || crypto.randomUUID();
-
     // ─── Security Headers (all matched routes) ──────────────────────────
-    const response = NextResponse.next();
-    response.headers.set("x-request-id", requestId);
-    response.headers.set("X-Frame-Options", "DENY");
-    response.headers.set("X-Content-Type-Options", "nosniff");
-    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-    if (process.env.NODE_ENV === "production") {
-      response.headers.set(
-        "Strict-Transport-Security",
-        "max-age=31536000; includeSubDomains"
-      );
-    }
+    const response = forward(correlation);
 
     // ─── API routes: no page-level auth redirects, just return ───────────
     if (isApiRoute) {
@@ -204,6 +222,16 @@ export default withAuth(
     },
   }
 );
+
+export default function middleware(req: NextRequestWithAuth, event: NextFetchEvent) {
+  // withAuth kendi taban yolundaki (/api/auth/*) istekleri yukarıdaki fonksiyonu çağırmadan
+  // geçiriyor; giriş denemeleri, kayıt ve davet uçları da kimlik ve güvenlik başlıkları alsın.
+  // Bu yollarda auth kontrolü yoktu ve yine yok; CSRF kuralı yalnız personel uçlarına uygulanır.
+  if (req.nextUrl.pathname.startsWith("/api/auth/")) {
+    return forward(correlate(req));
+  }
+  return authMiddleware(req, event);
+}
 
 export const config = {
   matcher: [

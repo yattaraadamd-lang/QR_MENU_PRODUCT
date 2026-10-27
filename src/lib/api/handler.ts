@@ -55,6 +55,7 @@ export function withApiHandler(
     try {
       return await handler(request);
     } catch (error) {
+      // Middleware'in ürettiği kimlik: yanıt başlığı, bu gövde, log ve audit kaydı aynı değeri taşır
       const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
 
       if (error instanceof ApiError) {
