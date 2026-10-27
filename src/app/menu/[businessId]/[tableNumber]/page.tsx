@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, use } from "react";
 import { v4 as uuidv4 } from "uuid";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
+import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -42,6 +43,14 @@ const foodTile = (id: string) =>
   FOOD_TILES[Array.from(id).reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % FOOD_TILES.length];
 
 type AuthStatus = "VIEW_ONLY" | "PENDING" | "AUTHORIZED" | "REVOKED" | "TABLE_ALREADY_CLAIMED";
+
+// ✅ PERF: Polling aralıkları — sekme gizliyken hepsi durur, görünür olunca hemen yenilenir
+// (useVisiblePolling). Önceki: menü 5 sn, aktif talepler 5 sn, adisyon 8 sn.
+const MENU_POLL_MS = 60_000; // If-None-Match ile; menü değişmediyse gövdesiz 304
+const PENDING_SYNC_MS = 3_000; // garson onayı bekleniyor: onay anı hızlı görünsün
+const ACTIVE_REQUESTS_POLL_MS = 5_000; // bekleyen talep varken
+const ACTIVE_REQUESTS_IDLE_POLL_MS = 15_000; // bekleyen talep yokken
+const LIVE_BILL_POLL_MS = 15_000;
 
 export default function CustomerMenuPage({ params }: { params: Promise<{ businessId: string; tableNumber: string }> }) {
   const resolvedParams = use(params);
@@ -87,6 +96,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   const authPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Guard: prevent multiple concurrent canonical sync requests
   const syncInFlightRef = useRef(false);
+  // Son menü yanıtının ETag'i — periyodik yenilemede If-None-Match olarak gönderilir
+  const menuEtagRef = useRef<string | null>(null);
+  // PENDING senkronu yanıt döndüğünde durum değişmişse sonucu yok sayar
+  const authStatusRef = useRef<AuthStatus>("VIEW_ONLY");
+  useEffect(() => {
+    authStatusRef.current = authStatus;
+  }, [authStatus]);
 
   const showToast = (msg: string, type: "ok" | "err" = "ok") => {
     setToast({ msg, type });
@@ -209,39 +225,27 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     []
   );
 
-  // ✅ PENDING durumunda canonical polling (1.5 s)
-  useEffect(() => {
-    if (authStatus !== "PENDING" || !sessionToken) return;
+  // ✅ PENDING durumunda canonical polling
+  const syncPendingStatus = useCallback(async () => {
+    if (!sessionToken || syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
+    try {
+      const result = await fetchCanonicalSessionStatus(sessionToken);
+      if (authStatusRef.current !== "PENDING") return;
 
-    let cancelled = false;
+      if (result.status === "AUTHORIZED") {
+        setAuthStatus("AUTHORIZED");
+        setVerificationCode(null);
+        setPendingRequestExpiresAt(null);
+        showToast("Masanız açıldı! Siparişinizi gönderebilirsiniz. ✅");
+      } else if (result.status === "REVOKED") {
+        setAuthStatus("REVOKED");
+      }
+    } catch { /* network error — next poll will retry */ }
+    finally { syncInFlightRef.current = false; }
+  }, [sessionToken, fetchCanonicalSessionStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const sync = async () => {
-      if (syncInFlightRef.current) return;
-      syncInFlightRef.current = true;
-      try {
-        const result = await fetchCanonicalSessionStatus(sessionToken);
-        if (cancelled) return;
-
-        if (result.status === "AUTHORIZED") {
-          setAuthStatus("AUTHORIZED");
-          setVerificationCode(null);
-          setPendingRequestExpiresAt(null);
-          showToast("Masanız açıldı! Siparişinizi gönderebilirsiniz. ✅");
-        } else if (result.status === "REVOKED") {
-          setAuthStatus("REVOKED");
-        }
-      } catch { /* network error — next poll will retry */ }
-      finally { syncInFlightRef.current = false; }
-    };
-
-    sync();
-    const timer = window.setInterval(sync, 3000); // ✅ PERF: 3sn (önceki: 1.5sn)
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [authStatus, sessionToken, fetchCanonicalSessionStatus]);
+  useVisiblePolling(syncPendingStatus, PENDING_SYNC_MS, authStatus === "PENDING" && !!sessionToken);
 
   // ✅ window focus / visibilitychange / online — anlık canonical sync
   useEffect(() => {
@@ -281,9 +285,18 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
 
   const fetchMenu = useCallback(async (initial = false) => {
     try {
-      const res = await fetch(`/api/menu/${resolvedParams.businessId}/${resolvedParams.tableNumber}`);
+      // ✅ PERF: Periyodik yenilemede son ETag gönderilir; menü değişmediyse sunucu gövdesiz
+      // 304 döner ve hiçbir state güncellenmez (gereksiz yeniden render da olmaz)
+      const headers: Record<string, string> = {};
+      if (!initial && menuEtagRef.current) headers["If-None-Match"] = menuEtagRef.current;
+      const res = await fetch(`/api/menu/${resolvedParams.businessId}/${resolvedParams.tableNumber}`, {
+        headers,
+        cache: "no-store",
+      });
+      if (res.status === 304) return;
       const data = await res.json();
       if (res.ok) {
+        menuEtagRef.current = res.headers.get("ETag");
         setBusiness(data.business);
         setTable(data.table);
         setCategories(data.categories || []);
@@ -370,7 +383,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   }, [resolvedParams.businessId, resolvedParams.tableNumber, ensureCustomerSession]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchMenu(true); }, [fetchMenu]);
-  useEffect(() => { const iv = setInterval(() => fetchMenu(false), 5000); return () => clearInterval(iv); }, [fetchMenu]);
+  // İlk yükleme yukarıda; burada yalnız periyodik ve sekme öne gelince yenileme
+  const refreshMenu = useCallback(() => fetchMenu(false), [fetchMenu]);
+  useVisiblePolling(refreshMenu, MENU_POLL_MS, true, false);
 
   const checkActiveRequests = useCallback(async () => {
     if (!table?.id || !business?.id) return;
@@ -397,13 +412,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     } catch { /* sessiz hata */ }
   }, [table?.id, business?.id, sessionToken]);
 
-  useEffect(() => {
-    if (table?.id && business?.id) {
-      checkActiveRequests();
-      const iv = setInterval(checkActiveRequests, 5000);
-      return () => clearInterval(iv);
-    }
-  }, [table?.id, business?.id, checkActiveRequests]);
+  // Bekleyen talep varken sonucu (garson gördü / tamamladı) hızlı göstermek için 5 sn, yokken 15 sn
+  const hasActiveRequest = Object.values(activeRequests).some(Boolean);
+  useVisiblePolling(
+    checkActiveRequests,
+    hasActiveRequest ? ACTIVE_REQUESTS_POLL_MS : ACTIVE_REQUESTS_IDLE_POLL_MS,
+    !!(table?.id && business?.id)
+  );
 
   // ✅ FAZ 4: Canlı adisyon barı — onaylanmış sipariş toplamını periyodik çek
   const fetchLiveBill = useCallback(async () => {
@@ -429,13 +444,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     } catch { /* sessiz */ }
   }, [sessionToken, authStatus]);
 
-  useEffect(() => {
-    if (authStatus === "AUTHORIZED" && sessionToken) {
-      fetchLiveBill();
-      const iv = setInterval(fetchLiveBill, 8000);
-      return () => clearInterval(iv);
-    }
-  }, [table?.id, business?.id, checkActiveRequests]);
+  // Önceki effect authStatus'a bağlı değildi: PENDING → AUTHORIZED geçişinde adisyon polling'i
+  // başka bir bağımlılık değişene kadar başlamıyordu
+  useVisiblePolling(fetchLiveBill, LIVE_BILL_POLL_MS, authStatus === "AUTHORIZED" && !!sessionToken);
 
   // ✅ IntersectionObserver
   useEffect(() => {
@@ -512,6 +523,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       showToast("Oturumunuz sonlanmış. Personelden yardım isteyin.", "err");
     } else {
       showToast(d.error || "Sipariş gönderilemedi", "err");
+      // Ürün stokta yok / kaldırılmış olabilir: menüyü 60 sn beklemeden yenile;
+      // fetchMenu sepetteki stoksuz ürünleri temizler
+      if (r.status === 400 || r.status === 404) void fetchMenu(false);
     }
     return false;
   };
