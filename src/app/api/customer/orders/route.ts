@@ -15,6 +15,9 @@ const CUSTOMER_TABLE_SELECT = { id: true, tableNumber: true, tableName: true } a
 // POST /api/customer/orders
 export const POST = withApiHandler("CUSTOMER_ORDER_CREATE", createOrder);
 
+// GET /api/customer/orders — canlı adisyon çubuğu (menü sayfası, yetkili oturumda 15 sn'de bir)
+export const GET = withApiHandler("CUSTOMER_LIVE_BILL", getLiveBill);
+
 async function createOrder(request: NextRequest) {
   // Kalem sayısı, adet, ürün id'si, not uzunlukları ve idempotency key biçimi şemada
   // doğrulanır; bozuk gövde / yanlış tip 400 olur (withApiHandler)
@@ -308,4 +311,51 @@ async function createOrder(request: NextRequest) {
     });
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });
   }
+}
+
+// 🔒 SECURITY: Kimlik istemciden alınmaz — adisyon oturumun kendi tableSessionId'siyle, siparişler
+// customerSession.id ile bulunur; başka masanın ya da cihazın verisi okunamaz. Yanıtta iç alanlar
+// (garson, idempotency key, stok güncelleme listesi, garsonun serbest metin iptal notu) yer almaz.
+async function getLiveBill(request: NextRequest) {
+  const sessionCheck = await validateAuthorizedTableSession(request);
+  if (!sessionCheck.ok) {
+    return NextResponse.json(
+      { error: sessionCheck.error, code: sessionCheck.code },
+      { status: sessionCheck.status }
+    );
+  }
+
+  const customerSession = sessionCheck.customerSession;
+
+  const [bill, orders] = await Promise.all([
+    // Masanın adisyonu: aynı masa oturumundaki tüm siparişleri (garsonun girdikleri dahil) kapsar
+    prisma.bill.findUnique({
+      where: { tableSessionId: customerSession.tableSessionId! },
+      select: {
+        totalAmount: true,
+        paidAmount: true,
+        remainingAmount: true,
+        paymentStatus: true,
+        status: true,
+      },
+    }),
+    // Yalnız bu cihazın oturumunun siparişleri
+    prisma.order.findMany({
+      where: { customerSessionId: customerSession.id, businessId: customerSession.businessId },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        status: true,
+        totalPrice: true,
+        note: true,
+        createdAt: true,
+        items: {
+          select: { productName: true, quantity: true, unitPrice: true, totalPrice: true, customerNote: true },
+        },
+      },
+    }),
+  ]);
+
+  return NextResponse.json({ bill, orders });
 }

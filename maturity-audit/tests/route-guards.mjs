@@ -26,7 +26,7 @@ const PUBLIC_ROUTES = {
   "/api/customer/session": "müşteri oturumu açma (QR token + rate limit)",
   "/api/customer/session/status": "müşteri oturum durumu (cihaz çerezi)",
   "/api/customer/active-requests": "müşteri talepleri (cihaz çerezi)",
-  "/api/customer/orders": "müşteri sipariş talebi (cihaz çerezi + rate limit)",
+  "/api/customer/orders": "müşteri siparişi (POST, rate limit) ve canlı adisyon (GET); ikisi de yetkili masa oturumu ister (validateAuthorizedTableSession)",
   "/api/customer/payment-requests": "müşteri ödeme talebi (cihaz çerezi + rate limit)",
   "/api/customer/service-requests": "müşteri garson çağırma (cihaz çerezi + rate limit)",
   "/api/tables/[tableId]/session": "kaldırıldı; her metot 410 döner",
