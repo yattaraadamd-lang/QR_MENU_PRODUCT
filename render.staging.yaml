@@ -47,4 +47,4 @@ services:
       - key: IYZICO_BASE_URL
         value: https://sandbox-api.iyzipay.com
         # Staging'de ASLA canlı iyzico adresi kullanılmaz
-    healthCheckPath: /api/health
+    healthCheckPath: /api/health/live
