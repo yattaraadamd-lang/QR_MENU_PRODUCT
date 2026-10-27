@@ -1,268 +1,252 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
-import { validateBody, updateOrderStatusSchema, isValidCuid } from "@/lib/validation";
+import { updateOrderStatusRequestSchema, isValidCuid } from "@/lib/validation";
 import { OrderStatus, TableStatus } from "@prisma/client";
 import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
 import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
 import { openTable } from "@/lib/services/table-flow.service";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
 
 // PUT /api/waiter/orders/[id]/status - Sipariş durumu güncelle
-export async function PUT(
+export const PUT = withApiHandler("PUT /api/waiter/orders/[id]/status", handlePut);
+
+async function handlePut(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const params = await context.params;
-    
-    // ✅ Authentication (Waiter or Admin)
-    const authResult = await requireAuth();
-    if (!authResult.success) return authResult.response;
+  const params = await context.params;
+  
+  // ✅ Authentication (Waiter or Admin)
+  const authResult = await requireAuth();
+  if (!authResult.success) return authResult.response;
 
-    // ✅ Verify role
-    if (!["WAITER", "ADMIN", "SUPER_ADMIN"].includes(authResult.session.role)) {
-      return NextResponse.json(
-        { error: "Bu işlem için garson veya admin yetkisi gereklidir" },
-        { status: 403 }
-      );
-    }
-
-    const businessId = getBusinessIdFromSession(authResult.session);
-
-    // ✅ Validate order ID
-    if (!isValidCuid(params.id)) {
-      return NextResponse.json(
-        { error: "Geçersiz sipariş ID formatı" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ Validate request body
-    // Frontend 'cancelReason' veya 'cancellationReason' gönderebilir — ikisini de destekle
-    const rawBody = await request.json();
-    const normalizedBody = {
-      ...rawBody,
-      cancellationReason:
-        rawBody.cancellationReason ?? rawBody.cancelReason ?? null,
-    };
-
-    const validation = validateBody(updateOrderStatusSchema, normalizedBody);
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
-
-    const status = validation.data.status as OrderStatus;
-    const cancellationReason = validation.data.cancellationReason;
-    const reasonCode = validation.data.reasonCode;
-    const outOfStockProductIds = validation.data.outOfStockProductIds;
-
-    // ═══════════════════════════════════════════════════════════════════
-    // İPTAL / RED → Merkezi servise delege et
-    // ═══════════════════════════════════════════════════════════════════
-    if (status === "CANCELLED" || status === "REJECTED") {
-      try {
-        const result = await cancelOrderAndSyncState({
-          orderId: params.id,
-          businessId,
-          actorId: authResult.session.userId,
-          actorRole: authResult.session.role as "WAITER" | "ADMIN" | "SUPER_ADMIN",
-          targetStatus: status,
-          reasonCode: reasonCode || null,
-          reasonText: cancellationReason || null,
-          outOfStockProductIds: outOfStockProductIds || null,
-        });
-
-        return NextResponse.json({
-          message: status === "REJECTED" ? "Sipariş reddedildi" : "Sipariş iptal edildi",
-          order: result.order,
-          tableStatus: result.tableStatus,
-          stockUpdatedProductIds: result.stockUpdatedProductIds,
-        });
-      } catch (error) {
-        if (error instanceof OrderCancellationError) {
-          return NextResponse.json(
-            { error: error.message, code: error.code },
-            { status: error.statusCode }
-          );
-        }
-        throw error;
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // NORMAL DURUM GÜNCELLEMELERİ (ACCEPTED, PREPARING, SERVED)
-    // ═══════════════════════════════════════════════════════════════════
-
-    // ✅ Verify order ownership
-    const order = await prisma.order.findFirst({
-      where: { id: params.id, businessId },
-      select: {
-        id: true,
-        tableId: true,
-        tableSessionId: true,
-        totalPrice: true,
-        status: true,
-        table: {
-          select: {
-            id: true,
-            tableNumber: true,
-            tableName: true,
-          },
-        },
-      },
-    });
-
-    if (!order) {
-      return NextResponse.json(
-        { error: "Sipariş bulunamadı" },
-        { status: 404 }
-      );
-    }
-
-    // ✅ Zaten tamamlanmış veya iptal edilmiş sipariş tekrar değiştirilemez
-    if (["SERVED", "CANCELLED", "REJECTED"].includes(order.status)) {
-      return NextResponse.json(
-        {
-          error: `Bu sipariş zaten "${order.status}" durumunda. Değiştirilemez.`,
-        },
-        { status: 409 }
-      );
-    }
-
-    // ✅ PENDING -> ACCEPTED: TableSession ve Bill oluştur
-    if (order.status === "PENDING" && status === "ACCEPTED") {
-      // Aktif oturum yoksa oturum + adisyon tek transaction'da açılır; eşzamanlı
-      // açılışta ikinci bir oturum oluşmaz, kazananınki döner
-      const { tableSession } = await openTable(order.tableId, businessId);
-
-      if (tableSession) {
-        await prisma.order.update({
-          where: { id: params.id },
-          data: { tableSessionId: tableSession.id },
-        });
-
-        if (tableSession.bill) {
-          // ✅ Kümülatif toplama YOK — her zaman DB'den sıfırdan hesapla
-          const sessionOrders = await prisma.order.findMany({
-            where: {
-              tableSessionId: tableSession.id,
-              status: { notIn: ["CANCELLED", "REJECTED"] },
-            },
-            select: { totalPrice: true },
-          });
-          const newTotal = sessionOrders.reduce(
-            (sum, o) => sum + Number(o.totalPrice),
-            0
-          );
-          const remaining = Math.max(
-            0,
-            newTotal - Number(tableSession.bill.paidAmount)
-          );
-
-          await prisma.bill.update({
-            where: { id: tableSession.bill.id },
-            data: {
-              totalAmount: newTotal,
-              remainingAmount: remaining,
-            },
-          });
-        }
-      }
-
-    }
-
-    // ✅ Build update data
-    const updateData: any = {
-      status,
-      waiterId: authResult.session.userId,
-    };
-
-    // ✅ Update order
-    const updatedOrder = await prisma.order.update({
-      where: { id: params.id },
-      data: updateData,
-      select: {
-        id: true,
-        totalPrice: true,
-        status: true,
-        note: true,
-        cancelReason: true,
-        createdAt: true,
-        items: {
-          select: {
-            id: true,
-            productName: true,
-            quantity: true,
-            unitPrice: true,
-            totalPrice: true,
-          },
-        },
-        table: {
-          select: {
-            tableNumber: true,
-            tableName: true,
-          },
-        },
-      },
-    });
-
-    // ✅ Diğer aktif siparişleri kontrol et (tableSessionId bazlı)
-    const sessionIdForQuery = order.tableSessionId;
-    const otherActiveOrders = sessionIdForQuery
-      ? await prisma.order.count({
-          where: {
-            tableSessionId: sessionIdForQuery,
-            id: { not: params.id },
-            status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
-          },
-        })
-      : 0;
-
-    let newTableStatus: TableStatus | null = null;
-
-    if (status === "ACCEPTED") {
-      newTableStatus = TableStatus.HAS_ORDER;
-    } else if (status === "PREPARING") {
-      newTableStatus = TableStatus.PREPARING;
-    } else if (status === "SERVED") {
-      if (otherActiveOrders === 0) {
-        newTableStatus = TableStatus.SERVED;
-      }
-    }
-
-    if (newTableStatus) {
-      await prisma.table.update({
-        where: { id: order.tableId },
-        data: { status: newTableStatus },
-      });
-    }
-
-    // ✅ Socket.IO notification
-    try {
-      emitToBusinessRoom(businessId, SOCKET_EVENTS.ORDER_STATUS_UPDATE, {
-        orderId: order.id,
-        tableNumber: order.table.tableNumber,
-        tableName: order.table.tableName,
-        status,
-        tableStatus: newTableStatus,
-        message: `${
-          order.table.tableName || "Masa " + order.table.tableNumber
-        } sipariş durumu: ${status}`,
-      });
-    } catch (e) {
-      console.log("Socket emit hatası:", e);
-    }
-
-    return NextResponse.json({
-      message: "Sipariş durumu güncellendi",
-      order: updatedOrder,
-    });
-  } catch (error) {
-    console.error("Sipariş güncelleme hatası:", error);
-
+  // ✅ Verify role
+  if (!["WAITER", "ADMIN", "SUPER_ADMIN"].includes(authResult.session.role)) {
     return NextResponse.json(
-      { error: "Sipariş güncellenirken bir hata oluştu" },
-      { status: 500 }
+      { error: "Bu işlem için garson veya admin yetkisi gereklidir" },
+      { status: 403 }
     );
   }
+
+  const businessId = getBusinessIdFromSession(authResult.session);
+
+  // ✅ Validate order ID
+  if (!isValidCuid(params.id)) {
+    return NextResponse.json(
+      { error: "Geçersiz sipariş ID formatı" },
+      { status: 400 }
+    );
+  }
+
+  // ✅ Validate request body
+  // Frontend 'cancelReason' veya 'cancellationReason' gönderebilir — şema ikisini de kabul eder
+  const input = await parseJson(request, updateOrderStatusRequestSchema);
+
+  const status = input.status as OrderStatus;
+  const cancellationReason = input.cancellationReason;
+  const reasonCode = input.reasonCode;
+  const outOfStockProductIds = input.outOfStockProductIds;
+
+  // ═══════════════════════════════════════════════════════════════════
+  // İPTAL / RED → Merkezi servise delege et
+  // ═══════════════════════════════════════════════════════════════════
+  if (status === "CANCELLED" || status === "REJECTED") {
+    try {
+      const result = await cancelOrderAndSyncState({
+        orderId: params.id,
+        businessId,
+        actorId: authResult.session.userId,
+        actorRole: authResult.session.role as "WAITER" | "ADMIN" | "SUPER_ADMIN",
+        targetStatus: status,
+        reasonCode: reasonCode || null,
+        reasonText: cancellationReason || null,
+        outOfStockProductIds: outOfStockProductIds || null,
+      });
+
+      return NextResponse.json({
+        message: status === "REJECTED" ? "Sipariş reddedildi" : "Sipariş iptal edildi",
+        order: result.order,
+        tableStatus: result.tableStatus,
+        stockUpdatedProductIds: result.stockUpdatedProductIds,
+      });
+    } catch (error) {
+      if (error instanceof OrderCancellationError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.statusCode }
+        );
+      }
+      throw error;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // NORMAL DURUM GÜNCELLEMELERİ (ACCEPTED, PREPARING, SERVED)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ✅ Verify order ownership
+  const order = await prisma.order.findFirst({
+    where: { id: params.id, businessId },
+    select: {
+      id: true,
+      tableId: true,
+      tableSessionId: true,
+      totalPrice: true,
+      status: true,
+      table: {
+        select: {
+          id: true,
+          tableNumber: true,
+          tableName: true,
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    return NextResponse.json(
+      { error: "Sipariş bulunamadı" },
+      { status: 404 }
+    );
+  }
+
+  // ✅ Zaten tamamlanmış veya iptal edilmiş sipariş tekrar değiştirilemez
+  if (["SERVED", "CANCELLED", "REJECTED"].includes(order.status)) {
+    return NextResponse.json(
+      {
+        error: `Bu sipariş zaten "${order.status}" durumunda. Değiştirilemez.`,
+      },
+      { status: 409 }
+    );
+  }
+
+  // ✅ PENDING -> ACCEPTED: TableSession ve Bill oluştur
+  if (order.status === "PENDING" && status === "ACCEPTED") {
+    // Aktif oturum yoksa oturum + adisyon tek transaction'da açılır; eşzamanlı
+    // açılışta ikinci bir oturum oluşmaz, kazananınki döner
+    const { tableSession } = await openTable(order.tableId, businessId);
+
+    if (tableSession) {
+      await prisma.order.update({
+        where: { id: params.id },
+        data: { tableSessionId: tableSession.id },
+      });
+
+      if (tableSession.bill) {
+        // ✅ Kümülatif toplama YOK — her zaman DB'den sıfırdan hesapla
+        const sessionOrders = await prisma.order.findMany({
+          where: {
+            tableSessionId: tableSession.id,
+            status: { notIn: ["CANCELLED", "REJECTED"] },
+          },
+          select: { totalPrice: true },
+        });
+        const newTotal = sessionOrders.reduce(
+          (sum, o) => sum + Number(o.totalPrice),
+          0
+        );
+        const remaining = Math.max(
+          0,
+          newTotal - Number(tableSession.bill.paidAmount)
+        );
+
+        await prisma.bill.update({
+          where: { id: tableSession.bill.id },
+          data: {
+            totalAmount: newTotal,
+            remainingAmount: remaining,
+          },
+        });
+      }
+    }
+
+  }
+
+  // ✅ Build update data
+  const updateData: any = {
+    status,
+    waiterId: authResult.session.userId,
+  };
+
+  // ✅ Update order
+  const updatedOrder = await prisma.order.update({
+    where: { id: params.id },
+    data: updateData,
+    select: {
+      id: true,
+      totalPrice: true,
+      status: true,
+      note: true,
+      cancelReason: true,
+      createdAt: true,
+      items: {
+        select: {
+          id: true,
+          productName: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+        },
+      },
+      table: {
+        select: {
+          tableNumber: true,
+          tableName: true,
+        },
+      },
+    },
+  });
+
+  // ✅ Diğer aktif siparişleri kontrol et (tableSessionId bazlı)
+  const sessionIdForQuery = order.tableSessionId;
+  const otherActiveOrders = sessionIdForQuery
+    ? await prisma.order.count({
+        where: {
+          tableSessionId: sessionIdForQuery,
+          id: { not: params.id },
+          status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
+        },
+      })
+    : 0;
+
+  let newTableStatus: TableStatus | null = null;
+
+  if (status === "ACCEPTED") {
+    newTableStatus = TableStatus.HAS_ORDER;
+  } else if (status === "PREPARING") {
+    newTableStatus = TableStatus.PREPARING;
+  } else if (status === "SERVED") {
+    if (otherActiveOrders === 0) {
+      newTableStatus = TableStatus.SERVED;
+    }
+  }
+
+  if (newTableStatus) {
+    await prisma.table.update({
+      where: { id: order.tableId },
+      data: { status: newTableStatus },
+    });
+  }
+
+  // ✅ Socket.IO notification
+  try {
+    emitToBusinessRoom(businessId, SOCKET_EVENTS.ORDER_STATUS_UPDATE, {
+      orderId: order.id,
+      tableNumber: order.table.tableNumber,
+      tableName: order.table.tableName,
+      status,
+      tableStatus: newTableStatus,
+      message: `${
+        order.table.tableName || "Masa " + order.table.tableNumber
+      } sipariş durumu: ${status}`,
+    });
+  } catch (e) {
+    console.log("Socket emit hatası:", e);
+  }
+
+  return NextResponse.json({
+    message: "Sipariş durumu güncellendi",
+    order: updatedOrder,
+  });
 }

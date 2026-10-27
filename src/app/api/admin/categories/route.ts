@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
-import { validateBody, createCategorySchema } from "@/lib/validation";
+import { createCategorySchema } from "@/lib/validation";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -40,47 +41,34 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/admin/categories - Kategori oluştur
-export async function POST(request: NextRequest) {
-  try {
-    const authResult = await requireAdmin();
-    if (!authResult.success) return authResult.response;
+export const POST = withApiHandler("POST /api/admin/categories", handlePost);
 
-    const businessId = getBusinessIdFromSession(authResult.session);
-    const body = await request.json();
+async function handlePost(request: NextRequest) {
+  const authResult = await requireAdmin();
+  if (!authResult.success) return authResult.response;
 
-    // Validation
-    const validation = validateBody(createCategorySchema, body);
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      );
-    }
+  const businessId = getBusinessIdFromSession(authResult.session);
 
-    const category = await prisma.category.create({
-      data: {
-        businessId,
-        ...validation.data,
-      },
-      select: {
-        id: true,
-        name: true,
-        icon: true,
-        sortOrder: true,
-        isActive: true,
-        createdAt: true,
-      },
-    });
+  // Validation
+  const input = await parseJson(request, createCategorySchema);
 
-    return NextResponse.json(
-      { message: "Kategori oluşturuldu", category },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Kategori oluşturma hatası:", error);
-    return NextResponse.json(
-      { error: "Kategori oluşturulurken bir hata oluştu" },
-      { status: 500 }
-    );
-  }
+  const category = await prisma.category.create({
+    data: {
+      businessId,
+      ...input,
+    },
+    select: {
+      id: true,
+      name: true,
+      icon: true,
+      sortOrder: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+
+  return NextResponse.json(
+    { message: "Kategori oluşturuldu", category },
+    { status: 201 }
+  );
 }

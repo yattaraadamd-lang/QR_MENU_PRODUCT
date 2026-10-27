@@ -4,6 +4,7 @@ import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import { generateInviteCode, hashInviteCode, buildInviteUrl, INVITE_TTL_MS } from "@/lib/invite";
+import { withApiHandler } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -54,132 +55,120 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/admin/waiter-invites - Davet kodu oluştur
-export async function POST(request: NextRequest) {
-  try {
-    const { error, response, session } = await requireAdmin();
-    if (error) return response!;
+export const POST = withApiHandler("POST /api/admin/waiter-invites", handlePost);
 
-    const businessId = getBusinessId(session);
+async function handlePost(request: NextRequest) {
+  const { error, response, session } = await requireAdmin();
+  if (error) return response!;
 
-    // 🔒 Plan Quota Enforcement
-    const quotaCheck = await checkPlanQuota(businessId, "WAITER");
-    if (!quotaCheck.allowed) {
-      return NextResponse.json(
-        { error: quotaCheck.error || "Garson davet etme paket limitine ulaşıldı." },
-        { status: 403 }
-      );
-    }
+  const businessId = getBusinessId(session);
 
-    // ✅ SECURITY: 128-bit CSPRNG kod; sadece hash saklanır
-    const rawCode = generateInviteCode();
-    
-    // ✅ Store ONLY the hash in database
-    const codeHash = hashInviteCode(rawCode);
-
-    // ✅ Mandatory expiry (7 days from now)
-    const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-
-    // ✅ Create invite with secure defaults
-    const invite = await prisma.waiterInvite.create({
-      data: {
-        businessId,
-        inviteCode: codeHash, // ✅ Hash stored, not raw code
-        isUsed: false,
-        expiresAt,
-      },
-      select: {
-        id: true,
-        expiresAt: true,
-        createdAt: true,
-        isUsed: true,
-      },
-    });
-
-    createAuditLog({
-      businessId,
-      actorUserId: session!.user.id,
-      actorRole: session!.user.role,
-      action: AuditActions.INVITE_CREATED,
-      entityType: "WaiterInvite",
-      entityId: invite.id,
-    });
-
+  // 🔒 Plan Quota Enforcement
+  const quotaCheck = await checkPlanQuota(businessId, "WAITER");
+  if (!quotaCheck.allowed) {
     return NextResponse.json(
-      {
-        message: "Davet linki oluşturuldu",
-        invite: {
-          ...invite,
-          inviteCode: rawCode, // ✅ RAW code returned ONLY here, ONCE
-          inviteUrl: buildInviteUrl(rawCode, request.nextUrl.origin),
-        },
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Davet kodu oluşturma hatası:", error);
-    return NextResponse.json(
-      { error: "Davet kodu oluşturulurken bir hata oluştu" },
-      { status: 500 }
+      { error: quotaCheck.error || "Garson davet etme paket limitine ulaşıldı." },
+      { status: 403 }
     );
   }
+
+  // ✅ SECURITY: 128-bit CSPRNG kod; sadece hash saklanır
+  const rawCode = generateInviteCode();
+  
+  // ✅ Store ONLY the hash in database
+  const codeHash = hashInviteCode(rawCode);
+
+  // ✅ Mandatory expiry (7 days from now)
+  const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
+
+  // ✅ Create invite with secure defaults
+  const invite = await prisma.waiterInvite.create({
+    data: {
+      businessId,
+      inviteCode: codeHash, // ✅ Hash stored, not raw code
+      isUsed: false,
+      expiresAt,
+    },
+    select: {
+      id: true,
+      expiresAt: true,
+      createdAt: true,
+      isUsed: true,
+    },
+  });
+
+  createAuditLog({
+    businessId,
+    actorUserId: session!.user.id,
+    actorRole: session!.user.role,
+    action: AuditActions.INVITE_CREATED,
+    entityType: "WaiterInvite",
+    entityId: invite.id,
+  });
+
+  return NextResponse.json(
+    {
+      message: "Davet linki oluşturuldu",
+      invite: {
+        ...invite,
+        inviteCode: rawCode, // ✅ RAW code returned ONLY here, ONCE
+        inviteUrl: buildInviteUrl(rawCode, request.nextUrl.origin),
+      },
+    },
+    { status: 201 }
+  );
 }
 
 // DELETE /api/admin/waiter-invites - Davet kodunu sil
-export async function DELETE(request: NextRequest) {
-  try {
-    const { error, response, session } = await requireAdmin();
-    if (error) return response!;
+export const DELETE = withApiHandler("DELETE /api/admin/waiter-invites", handleDelete);
 
-    const businessId = getBusinessId(session);
-    
-    // Get invite ID from query params
-    const { searchParams } = new URL(request.url);
-    const inviteId = searchParams.get("id");
+async function handleDelete(request: NextRequest) {
+  const { error, response, session } = await requireAdmin();
+  if (error) return response!;
 
-    if (!inviteId) {
-      return NextResponse.json(
-        { error: "Davet kodu ID'si gereklidir" },
-        { status: 400 }
-      );
-    }
+  const businessId = getBusinessId(session);
+  
+  // Get invite ID from query params
+  const { searchParams } = new URL(request.url);
+  const inviteId = searchParams.get("id");
 
-    // ✅ SECURITY: Verify invite belongs to this business before deleting
-    const invite = await prisma.waiterInvite.findFirst({
-      where: {
-        id: inviteId,
-        businessId, // ✅ Tenant isolation
-      },
-    });
-
-    if (!invite) {
-      return NextResponse.json(
-        { error: "Davet kodu bulunamadı veya bu işletmeye ait değil" },
-        { status: 404 }
-      );
-    }
-
-    // ✅ Prevent deletion of used invites (optional - comment out if you want to allow)
-    if (invite.isUsed) {
-      return NextResponse.json(
-        { error: "Kullanılmış davet kodu silinemez" },
-        { status: 400 }
-      );
-    }
-
-    // Delete the invite
-    await prisma.waiterInvite.delete({
-      where: { id: inviteId },
-    });
-
+  if (!inviteId) {
     return NextResponse.json(
-      { message: "Davet kodu silindi" },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Davet kodu silme hatası:", error);
-    return NextResponse.json(
-      { error: "Davet kodu silinirken bir hata oluştu" },
-      { status: 500 }
+      { error: "Davet kodu ID'si gereklidir" },
+      { status: 400 }
     );
   }
+
+  // ✅ SECURITY: Verify invite belongs to this business before deleting
+  const invite = await prisma.waiterInvite.findFirst({
+    where: {
+      id: inviteId,
+      businessId, // ✅ Tenant isolation
+    },
+  });
+
+  if (!invite) {
+    return NextResponse.json(
+      { error: "Davet kodu bulunamadı veya bu işletmeye ait değil" },
+      { status: 404 }
+    );
+  }
+
+  // ✅ Prevent deletion of used invites (optional - comment out if you want to allow)
+  if (invite.isUsed) {
+    return NextResponse.json(
+      { error: "Kullanılmış davet kodu silinemez" },
+      { status: 400 }
+    );
+  }
+
+  // Delete the invite
+  await prisma.waiterInvite.delete({
+    where: { id: inviteId },
+  });
+
+  return NextResponse.json(
+    { message: "Davet kodu silindi" },
+    { status: 200 }
+  );
 }

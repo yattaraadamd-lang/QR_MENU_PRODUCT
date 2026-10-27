@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
-import { validateBody } from "@/lib/validation";
 import {
   initializeSubscriptionCheckout,
   isIyzicoConfigured,
   signCallbackState,
   IyzicoError,
 } from "@/lib/iyzico";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,9 @@ const checkoutSchema = z.object({
 });
 
 // POST /api/admin/billing/checkout — iyzico abonelik ödeme formunu başlatır
-export async function POST(request: NextRequest) {
+export const POST = withApiHandler("POST /api/admin/billing/checkout", handlePost);
+
+async function handlePost(request: NextRequest) {
   try {
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;
@@ -35,11 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const businessId = getBusinessIdFromSession(authResult.session);
-    const validation = validateBody(checkoutSchema, await request.json());
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
-    const { planCode, customer } = validation.data;
+    const { planCode, customer } = await parseJson(request, checkoutSchema);
 
     const plan = await prisma.subscriptionPlan.findFirst({
       where: { code: planCode, isActive: true },
@@ -72,6 +70,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ checkoutFormContent: result.checkoutFormContent, token: result.token });
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     if (error instanceof IyzicoError) {
       console.error("iyzico checkout hatası:", error.errorCode, error.message);
       return NextResponse.json({ error: `Ödeme başlatılamadı: ${error.message}` }, { status: 502 });

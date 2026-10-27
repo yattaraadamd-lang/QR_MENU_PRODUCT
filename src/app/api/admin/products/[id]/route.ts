@@ -5,191 +5,173 @@ import {
   getBusinessIdFromSession,
   verifyResourceOwnership,
 } from "@/lib/tenant";
-import { validateBody, updateProductSchema } from "@/lib/validation";
+import { updateProductSchema } from "@/lib/validation";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
 
 // PUT /api/admin/products/[id] - Ürün güncelle
-export async function PUT(
+export const PUT = withApiHandler("PUT /api/admin/products/[id]", handlePut);
+
+async function handlePut(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const params = await context.params;
-    
-    // ✅ Authentication & Authorization
-    const authResult = await requireAdmin();
-    if (!authResult.success) return authResult.response;
+  const params = await context.params;
+  
+  // ✅ Authentication & Authorization
+  const authResult = await requireAdmin();
+  if (!authResult.success) return authResult.response;
 
-    const businessId = getBusinessIdFromSession(authResult.session);
+  const businessId = getBusinessIdFromSession(authResult.session);
 
-    // ✅ Validate product ID
-    // Demo/string ID'leri de kabul eder: prod-turk-kahvesi
-    const isValidProductId = /^[a-zA-Z0-9_-]+$/.test(params.id);
+  // ✅ Validate product ID
+  // Demo/string ID'leri de kabul eder: prod-turk-kahvesi
+  const isValidProductId = /^[a-zA-Z0-9_-]+$/.test(params.id);
 
-    if (!isValidProductId) {
+  if (!isValidProductId) {
+    return NextResponse.json(
+      { error: "Geçersiz ürün ID formatı" },
+      { status: 400 }
+    );
+  }
+
+  // ✅ Validate request body
+  const input = await parseJson(request, updateProductSchema);
+
+  // ✅ Verify product ownership
+  const existing = await prisma.product.findFirst({
+    where: {
+      id: params.id,
+      businessId,
+      isDeleted: false,
+    },
+    select: {
+      id: true,
+      categoryId: true,
+    },
+  });
+
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Ürün bulunamadı" },
+      { status: 404 }
+    );
+  }
+
+  // ✅ If categoryId is being changed, verify new category ownership
+  if (
+    input.categoryId &&
+    input.categoryId !== existing.categoryId
+  ) {
+    const categoryOwned = await verifyResourceOwnership(
+      "category",
+      input.categoryId,
+      businessId
+    );
+
+    if (!categoryOwned) {
       return NextResponse.json(
-        { error: "Geçersiz ürün ID formatı" },
+        { error: "Geçersiz kategori" },
         { status: 400 }
       );
     }
+  }
 
-    // ✅ Validate request body
-    const body = await request.json();
-    const validation = validateBody(updateProductSchema, body);
+  // ✅ Boş string alanları temizle (categoryId, allergens, ingredients "" → null)
+  const updateData: any = { ...input };
+  if (updateData.categoryId === "") updateData.categoryId = null;
+  if (updateData.allergens === "") updateData.allergens = null;
+  if (updateData.ingredients === "") updateData.ingredients = null;
 
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
-
-    // ✅ Verify product ownership
-    const existing = await prisma.product.findFirst({
-      where: {
-        id: params.id,
-        businessId,
-        isDeleted: false,
-      },
-      select: {
-        id: true,
-        categoryId: true,
-      },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Ürün bulunamadı" },
-        { status: 404 }
-      );
-    }
-
-    // ✅ If categoryId is being changed, verify new category ownership
-    if (
-      validation.data.categoryId &&
-      validation.data.categoryId !== existing.categoryId
-    ) {
-      const categoryOwned = await verifyResourceOwnership(
-        "category",
-        validation.data.categoryId,
-        businessId
-      );
-
-      if (!categoryOwned) {
-        return NextResponse.json(
-          { error: "Geçersiz kategori" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // ✅ Boş string alanları temizle (categoryId, allergens, ingredients "" → null)
-    const updateData: any = { ...validation.data };
-    if (updateData.categoryId === "") updateData.categoryId = null;
-    if (updateData.allergens === "") updateData.allergens = null;
-    if (updateData.ingredients === "") updateData.ingredients = null;
-
-    // ✅ Update product with validated data
-    const product = await prisma.product.update({
-      where: {
-        id: params.id,
-      },
-      data: updateData,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        image: true,
-        isAvailable: true,
-        isPopular: true,
-        sortOrder: true,
-        stockStatus: true,
-        allergens: true,
-        ingredients: true,
-        category: {
-          select: {
-            id: true,
-            name: true,
-          },
+  // ✅ Update product with validated data
+  const product = await prisma.product.update({
+    where: {
+      id: params.id,
+    },
+    data: updateData,
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      price: true,
+      image: true,
+      isAvailable: true,
+      isPopular: true,
+      sortOrder: true,
+      stockStatus: true,
+      allergens: true,
+      ingredients: true,
+      category: {
+        select: {
+          id: true,
+          name: true,
         },
       },
-    });
+    },
+  });
 
-    return NextResponse.json({
-      message: "Ürün güncellendi",
-      product,
-    });
-  } catch (error) {
-    console.error("Ürün güncelleme hatası:", error);
-
-    return NextResponse.json(
-      { error: "Ürün güncellenirken bir hata oluştu" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    message: "Ürün güncellendi",
+    product,
+  });
 }
 
 // DELETE /api/admin/products/[id] - Ürün sil (soft-delete)
-export async function DELETE(
+export const DELETE = withApiHandler("DELETE /api/admin/products/[id]", handleDelete);
+
+async function handleDelete(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const params = await context.params;
-    // ✅ Authentication & Authorization
-    const authResult = await requireAdmin();
-    if (!authResult.success) return authResult.response;
+  const params = await context.params;
+  // ✅ Authentication & Authorization
+  const authResult = await requireAdmin();
+  if (!authResult.success) return authResult.response;
 
-    const businessId = getBusinessIdFromSession(authResult.session);
+  const businessId = getBusinessIdFromSession(authResult.session);
 
-    // ✅ Validate product ID
-    // Demo/string ID'leri de kabul eder: prod-turk-kahvesi
-    const isValidProductId = /^[a-zA-Z0-9_-]+$/.test(params.id);
+  // ✅ Validate product ID
+  // Demo/string ID'leri de kabul eder: prod-turk-kahvesi
+  const isValidProductId = /^[a-zA-Z0-9_-]+$/.test(params.id);
 
-    if (!isValidProductId) {
-      return NextResponse.json(
-        { error: "Geçersiz ürün ID formatı" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ Verify product ownership
-    const existing = await prisma.product.findFirst({
-      where: {
-        id: params.id,
-        businessId,
-        isDeleted: false,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Ürün bulunamadı" },
-        { status: 404 }
-      );
-    }
-
-    // ✅ Soft-delete: fiziksel silme yerine işaretle
-    await prisma.product.update({
-      where: {
-        id: params.id,
-      },
-      data: {
-        isDeleted: true,
-        deletedAt: new Date(),
-        isAvailable: false,
-      },
-    });
-
-    return NextResponse.json({
-      message: "Ürün silindi",
-    });
-  } catch (error) {
-    console.error("Ürün silme hatası:", error);
-
+  if (!isValidProductId) {
     return NextResponse.json(
-      { error: "Ürün silinirken bir hata oluştu" },
-      { status: 500 }
+      { error: "Geçersiz ürün ID formatı" },
+      { status: 400 }
     );
   }
+
+  // ✅ Verify product ownership
+  const existing = await prisma.product.findFirst({
+    where: {
+      id: params.id,
+      businessId,
+      isDeleted: false,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Ürün bulunamadı" },
+      { status: 404 }
+    );
+  }
+
+  // ✅ Soft-delete: fiziksel silme yerine işaretle
+  await prisma.product.update({
+    where: {
+      id: params.id,
+    },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      isAvailable: false,
+    },
+  });
+
+  return NextResponse.json({
+    message: "Ürün silindi",
+  });
 }

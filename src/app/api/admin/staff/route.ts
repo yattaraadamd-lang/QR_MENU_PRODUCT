@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
-import { validateBody, createStaffSchema } from "@/lib/validation";
+import { createStaffSchema } from "@/lib/validation";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
 import { createAuditLog, auditRequestContext, AuditActions } from "@/lib/services/audit-log.service";
 import bcrypt from "bcryptjs";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -48,89 +49,78 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/admin/staff - Yeni garson ekle
-export async function POST(request: NextRequest) {
-  try {
-    // ✅ Authentication & Authorization
-    const authResult = await requireAdmin();
-    if (!authResult.success) return authResult.response;
+export const POST = withApiHandler("POST /api/admin/staff", handlePost);
 
-    const businessId = getBusinessIdFromSession(authResult.session);
+async function handlePost(request: NextRequest) {
+  // ✅ Authentication & Authorization
+  const authResult = await requireAdmin();
+  if (!authResult.success) return authResult.response;
 
-    // 🔒 Plan Quota Enforcement (for Waiters)
-    const quotaCheck = await checkPlanQuota(businessId, "WAITER");
-    if (!quotaCheck.allowed) {
-      return NextResponse.json(
-        { error: quotaCheck.error || "Personel ekleme paket limitine ulaşıldı." },
-        { status: 403 }
-      );
-    }
+  const businessId = getBusinessIdFromSession(authResult.session);
 
-    // ✅ Validate request body
-    const body = await request.json();
-    const validation = validateBody(createStaffSchema, body);
-    if (!validation.success) {
-      return NextResponse.json({ error: validation.error }, { status: 400 });
-    }
-
-    const { name, email, password, role } = validation.data;
-
-    // ✅ Check for duplicate email
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-      select: { id: true },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: "Bu e-posta adresi zaten kullanılıyor" },
-        { status: 400 }
-      );
-    }
-
-    // ✅ Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // ✅ Create staff with businessId from session
-    const newStaff = await prisma.user.create({
-      data: {
-        businessId,
-        name,
-        email,
-        password: hashedPassword,
-        role,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-      },
-    });
-
-    // ✅ SECURITY: Yeni hesap = yeni yetki; özellikle ADMIN oluşturma izlenebilir olmalı
-    createAuditLog({
-      ...auditRequestContext(request.headers),
-      businessId,
-      actorUserId: authResult.session.userId,
-      actorRole: authResult.session.role,
-      action: AuditActions.USER_CREATED,
-      entityType: "User",
-      entityId: newStaff.id,
-      after: { role: newStaff.role },
-    });
-
+  // 🔒 Plan Quota Enforcement (for Waiters)
+  const quotaCheck = await checkPlanQuota(businessId, "WAITER");
+  if (!quotaCheck.allowed) {
     return NextResponse.json(
-      { message: "Personel başarıyla eklendi", staff: newStaff },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Personel ekleme hatası:", error);
-    return NextResponse.json(
-      { error: "Personel eklenirken bir hata oluştu" },
-      { status: 500 }
+      { error: quotaCheck.error || "Personel ekleme paket limitine ulaşıldı." },
+      { status: 403 }
     );
   }
+
+  // ✅ Validate request body
+  const { name, email, password, role } = await parseJson(request, createStaffSchema);
+
+
+  // ✅ Check for duplicate email
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+
+  if (existingUser) {
+    return NextResponse.json(
+      { error: "Bu e-posta adresi zaten kullanılıyor" },
+      { status: 400 }
+    );
+  }
+
+  // ✅ Hash password
+  const hashedPassword = await bcrypt.hash(password, 12);
+
+  // ✅ Create staff with businessId from session
+  const newStaff = await prisma.user.create({
+    data: {
+      businessId,
+      name,
+      email,
+      password: hashedPassword,
+      role,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+
+  // ✅ SECURITY: Yeni hesap = yeni yetki; özellikle ADMIN oluşturma izlenebilir olmalı
+  createAuditLog({
+    ...auditRequestContext(request.headers),
+    businessId,
+    actorUserId: authResult.session.userId,
+    actorRole: authResult.session.role,
+    action: AuditActions.USER_CREATED,
+    entityType: "User",
+    entityId: newStaff.id,
+    after: { role: newStaff.role },
+  });
+
+  return NextResponse.json(
+    { message: "Personel başarıyla eklendi", staff: newStaff },
+    { status: 201 }
+  );
 }

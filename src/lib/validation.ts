@@ -5,7 +5,8 @@
  */
 
 import { z } from "zod";
-import { OrderStatus, TableStatus, ServiceRequestType, RequestStatus, StockStatus, OrderCancelReasonCode } from "@prisma/client";
+import { OrderStatus, TableStatus, ServiceRequestType, RequestStatus, StockStatus, OrderCancelReasonCode, PaymentMethod } from "@prisma/client";
+import { ApiError, hasUnstorableChars } from "@/lib/api/handler";
 
 // ============================================================================
 // Common Schemas
@@ -55,7 +56,6 @@ export const createProductSchema = z.object({
   stockStatus: z.nativeEnum(StockStatus).default("IN_STOCK"),
   allergens: z.string().max(500).optional().nullable().or(z.literal("")),
   ingredients: z.string().max(1000).optional().nullable().or(z.literal("")),
-  preparationTime: positiveIntSchema.optional().nullable(),
   isPopular: z.boolean().optional().default(false), // ✅ Admin formdan geliyor
   sortOrder: z.number().int().min(0).optional().default(0), // ✅ Admin formdan geliyor
 });
@@ -70,7 +70,6 @@ export const updateProductSchema = z.object({
   stockStatus: z.nativeEnum(StockStatus).optional(),
   allergens: z.string().max(500).optional().nullable().or(z.literal("")),
   ingredients: z.string().max(1000).optional().nullable().or(z.literal("")),
-  preparationTime: positiveIntSchema.optional().nullable(),
   isDeleted: z.boolean().optional(),
   isPopular: z.boolean().optional(), // ✅ Admin formdan geliyor
   sortOrder: z.number().int().min(0).optional(), // ✅ Admin formdan geliyor
@@ -80,17 +79,20 @@ export const updateProductSchema = z.object({
 // Category Schemas
 // ============================================================================
 
+// Category modeliyle birebir (name, icon, sortOrder, isActive). Önceki şemada modelde olmayan
+// description/displayOrder vardı, icon/sortOrder yoktu: oluşturma her seferinde Prisma
+// "Unknown argument displayOrder" ile 500 veriyor, düzenleme icon/sortOrder'ı sessizce atıyordu.
 export const createCategorySchema = z.object({
-  name: z.string().min(1).max(100),
-  description: z.string().max(500).optional().nullable(),
-  displayOrder: nonNegativeIntSchema.default(0),
+  name: z.string().trim().min(1, "Kategori adı gereklidir").max(100),
+  icon: z.string().max(50).nullish(),
+  sortOrder: nonNegativeIntSchema.default(0),
   isActive: z.boolean().default(true),
 });
 
 export const updateCategorySchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  description: z.string().max(500).optional().nullable(),
-  displayOrder: nonNegativeIntSchema.optional(),
+  name: z.string().trim().min(1, "Kategori adı gereklidir").max(100).optional(),
+  icon: z.string().max(50).nullish(),
+  sortOrder: nonNegativeIntSchema.optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -117,6 +119,13 @@ export const updateOrderStatusSchema = z.object({
   reasonCode: z.nativeEnum(OrderCancelReasonCode).optional().nullable(),
   outOfStockProductIds: z.array(z.string().min(1).max(200)).max(100).optional().nullable(),
 });
+
+// Garson ekranı 'cancelReason' ya da 'cancellationReason' gönderebilir — ikisi de kabul edilir
+export const updateOrderStatusRequestSchema = z.preprocess((body) => {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const { cancellationReason, cancelReason } = body as Record<string, unknown>;
+  return { ...body, cancellationReason: cancellationReason ?? cancelReason ?? null };
+}, updateOrderStatusSchema);
 
 // ============================================================================
 // Service Request Schemas
@@ -180,25 +189,9 @@ export const createPaymentSchema = z.object({
 // Customer API Schemas (QR menü — kimliksiz/oturum token'lı uçlar)
 // ============================================================================
 
-/** NUL ve eşi olmayan surrogate Postgres'e yazılamıyor; route 500 dönüyordu */
-function hasUnstorableChars(value: string): boolean {
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i);
-    if (code === 0) return true;
-    if (code >= 0xd800 && code <= 0xdbff) {
-      const next = value.charCodeAt(i + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) {
-        i++;
-        continue;
-      }
-      return true;
-    }
-    if (code >= 0xdc00 && code <= 0xdfff) return true;
-  }
-  return false;
-}
-
-function customerTextSchema(max: number, label: string) {
+// NUL ve eşi olmayan surrogate Postgres'e yazılamıyor. parseJson gövdenin tamamını zaten
+// tarıyor; bu refine, şemanın parseJson dışında kullanıldığı yerlerde de alana özel mesaj verir.
+function storableTextSchema(max: number, label: string) {
   return z
     .string()
     .max(max, `${label} maksimum ${max} karakter olabilir.`)
@@ -225,12 +218,12 @@ export const customerOrderCreateSchema = z.object({
           .int("Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır.")
           .min(1, "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır.")
           .max(100, "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır."),
-        customerNote: customerTextSchema(200, "Ürün notu").nullish(),
+        customerNote: storableTextSchema(200, "Ürün notu").nullish(),
       })
     )
     .min(1, "Geçersiz sipariş bilgileri")
     .max(50, "Bir siparişte maksimum 50 farklı ürün olabilir."),
-  note: customerTextSchema(500, "Sipariş notu").nullish(),
+  note: storableTextSchema(500, "Sipariş notu").nullish(),
   idempotencyKey: idempotencyKeySchema
     .min(8, "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır.")
     .max(128, "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır.")
@@ -242,9 +235,9 @@ export const customerServiceRequestCreateSchema = z.object({
   businessId: cuidSchema,
   tableId: cuidSchema,
   requestType: z.string().max(50),
-  note: customerTextSchema(500, "Not alanı").nullish(),
-  reason: customerTextSchema(200, "Sebep alanı").nullish(),
-  orderNote: customerTextSchema(500, "Sipariş notu").nullish(),
+  note: storableTextSchema(500, "Not alanı").nullish(),
+  reason: storableTextSchema(200, "Sebep alanı").nullish(),
+  orderNote: storableTextSchema(500, "Sipariş notu").nullish(),
   idempotencyKey: idempotencyKeySchema.nullish(),
   // Yalnız ORDER_REQUEST önizlemesi; adet route'ta 1-99 aralığına sıkıştırılıyor
   items: z
@@ -252,7 +245,7 @@ export const customerServiceRequestCreateSchema = z.object({
       z.object({
         productId: cuidSchema,
         quantity: z.number().finite().nullish(),
-        customerNote: customerTextSchema(200, "Ürün notu").nullish(),
+        customerNote: storableTextSchema(200, "Ürün notu").nullish(),
       })
     )
     .max(50, "Bir siparişte maksimum 50 farklı ürün olabilir.")
@@ -262,7 +255,7 @@ export const customerServiceRequestCreateSchema = z.object({
 export const customerPaymentRequestSchema = z.object({
   businessId: cuidSchema,
   tableId: cuidSchema,
-  note: customerTextSchema(500, "Not alanı").nullish(),
+  note: storableTextSchema(500, "Not alanı").nullish(),
 });
 
 export const customerActiveRequestsQuerySchema = z.object({
@@ -273,6 +266,94 @@ export const customerActiveRequestsQuerySchema = z.object({
 // Kod ya da davet linkinin tamamı gelebilir (extractInviteCode ayıklar); yalnız biçim denetlenir
 export const inviteVerifySchema = z.object({
   code: z.string().max(2000),
+});
+
+// ============================================================================
+// Staff API Schemas (admin / garson mutasyonları)
+//
+// Şemalar tip ve boyut denetler: nesne/dizi ya da kaydedilemeyen karakter Prisma'ya ulaşıp
+// 500 üretmesin. Route'un kendi mesajıyla denetlediği zorunluluk ve iş kuralları (tutar > 0,
+// geçerli durum listesi vb.) route'ta kalır; bu yüzden o alanlar burada nullish.
+// ============================================================================
+
+const PAYMENT_METHODS: Record<string, PaymentMethod> = {
+  CASH: "CASH",
+  CARD: "CARD",
+  CREDIT_CARD: "CARD", // eski istemci adı
+  ONLINE: "ONLINE",
+  OTHER: "OTHER",
+};
+
+/**
+ * Ödeme yöntemi: bilinmeyen değer servislerde denetlenmiyor, Prisma enum hatasıyla 500
+ * veriyordu; artık 400. Boş değer undefined döner (zorunluluğu route kendi mesajıyla denetler).
+ */
+export function toPaymentMethod(raw: string | null | undefined): PaymentMethod | undefined {
+  if (raw == null || raw === "") return undefined;
+  const method = PAYMENT_METHODS[raw];
+  if (!method) throw new ApiError(400, "INVALID_PAYMENT_METHOD", "Geçersiz ödeme yöntemi.");
+  return method;
+}
+
+// Formlardan tutar sayı ya da metin ("45.50") gelebilir; route'lar Number() ile çevirir
+const amountInputSchema = z.union([z.number(), z.string().trim().max(32)]);
+
+const sortItemsSchema = z
+  .array(
+    z.object({
+      id: cuidSchema,
+      sortOrder: z.number().int("Geçersiz sıralama formatı").min(0, "Geçersiz sıralama formatı"),
+    })
+  )
+  .nullish();
+
+export const categoryReorderSchema = z.object({ items: sortItemsSchema });
+export const productReorderSchema = z.object({ items: sortItemsSchema });
+
+export const accessBlockRevokeSchema = z.object({
+  note: storableTextSchema(2000, "Not").nullish(),
+});
+
+export const adminOrderCancelSchema = z.object({
+  cancelReason: storableTextSchema(500, "İptal nedeni").nullish(),
+  reasonCode: z.string().max(50).nullish(),
+  outOfStockProductIds: z.array(cuidSchema).max(100).nullish(),
+});
+
+// Onay, tamamlama, doğrudan tahsilat, garson tahsilatı ve onaya gönderme aynı alanları kullanır
+export const staffPaymentSchema = z.object({
+  tableSessionId: cuidSchema.nullish(),
+  amount: amountInputSchema.nullish(),
+  receivedAmount: amountInputSchema.nullish(),
+  method: z.string().max(20).nullish(),
+  paymentMethod: z.string().max(20).nullish(),
+  note: storableTextSchema(500, "Not").nullish(),
+  idempotencyKey: idempotencyKeySchema.max(128).nullish(),
+});
+
+export const paymentRejectSchema = z.object({
+  reason: storableTextSchema(500, "Red nedeni").nullish(),
+});
+
+export const forceCloseTableSchema = z.object({
+  closeReason: storableTextSchema(500, "Kapatma nedeni").nullish(),
+});
+
+export const openTableRequestSchema = z.object({
+  verificationCode: z.union([z.string().max(20), z.number()]).nullish(),
+});
+
+export const rejectOrderRequestSchema = z.object({
+  reason: storableTextSchema(100, "Red nedeni").nullish(),
+});
+
+export const serviceRequestStatusSchema = z.object({
+  status: z.string().max(20).nullish(),
+});
+
+export const waiterTableStatusSchema = z.object({
+  tableId: cuidSchema.nullish(),
+  status: z.string().max(30).nullish(),
 });
 
 // ============================================================================

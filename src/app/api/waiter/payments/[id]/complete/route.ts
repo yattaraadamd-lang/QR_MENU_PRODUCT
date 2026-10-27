@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireWaiter } from "@/lib/auth-helpers";
+import { withApiHandler, ApiError } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
-export async function PATCH(
+export const PATCH = withApiHandler("PATCH /api/waiter/payments/[id]/complete", handlePatch);
+
+async function handlePatch(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -30,6 +33,7 @@ export async function PATCH(
       { status: 403 }
     );
   } catch (error: any) {
+    if (error instanceof ApiError) throw error;
     return NextResponse.json(
       { success: false, error: "İşlem reddedildi.", code: "FORBIDDEN" },
       { status: 403 }

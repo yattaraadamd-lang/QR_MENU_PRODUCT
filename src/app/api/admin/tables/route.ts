@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
-import { validateBody, createTableSchema } from "@/lib/validation";
+import { createTableSchema } from "@/lib/validation";
 import { generateQrToken } from "@/lib/qr-token";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
+import { withApiHandler, parseJson } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -84,80 +85,66 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/admin/tables - Masa oluştur
-export async function POST(request: NextRequest) {
-  try {
-    const authResult = await requireAdmin();
-    if (!authResult.success) return authResult.response;
+export const POST = withApiHandler("POST /api/admin/tables", handlePost);
 
-    const businessId = getBusinessIdFromSession(authResult.session);
-    const body = await request.json();
+async function handlePost(request: NextRequest) {
+  const authResult = await requireAdmin();
+  if (!authResult.success) return authResult.response;
 
-    // 🔒 Plan Quota Enforcement
-    const quotaCheck = await checkPlanQuota(businessId, "TABLE");
-    if (!quotaCheck.allowed) {
-      return NextResponse.json(
-        { error: quotaCheck.error || "Masa oluşturma paket limitine ulaşıldı." },
-        { status: 403 }
-      );
-    }
+  const businessId = getBusinessIdFromSession(authResult.session);
 
-    // Validation
-    const validation = validateBody(createTableSchema, body);
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      );
-    }
-
-    const { tableNumber, tableName } = validation.data;
-
-    // Aynı numarada masa var mı kontrol et (tenant-safe)
-    const existing = await prisma.table.findFirst({
-      where: {
-        businessId,
-        tableNumber: tableNumber.toString(),
-        isDeleted: false,
-      },
-      select: { id: true },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { error: "Bu masa numarası zaten kullanılıyor" },
-        { status: 400 }
-      );
-    }
-
-    const qrToken = generateQrToken();
-
-    const table = await prisma.table.create({
-      data: {
-        businessId,
-        tableNumber: tableNumber.toString(),
-        tableName: tableName || `Masa ${tableNumber}`,
-        qrToken,
-      },
-      select: {
-        id: true,
-        tableNumber: true,
-        tableName: true,
-        status: true,
-        isActive: true,
-        qrToken: true,
-        createdAt: true,
-      },
-    });
-
+  // 🔒 Plan Quota Enforcement
+  const quotaCheck = await checkPlanQuota(businessId, "TABLE");
+  if (!quotaCheck.allowed) {
     return NextResponse.json(
-      { message: "Masa oluşturuldu", table },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Masa oluşturma hatası:", error);
-    return NextResponse.json(
-      { error: "Masa oluşturulurken bir hata oluştu" },
-      { status: 500 }
+      { error: quotaCheck.error || "Masa oluşturma paket limitine ulaşıldı." },
+      { status: 403 }
     );
   }
+
+  // Validation
+  const { tableNumber, tableName } = await parseJson(request, createTableSchema);
+
+
+  // Aynı numarada masa var mı kontrol et (tenant-safe)
+  const existing = await prisma.table.findFirst({
+    where: {
+      businessId,
+      tableNumber: tableNumber.toString(),
+      isDeleted: false,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    return NextResponse.json(
+      { error: "Bu masa numarası zaten kullanılıyor" },
+      { status: 400 }
+    );
+  }
+
+  const qrToken = generateQrToken();
+
+  const table = await prisma.table.create({
+    data: {
+      businessId,
+      tableNumber: tableNumber.toString(),
+      tableName: tableName || `Masa ${tableNumber}`,
+      qrToken,
+    },
+    select: {
+      id: true,
+      tableNumber: true,
+      tableName: true,
+      status: true,
+      isActive: true,
+      qrToken: true,
+      createdAt: true,
+    },
+  });
+
+  return NextResponse.json(
+    { message: "Masa oluşturuldu", table },
+    { status: 201 }
+  );
 }

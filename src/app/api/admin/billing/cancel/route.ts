@@ -3,11 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { cancelSubscription, IyzicoError } from "@/lib/iyzico";
 import { syncIyzicoSubscription } from "@/lib/billing";
+import { withApiHandler, ApiError } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/admin/billing/cancel — ücretli aboneliği iyzico'da iptal eder
-export async function POST() {
+export const POST = withApiHandler("POST /api/admin/billing/cancel", handlePost);
+
+async function handlePost() {
   try {
     const authResult = await requireAdmin();
     if (!authResult.success) return authResult.response;
@@ -26,6 +29,7 @@ export async function POST() {
 
     return NextResponse.json({ success: true, message: "Aboneliğiniz iptal edildi" });
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     if (error instanceof IyzicoError) {
       return NextResponse.json({ error: `İptal edilemedi: ${error.message}` }, { status: 502 });
     }

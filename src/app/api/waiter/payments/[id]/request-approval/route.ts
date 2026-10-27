@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireWaiter, getBusinessId } from "@/lib/auth-helpers";
 import { requestWaiterApproval, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { staffPaymentSchema, toPaymentMethod } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(
+export const POST = withApiHandler("POST /api/waiter/payments/[id]/request-approval", handlePost);
+
+async function handlePost(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -28,8 +32,8 @@ export async function POST(
     }
 
     const businessId = getBusinessId(session);
-    const body = await request.json();
-    const { method, amount, receivedAmount, note } = body;
+    const { method: rawMethod, amount, receivedAmount, note } = await parseJson(request, staffPaymentSchema);
+    const method = toPaymentMethod(rawMethod);
 
     if (!method || amount == null) {
       return NextResponse.json(
@@ -80,6 +84,7 @@ export async function POST(
       payment: updatedPayment,
     });
   } catch (error: any) {
+    if (error instanceof ApiError) throw error;
     console.error("[PAYMENT_REQUEST_APPROVAL_FAILED]", {
       endpoint: "/api/waiter/payments/[id]/request-approval",
       code: error?.code,

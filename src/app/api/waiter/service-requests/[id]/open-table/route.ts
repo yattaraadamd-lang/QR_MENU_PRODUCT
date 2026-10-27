@@ -4,6 +4,8 @@ import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 
 import { checkRateLimit } from "@/lib/unified-rate-limit";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { openTableRequestSchema } from "@/lib/validation";
 
 /**
  * POST /api/waiter/service-requests/[id]/open-table
@@ -18,7 +20,9 @@ import { checkRateLimit } from "@/lib/unified-rate-limit";
  *  - Diğer bekleyen ORDER_REQUEST'ler iptal edilir
  *  - Talep COMPLETED yapılır
  */
-export async function POST(
+export const POST = withApiHandler("POST /api/waiter/service-requests/[id]/open-table", handlePost);
+
+async function handlePost(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -27,15 +31,9 @@ export async function POST(
     const requestId = params.id;
 
     // ─── Body'den verificationCode al
-    let verificationCode: string | null = null;
-    try {
-      const body = await request.json();
-      if (body?.verificationCode) {
-        verificationCode = String(body.verificationCode).trim();
-      }
-    } catch {
-      // body okuma hatası veya boş body
-    }
+    // Gövdesiz istek kabul edilir; kod yoksa aşağıda VERIFICATION_CODE_REQUIRED döner
+    const body = await parseJson(request, openTableRequestSchema, { optional: true });
+    const verificationCode = body.verificationCode ? String(body.verificationCode).trim() : null;
 
     if (!verificationCode) {
       return NextResponse.json(
@@ -268,6 +266,7 @@ export async function POST(
       { status: 201 }
     );
   } catch (error: any) {
+    if (error instanceof ApiError) throw error;
     if (error?.message === "ALREADY_HANDLED") {
       return NextResponse.json(
         { error: "Bu talep zaten başka bir garson tarafından işlenmiş.", code: "OPEN_REQUEST_ALREADY_HANDLED" },

@@ -3,10 +3,14 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { processAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { staffPaymentSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-export async function PATCH(
+export const PATCH = withApiHandler("PATCH /api/admin/payments/[id]/complete", handlePatch);
+
+async function handlePatch(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -19,7 +23,7 @@ export async function PATCH(
     if (error) return response;
 
     const businessId = session.user.businessId;
-    const body = await request.json();
+    const body = await parseJson(request, staffPaymentSchema);
 
     const existingPayment = await prisma.payment.findFirst({
       where: { id: paymentId, businessId },
@@ -85,6 +89,7 @@ export async function PATCH(
       isFullyPaid: result.isFullyPaid,
     });
   } catch (error: any) {
+    if (error instanceof ApiError) throw error;
     console.error("[ADMIN_PAYMENT_COMPLETE_FAILED]", {
       endpoint: "/api/admin/payments/[id]/complete",
       code: error?.code,
