@@ -28,5 +28,12 @@ export function buildInviteUrl(rawCode: string, origin?: string): string {
 export function extractInviteCode(input: string): string {
   const trimmed = input.trim();
   const match = trimmed.match(/\/auth\/join\/([^/?#\s]+)/);
-  return match ? decodeURIComponent(match[1]) : trimmed;
+  if (!match) return trimmed;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    // Bozuk yüzde kodlaması (%E0%A4%A) URIError atıp 500'e yol açıyordu; çözülmeden
+    // bırakılan değer hiçbir davetle eşleşmez ve geçersiz davet olarak döner
+    return match[1];
+  }
 }

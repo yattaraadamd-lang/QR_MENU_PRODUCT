@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashInviteCode, extractInviteCode } from "@/lib/invite";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
+import { inviteVerifySchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +13,10 @@ export async function POST(request: NextRequest) {
     const rl = await rateLimit({ ...UNIFIED_RATE_LIMITS.GENERAL, identifier: `invite_verify_${getClientIp(request)}` });
     if (!rl.success) return createRateLimitResponse(rl);
 
-    const body = await request.json().catch(() => ({}));
-    const code = typeof body.code === "string" ? extractInviteCode(body.code) : "";
+    // null / dizi / bozuk gövde body.code erişiminde TypeError atıp 500 dönüyordu; davet
+    // sayfası { valid, reason } beklediği için hata zarfı yerine aynı INVALID yanıtı döner
+    const parsed = inviteVerifySchema.safeParse(await request.json().catch(() => null));
+    const code = parsed.success ? extractInviteCode(parsed.data.code) : "";
     if (!code || code.length > 200) {
       return NextResponse.json({ valid: false, reason: "INVALID" }, { status: 400 });
     }

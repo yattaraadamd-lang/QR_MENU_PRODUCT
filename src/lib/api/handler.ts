@@ -36,7 +36,23 @@ export async function parseJson<T>(request: Request, schema: ZodSchema<T>): Prom
     throw new ApiError(400, "INVALID_JSON", "Geçersiz istek gövdesi.");
   }
 
-  const result = schema.safeParse(body, { errorMap: turkishErrorMap });
+  return validate(schema, body);
+}
+
+/**
+ * Sorgu parametrelerini şemayla doğrular; başarısızlıkta 400 ApiError fırlatır.
+ * Tekrarlanan anahtarda ilk değer alınır (searchParams.get ile aynı).
+ */
+export function parseQuery<T>(request: NextRequest, schema: ZodSchema<T>): T {
+  const query: Record<string, string> = {};
+  request.nextUrl.searchParams.forEach((value, key) => {
+    if (!(key in query)) query[key] = value;
+  });
+  return validate(schema, query);
+}
+
+function validate<T>(schema: ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data, { errorMap: turkishErrorMap });
   if (!result.success) {
     throw new ApiError(400, "VALIDATION_ERROR", result.error.issues[0]?.message ?? "Geçersiz istek.");
   }

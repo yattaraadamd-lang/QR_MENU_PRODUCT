@@ -265,6 +265,16 @@ export const customerPaymentRequestSchema = z.object({
   note: customerTextSchema(500, "Not alanı").nullish(),
 });
 
+export const customerActiveRequestsQuerySchema = z.object({
+  tableId: cuidSchema,
+  businessId: cuidSchema,
+});
+
+// Kod ya da davet linkinin tamamı gelebilir (extractInviteCode ayıklar); yalnız biçim denetlenir
+export const inviteVerifySchema = z.object({
+  code: z.string().max(2000),
+});
+
 // ============================================================================
 // Query Parameter Schemas
 // ============================================================================

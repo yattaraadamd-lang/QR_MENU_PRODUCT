@@ -52,6 +52,16 @@ senaryolarının atlanmaması için boş bir demo masası kullanıldı (`FUZZ_TA
   Schemas); hatalı girdi `{ error, code, requestId }` ile 400 dönüyor.
 - **Ek bulgu:** eşi olmayan surrogate (`\ud800`) içeren id'ler de 500 veriyordu; aynı şemalar
   reddediyor. Serbest metin alanları (notlar) NUL ve eşsiz surrogate içeremez.
-- **Açık kalan:** `GET /api/customer/active-requests` sorgudaki NUL'u Postgres'e iletiyor;
-  hata yakalanıp 200 dönüyor ama Prisma hatasının tamamı loglanıyor. 100 KB'lık sorgu
-  dizesinde bağlantı yanıtsız kapanıyor. `auth/invite/verify` (E2) bu dört ucun dışında.
+- **`GET /api/customer/active-requests` düzeltildi:** sorgu `parseQuery` ile doğrulanıyor; NUL
+  ya da ID biçiminde olmayan değer 400 (önce: Postgres hatası yutulup 200, 34 deneme). Veritabanı
+  hatası artık "aktif talep yok" (200) diye gizlenmiyor, `requestId`'li 500 dönüyor; menü
+  sayfası yalnız `res.ok` iken güncellediği için son bilinen durumu koruyor (DB durdurularak
+  denendi).
+- **`POST /api/auth/invite/verify` düzeltildi (E2):** `null`/dizi/bozuk gövde ve bozuk yüzde
+  kodlu davet linki (`decodeURIComponent` → `URIError`) 500 veriyordu; artık davet sayfasının
+  beklediği `{ valid: false, reason: "INVALID" }` dönüyor. `extractInviteCode` düzeltmesi
+  `auth/register`'ı da kapsıyor. Bu uç fuzz betiğinde yok; 15 durumluk ayrı test geçti.
+- **Kabul edilen:** 100 KB'lık sorgu dizesi (`active-requests [tableId=100k]`) uygulamaya hiç
+  ulaşmıyor; Node HTTP ayrıştırıcısı 16 KB sınırını aşan istek satırında bağlantıyı kapatıyor
+  (ham sokette `ECONNRESET`, yanıt yok; 8 KB başlıkta 431 dönüyor). Uygulama hatası değil;
+  canlıda önündeki proxy'nin bu isteği kesmesi beklenir, staging'de doğrulanmalı.
