@@ -295,6 +295,18 @@ export function toPaymentMethod(raw: string | null | undefined): PaymentMethod |
   return method;
 }
 
+/**
+ * İptal nedeni kodu: servis kodu doğrudan enum alanına yazıyor; bilinmeyen değer Prisma enum
+ * hatasıyla 500 verirdi. Boş değer null döner.
+ */
+export function toCancelReasonCode(raw: string | null | undefined): OrderCancelReasonCode | null {
+  if (raw == null || raw === "") return null;
+  if (!(Object.values(OrderCancelReasonCode) as string[]).includes(raw)) {
+    throw new ApiError(400, "INVALID_CANCEL_REASON", "Geçersiz iptal nedeni kodu.");
+  }
+  return raw as OrderCancelReasonCode;
+}
+
 // Formlardan tutar sayı ya da metin ("45.50") gelebilir; route'lar Number() ile çevirir
 const amountInputSchema = z.union([z.number(), z.string().trim().max(32)]);
 
@@ -354,6 +366,46 @@ export const serviceRequestStatusSchema = z.object({
 export const waiterTableStatusSchema = z.object({
   tableId: cuidSchema.nullish(),
   status: z.string().max(30).nullish(),
+});
+
+export const tableStatusUpdateSchema = z.object({
+  status: z.string().max(30).nullish(),
+});
+
+export const orderStatusUpdateSchema = adminOrderCancelSchema.extend({
+  status: z.string().max(20).nullish(),
+});
+
+// DELETE /api/orders/[orderId]: iptal bilgisi sorgu parametresinde gelir; ürün id'leri virgüllü
+export const orderCancelQuerySchema = z.object({
+  reason: storableTextSchema(500, "İptal nedeni").optional(),
+  reasonCode: z.string().max(50).optional(),
+  outOfStockProductIds: z.string().max(5000).optional(),
+});
+
+export const tableSessionQuerySchema = z.object({
+  tableId: z.string().max(200).optional(),
+});
+
+export const tableSessionCreateSchema = z.object({
+  businessId: z.string().max(200).nullish(),
+  tableId: z.string().max(200).nullish(),
+});
+
+export const tableSessionCloseSchema = z.object({
+  forceClose: z.boolean().nullish(),
+  closeReason: storableTextSchema(500, "Kapatma nedeni").nullish(),
+});
+
+// Zorunluluk, e-posta biçimi ve şifre politikası route'ta kendi mesajlarıyla denetlenir
+export const superAdminBusinessCreateSchema = z.object({
+  name: storableTextSchema(200, "İşletme adı").nullish(),
+  email: z.string().max(254).nullish(),
+  phone: z.string().max(30).nullish(),
+  address: storableTextSchema(500, "Adres").nullish(),
+  adminName: storableTextSchema(100, "Admin adı").nullish(),
+  adminEmail: z.string().max(254).nullish(),
+  adminPassword: z.string().max(200).nullish(),
 });
 
 // ============================================================================

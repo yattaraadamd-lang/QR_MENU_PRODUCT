@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { withApiHandler } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -23,36 +24,30 @@ export async function POST(request: NextRequest) {
   );
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    // ✅ P0-09 FIX: Require authentication
-    const { error, response, session } = await requireWaiterOrAdmin();
-    if (error) return response!;
+export const GET = withApiHandler("GET /api/service-requests", handleGet);
 
-    // ✅ P0-09 FIX: businessId from session (NOT from query string)
-    const businessId = getBusinessId(session);
+async function handleGet(request: NextRequest) {
+  // ✅ P0-09 FIX: Require authentication
+  const { error, response, session } = await requireWaiterOrAdmin();
+  if (error) return response!;
 
-    const serviceRequests = await prisma.serviceRequest.findMany({
-      where: {
-        businessId,
-        // ✅ Ödeme talepleri Ödemeler sekmesinde gösterilir, Talepler sayfasına düşmemeli
-        requestType: { not: "PAYMENT_REQUEST" },
+  // ✅ P0-09 FIX: businessId from session (NOT from query string)
+  const businessId = getBusinessId(session);
+
+  const serviceRequests = await prisma.serviceRequest.findMany({
+    where: {
+      businessId,
+      // ✅ Ödeme talepleri Ödemeler sekmesinde gösterilir, Talepler sayfasına düşmemeli
+      requestType: { not: "PAYMENT_REQUEST" },
+    },
+    include: {
+      table: true,
+      customerSession: {
+        select: { id: true, authorizationStatus: true },
       },
-      include: {
-        table: true,
-        customerSession: {
-          select: { id: true, authorizationStatus: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-    return NextResponse.json({ serviceRequests });
-  } catch (error) {
-    console.error("[SERVICE_REQUEST_LIST_ERROR]", error);
-    return NextResponse.json(
-      { error: "Talepler yüklenirken bir hata oluştu" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ serviceRequests });
 }

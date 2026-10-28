@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { withApiHandler } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -20,58 +21,52 @@ export async function POST() {
   );
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    // ✅ P0-09 FIX: Use centralized auth guard with DB-level user validation
-    const { error, response, session } = await requireWaiterOrAdmin();
-    if (error) return response!;
+export const GET = withApiHandler("GET /api/orders", handleGet);
 
-    // ✅ P0-09 FIX: businessId from session (NOT from query string)
-    const businessId = getBusinessId(session);
+async function handleGet(request: NextRequest) {
+  // ✅ P0-09 FIX: Use centralized auth guard with DB-level user validation
+  const { error, response, session } = await requireWaiterOrAdmin();
+  if (error) return response!;
 
-    const orders = await prisma.order.findMany({
-      where: { businessId },
-      select: {
-        id: true,
-        totalPrice: true,
-        status: true,
-        paymentStatus: true,
-        note: true,
-        createdAt: true,
-        table: {
-          select: {
-            id: true,
-            tableNumber: true,
-            tableName: true,
-          },
-        },
-        waiter: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        items: {
-          select: {
-            id: true,
-            productName: true,
-            quantity: true,
-            unitPrice: true,
-            totalPrice: true,
-            customerNote: true,
-          },
+  // ✅ P0-09 FIX: businessId from session (NOT from query string)
+  const businessId = getBusinessId(session);
+
+  const orders = await prisma.order.findMany({
+    where: { businessId },
+    select: {
+      id: true,
+      totalPrice: true,
+      status: true,
+      paymentStatus: true,
+      note: true,
+      createdAt: true,
+      table: {
+        select: {
+          id: true,
+          tableNumber: true,
+          tableName: true,
         },
       },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    });
+      waiter: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      items: {
+        select: {
+          id: true,
+          productName: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+          customerNote: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
 
-    return NextResponse.json({ orders });
-  } catch (error) {
-    console.error("[ORDER_LIST_ERROR]", error);
-    return NextResponse.json(
-      { error: "Siparişler yüklenirken bir hata oluştu" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ orders });
 }

@@ -517,6 +517,17 @@ export interface AdminPaymentInput {
  *
  * forceClose=true durumunda aktif siparişler otomatik iptal edilir.
  */
+export class TableCloseError extends Error {
+  constructor(
+    public readonly code: "SESSION_NOT_FOUND" | "UNFINISHED_ORDERS" | "UNPAID_BALANCE",
+    message: string,
+    public readonly unfinishedOrderCount = 0
+  ) {
+    super(message);
+    this.name = "TableCloseError";
+  }
+}
+
 export async function closeTable(
   tableSessionId: string,
   businessId: string,
@@ -531,7 +542,7 @@ export async function closeTable(
       where: { id: tableSessionId, businessId, status: "ACTIVE" },
       include: { bill: true },
     });
-    if (!tableSession) throw new Error("Aktif oturum bulunamadı");
+    if (!tableSession) throw new TableCloseError("SESSION_NOT_FOUND", "Aktif oturum bulunamadı");
 
     // ✅ Tamamlanmamış sipariş kontrolü (PENDING, ACCEPTED, PREPARING, SERVED dahil)
     const unfinishedOrders = await tx.order.findMany({
@@ -550,8 +561,10 @@ export async function closeTable(
       const summary = Object.entries(statusCounts)
         .map(([s, c]) => `${c} ${s}`)
         .join(", ");
-      throw new Error(
-        `Masada tamamlanmamış siparişler var (${summary}). Tüm siparişler tamamlanmalı veya iptal edilmelidir. Zorla kapatmak için forceClose kullanın.`
+      throw new TableCloseError(
+        "UNFINISHED_ORDERS",
+        `Masada tamamlanmamış siparişler var (${summary}). Tüm siparişler tamamlanmalı veya iptal edilmelidir. Zorla kapatmak için forceClose kullanın.`,
+        unfinishedOrders.length
       );
     }
 
@@ -597,7 +610,8 @@ export async function closeTable(
       const remaining = Decimal.max(new Decimal(0), serverTotal.sub(paidTotal));
 
       if (remaining.greaterThan(new Decimal(0)) && !forceClose) {
-        throw new Error(
+        throw new TableCloseError(
+          "UNPAID_BALANCE",
           `Bu masa kapatılamaz. Ödenmemiş hesap var: ${remaining.toFixed(2)} ₺`
         );
       }
