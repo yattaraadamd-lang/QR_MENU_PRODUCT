@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
-import { OrderCancelReasonCode } from "@prisma/client";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
-import { adminOrderCancelSchema } from "@/lib/validation";
+import { adminOrderCancelSchema, toCancelReasonCode } from "@/lib/validation";
 
 // PUT /api/admin/orders/[orderId]/cancel - Admin sipariş iptal
 export const PUT = withApiHandler("PUT /api/admin/orders/[orderId]/cancel", handlePut);
@@ -21,16 +20,8 @@ async function handlePut(
   const businessId = getBusinessId(session);
 
   // ✅ Request body
-  const { cancelReason, reasonCode, outOfStockProductIds } = await parseJson(request, adminOrderCancelSchema);
-
-  // ✅ reasonCode validasyonu
-  const validReasonCodes = Object.values(OrderCancelReasonCode);
-  if (reasonCode && !(validReasonCodes as string[]).includes(reasonCode)) {
-    return NextResponse.json(
-      { error: "Geçersiz iptal nedeni kodu.", code: "INVALID_CANCEL_REASON" },
-      { status: 400 }
-    );
-  }
+  const { cancelReason, reasonCode: rawReasonCode, outOfStockProductIds } = await parseJson(request, adminOrderCancelSchema);
+  const reasonCode = toCancelReasonCode(rawReasonCode);
 
   // ✅ Merkezi servise delege et
   try {
@@ -40,7 +31,7 @@ async function handlePut(
       actorId: session!.user.id,
       actorRole: "ADMIN",
       targetStatus: "CANCELLED",
-      reasonCode: (reasonCode as OrderCancelReasonCode | null | undefined) || null, // yukarıda enum'a karşı denetlendi
+      reasonCode,
       reasonText: cancelReason || null,
       outOfStockProductIds: outOfStockProductIds || null,
     });

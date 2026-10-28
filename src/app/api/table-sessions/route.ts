@@ -1,77 +1,77 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
-import { openTable, getActiveTableSession } from "@/lib/services/table-flow.service";
+import { openTable } from "@/lib/services/table-flow.service";
+import { withApiHandler, parseJson, parseQuery } from "@/lib/api/handler";
+import { tableSessionQuerySchema, tableSessionCreateSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/table-sessions?tableId=xxx — Aktif oturumu getir
-export async function GET(request: NextRequest) {
-  try {
-    const { error, response, session } = await requireWaiterOrAdmin();
-    if (error) return response!;
-    const businessId = getBusinessId(session);
-    const { searchParams } = new URL(request.url);
-    const tableId = searchParams.get("tableId");
+export const GET = withApiHandler("GET /api/table-sessions", handleGet);
 
-    if (!tableId) return NextResponse.json({ error: "tableId gerekli" }, { status: 400 });
+async function handleGet(request: NextRequest) {
+  const { error, response, session } = await requireWaiterOrAdmin();
+  if (error) return response!;
+  const businessId = getBusinessId(session);
+  const { tableId } = parseQuery(request, tableSessionQuerySchema);
 
-    const tableSession = await prisma.tableSession.findFirst({
-      where: { tableId, businessId, status: "ACTIVE" },
-      include: {
-        bill: true,
-        orders: {
-          where: { status: { not: "CANCELLED" } },
-          include: { items: { include: { product: true } } },
-          orderBy: { createdAt: "desc" },
-        },
+  if (!tableId) return NextResponse.json({ error: "tableId gerekli" }, { status: 400 });
+
+  const tableSession = await prisma.tableSession.findFirst({
+    where: { tableId, businessId, status: "ACTIVE" },
+    include: {
+      bill: true,
+      orders: {
+        where: { status: { not: "CANCELLED" } },
+        include: { items: { include: { product: true } } },
+        orderBy: { createdAt: "desc" },
       },
-    });
+    },
+  });
 
-    return NextResponse.json({ tableSession });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
-  }
+  return NextResponse.json({ tableSession });
 }
 
 // POST /api/table-sessions — Yeni oturum başlat (SADECE garson veya admin)
-export async function POST(request: NextRequest) {
-  try {
-    // ✅ Authentication zorunlu — müşteri bu endpoint'i kullanamaz
-    const { error, response, session } = await requireWaiterOrAdmin();
-    if (error) return response!;
-    const authenticatedBusinessId = getBusinessId(session);
+export const POST = withApiHandler("POST /api/table-sessions", handlePost);
 
-    const body = await request.json();
-    const { businessId, tableId } = body;
-    
-    if (!businessId || !tableId) {
-      return NextResponse.json({ error: "businessId ve tableId gerekli" }, { status: 400 });
-    }
+async function handlePost(request: NextRequest) {
+  // ✅ Authentication zorunlu — müşteri bu endpoint'i kullanamaz
+  const { error, response, session } = await requireWaiterOrAdmin();
+  if (error) return response!;
+  const authenticatedBusinessId = getBusinessId(session);
 
-    // ✅ Güvenlik: kullanıcı sadece kendi işletmesi için masa açabilir
-    if (businessId !== authenticatedBusinessId) {
-      return NextResponse.json(
-        { error: "Bu işletme için yetkiniz yok" },
-        { status: 403 }
-      );
-    }
+  const { businessId, tableId } = await parseJson(request, tableSessionCreateSchema);
 
-    // ✅ Merkezi table-flow.service kullanarak transaction ile masa aç
-    // NOT: Bu endpoint müşteri yetkilendirmesi YAPMAZ.
-    // Müşteri talebinden açılış yalnız /api/waiter/service-requests/[id]/open-table üzerinden yapılır.
-    const result = await openTable(tableId, businessId);
+  if (!businessId || !tableId) {
+    return NextResponse.json({ error: "businessId ve tableId gerekli" }, { status: 400 });
+  }
 
+  // ✅ Güvenlik: kullanıcı sadece kendi işletmesi için masa açabilir
+  if (businessId !== authenticatedBusinessId) {
     return NextResponse.json(
-      { tableSession: result.tableSession, bill: result.bill, isNew: result.isNew },
-      { status: result.isNew ? 201 : 200 }
+      { error: "Bu işletme için yetkiniz yok" },
+      { status: 403 }
     );
-  } catch (e: any) {
-    console.error("Masa açma hatası:", e);
-    if (e.message?.includes("bulunamadı") || e.message?.includes("aktif değil")) {
+  }
+
+  // ✅ Merkezi table-flow.service kullanarak transaction ile masa aç
+  // NOT: Bu endpoint müşteri yetkilendirmesi YAPMAZ.
+  // Müşteri talebinden açılış yalnız /api/waiter/service-requests/[id]/open-table üzerinden yapılır.
+  let result;
+  try {
+    result = await openTable(tableId, businessId);
+  } catch (e) {
+    // openTable olmayan/pasif masada düz Error atar; diğer hatalar withApiHandler'da 500 olur
+    if (e instanceof Error && e.message.includes("bulunamadı")) {
       return NextResponse.json({ error: e.message }, { status: 404 });
     }
-    return NextResponse.json({ error: "Sunucu hatası" }, { status: 500 });
+    throw e;
   }
+
+  return NextResponse.json(
+    { tableSession: result.tableSession, bill: result.bill, isNew: result.isNew },
+    { status: result.isNew ? 201 : 200 }
+  );
 }

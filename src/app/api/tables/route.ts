@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
+import { withApiHandler } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -12,45 +13,39 @@ export const dynamic = "force-dynamic";
  *
  * NOW: requireWaiterOrAdmin(), businessId from session.
  */
-export async function GET(request: NextRequest) {
-  try {
-    // ✅ P0-09 FIX: Require authentication
-    const { error, response, session } = await requireWaiterOrAdmin();
-    if (error) return response!;
+export const GET = withApiHandler("GET /api/tables", handleGet);
 
-    // ✅ P0-09 FIX: businessId from session (NOT from query string)
-    const businessId = getBusinessId(session);
+async function handleGet(request: NextRequest) {
+  // ✅ P0-09 FIX: Require authentication
+  const { error, response, session } = await requireWaiterOrAdmin();
+  if (error) return response!;
 
-    const tables = await prisma.table.findMany({
-      where: { businessId },
-      orderBy: { tableNumber: "asc" },
-      include: {
-        orders: {
-          where: {
-            status: {
-              in: ["PENDING", "ACCEPTED", "PREPARING"],
-            },
+  // ✅ P0-09 FIX: businessId from session (NOT from query string)
+  const businessId = getBusinessId(session);
+
+  const tables = await prisma.table.findMany({
+    where: { businessId },
+    orderBy: { tableNumber: "asc" },
+    include: {
+      orders: {
+        where: {
+          status: {
+            in: ["PENDING", "ACCEPTED", "PREPARING"],
           },
-          orderBy: { createdAt: "desc" },
-          take: 1,
         },
-        serviceRequests: {
-          where: {
-            status: {
-              in: ["PENDING", "IN_PROGRESS"],
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
       },
-    });
+      serviceRequests: {
+        where: {
+          status: {
+            in: ["PENDING", "IN_PROGRESS"],
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
 
-    return NextResponse.json({ tables });
-  } catch (error) {
-    console.error("Masa listeleme hatası:", error);
-    return NextResponse.json(
-      { error: "Masalar yüklenirken bir hata oluştu" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ tables });
 }
