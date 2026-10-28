@@ -36,6 +36,7 @@ export default function AdminRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("active");
   const [openingTable, setOpeningTable] = useState<string | null>(null);
+  const [rejectingRequest, setRejectingRequest] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.user.businessId) {
@@ -57,16 +58,47 @@ export default function AdminRequestsPage() {
     }
   };
 
-  // ✅ Talep durumunu güncelle
+  // ✅ Talep durumunu güncelle — garson ekranıyla aynı uç: masa durumunu yeniden hesaplar ve
+  // socket olayı yayınlar (eski /api/service-requests/[id] ikisini de yapmıyordu)
   const updateStatus = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/service-requests/${id}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/waiter/service-requests/${id}/status`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
       if (res.ok) fetchRequests();
-    } catch (e) { console.error(e); }
+      else alert((await res.json().catch(() => null))?.error || "Talep güncellenemedi");
+    } catch (e) {
+      console.error(e);
+      alert("Bağlantı hatası");
+    }
+  };
+
+  // ✅ Sipariş talebi yalnız bu uçla reddedilir: müşteri oturumu kapatılır ve cihaz engellenir
+  // (eski uç yalnız talebi CANCELLED yapıyor, müşteri onay beklerken kalıyordu)
+  const rejectOrderRequest = async (req: any) => {
+    const confirmed = window.confirm(
+      "Masada müşteri bulunmadığını ve bu cihazın işletmede engelleneceğini onaylıyor musunuz?"
+    );
+    if (!confirmed) return;
+
+    setRejectingRequest(req.id);
+    try {
+      const res = await fetch(`/api/waiter/service-requests/${req.id}/reject-order-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "EMPTY_TABLE_ABUSE" }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) fetchRequests();
+      else alert(data?.error || "Sipariş talebi reddedilemedi");
+    } catch (e) {
+      console.error("Reddetme hatası:", e);
+      alert("Bağlantı hatası");
+    } finally {
+      setRejectingRequest(null);
+    }
   };
 
   // ✅ Atomik Masa Açma — tek endpoint çağrısı (sadece ORDER_REQUEST için)
@@ -208,8 +240,13 @@ export default function AdminRequestsPage() {
                       >
                         {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç ve Müşteriyi Yetkilendir"}
                       </button>
-                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)" }}>
-                        ✕ Reddet
+                      <button
+                        onClick={() => rejectOrderRequest(req)}
+                        disabled={rejectingRequest === req.id}
+                        className="btn btn-sm btn-ghost"
+                        style={{ color: "var(--danger-text)" }}
+                      >
+                        {rejectingRequest === req.id ? "⏳..." : "✕ Reddet"}
                       </button>
                     </>
                   )}
@@ -224,10 +261,15 @@ export default function AdminRequestsPage() {
                       </button>
                     </>
                   )}
-                  {/* ✅ ORDER_REQUEST IN_PROGRESS/SEEN durumundaysa iptal et */}
-                  {req.requestType === "ORDER_REQUEST" && ["SEEN", "IN_PROGRESS"].includes(req.status) && (
-                    <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)", flex: 1 }}>
-                      ✕ İptal Et
+                  {/* ✅ ORDER_REQUEST görüldü durumundaysa reddet (reddetme ucu PENDING/SEEN kabul eder) */}
+                  {req.requestType === "ORDER_REQUEST" && req.status === "SEEN" && (
+                    <button
+                      onClick={() => rejectOrderRequest(req)}
+                      disabled={rejectingRequest === req.id}
+                      className="btn btn-sm btn-ghost"
+                      style={{ color: "var(--danger-text)", flex: 1 }}
+                    >
+                      {rejectingRequest === req.id ? "⏳..." : "✕ Reddet"}
                     </button>
                   )}
                 </div>

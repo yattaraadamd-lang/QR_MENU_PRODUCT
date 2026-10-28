@@ -368,30 +368,6 @@ export const waiterTableStatusSchema = z.object({
   status: z.string().max(30).nullish(),
 });
 
-export const tableStatusUpdateSchema = z.object({
-  status: z.string().max(30).nullish(),
-});
-
-export const orderStatusUpdateSchema = adminOrderCancelSchema.extend({
-  status: z.string().max(20).nullish(),
-});
-
-// DELETE /api/orders/[orderId]: iptal bilgisi sorgu parametresinde gelir; ürün id'leri virgüllü
-export const orderCancelQuerySchema = z.object({
-  reason: storableTextSchema(500, "İptal nedeni").optional(),
-  reasonCode: z.string().max(50).optional(),
-  outOfStockProductIds: z.string().max(5000).optional(),
-});
-
-export const tableSessionQuerySchema = z.object({
-  tableId: z.string().max(200).optional(),
-});
-
-export const tableSessionCreateSchema = z.object({
-  businessId: z.string().max(200).nullish(),
-  tableId: z.string().max(200).nullish(),
-});
-
 export const tableSessionCloseSchema = z.object({
   forceClose: z.boolean().nullish(),
   closeReason: storableTextSchema(500, "Kapatma nedeni").nullish(),

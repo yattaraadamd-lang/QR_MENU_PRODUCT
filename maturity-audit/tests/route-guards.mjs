@@ -31,6 +31,13 @@ const PUBLIC_ROUTES = {
   "/api/customer/payment-requests": "müşteri ödeme talebi (cihaz çerezi + rate limit)",
   "/api/customer/service-requests": "müşteri garson çağırma (cihaz çerezi + rate limit)",
   "/api/tables/[tableId]/session": "kaldırıldı; her metot 410 döner",
+  "/api/tables": "kaldırıldı; her metot 410 döner",
+  "/api/tables/[tableId]": "kaldırıldı; her metot 410 döner",
+  "/api/table-sessions": "kaldırıldı; her metot 410 döner",
+  "/api/orders/[orderId]": "kaldırıldı; her metot 410 döner",
+  "/api/service-requests/[requestId]": "kaldırıldı; her metot 410 döner",
+  "/api/notifications": "kaldırıldı; her metot 410 döner",
+  "/api/staff/invite": "kaldırıldı; her metot 410 döner",
 };
 
 const GUARD_RE =
