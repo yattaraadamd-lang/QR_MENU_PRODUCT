@@ -1,3 +1,6 @@
+"use client";
+
+// Sunucu sayfası da (menü alınamadığında) MenuAccessError'ı çizer; düğmesi tarayıcıda çalışır
 import Loader from "@/components/ui/Loader";
 
 export function MenuLoading() {

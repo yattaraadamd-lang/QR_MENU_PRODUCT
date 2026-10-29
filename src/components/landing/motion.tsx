@@ -2,7 +2,7 @@
 
 import React, { useRef } from "react";
 import {
-  motion,
+  m,
   useMotionValue,
   useReducedMotion,
   useSpring,
@@ -26,7 +26,7 @@ export const stagger = (gap = 0.08, delay = 0.05): Variants => ({
 // Kaydırıldığında bir kez görünür olan sarmalayıcı
 export function Reveal({ children, delay = 0, ...props }: HTMLMotionProps<"div"> & { delay?: number }) {
   return (
-    <motion.div
+    <m.div
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: "-80px" }}
@@ -37,14 +37,14 @@ export function Reveal({ children, delay = 0, ...props }: HTMLMotionProps<"div">
       {...props}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
 // Çocuklarını sırayla gösteren grup; çocuklar `variants={fadeUp}` kullanmalı
 export function RevealGroup({ children, gap = 0.08, ...props }: HTMLMotionProps<"div"> & { gap?: number }) {
   return (
-    <motion.div
+    <m.div
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: "-80px" }}
@@ -52,7 +52,7 @@ export function RevealGroup({ children, gap = 0.08, ...props }: HTMLMotionProps<
       {...props}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -85,7 +85,7 @@ export function Tilt({
   };
 
   return (
-    <motion.div
+    <m.div
       ref={ref}
       onPointerMove={handleMove}
       onPointerLeave={reset}
@@ -99,6 +99,6 @@ export function Tilt({
       {...props}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

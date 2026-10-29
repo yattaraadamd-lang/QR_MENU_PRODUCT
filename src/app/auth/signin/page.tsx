@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle, ArrowLeft, BellRing, ChefHat, TrendingUp } from "lucide-react";
 import Input from "@/components/ui/Input";
-import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m, useReducedMotion } from "framer-motion";
 import { EASE_OUT, fadeUp, stagger } from "@/components/landing/motion";
 import Loader from "@/components/ui/Loader";
 
@@ -72,6 +72,7 @@ function SignInForm() {
   };
 
   return (
+    <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="never">
     <div className="landing-theme grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
       {/* ── Marka paneli (desktop) ─────────────────────────────────────────── */}
@@ -79,7 +80,7 @@ function SignInForm() {
         className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"
         style={{ background: "linear-gradient(150deg,#F06A3F 0%,#CF411E 40%,#8C2A14 100%)" }}
       >
-        <motion.div
+        <m.div
           aria-hidden
           className="absolute -right-24 -top-24 h-96 w-96 rounded-full blur-3xl"
           style={{ background: "radial-gradient(circle, rgba(244,166,35,0.55), transparent 70%)" }}
@@ -99,10 +100,10 @@ function SignInForm() {
           <span className="font-display text-xl font-semibold">QR Menü</span>
         </Link>
 
-        <motion.div className="relative max-w-md" initial="hidden" animate="show" variants={stagger(0.1, 0.15)}>
-          <motion.div className="mb-8 flex gap-3 text-4xl" variants={stagger(0.08)}>
+        <m.div className="relative max-w-md" initial="hidden" animate="show" variants={stagger(0.1, 0.15)}>
+          <m.div className="mb-8 flex gap-3 text-4xl" variants={stagger(0.08)}>
             {["🍕", "🍔", "🥗", "☕"].map((e, i) => (
-              <motion.span
+              <m.span
                 key={e}
                 variants={{
                   hidden: { opacity: 0, y: 24, rotate: -12, scale: 0.8 },
@@ -113,21 +114,21 @@ function SignInForm() {
                 whileHover={{ scale: 1.12, rotate: 6 }}
               >
                 {/* İç span tek turluk süzülmeyi taşır (≤5 sn, "hareketi azalt"ta hiç); dış span giriş animasyonunu */}
-                <motion.span
+                <m.span
                   animate={still ? undefined : { y: [0, -6, 0] }}
                   transition={{ duration: 3.2, ease: "easeInOut", delay: 1 + i * 0.4 }}
                 >
                   {e}
-                </motion.span>
-              </motion.span>
+                </m.span>
+              </m.span>
             ))}
-          </motion.div>
-          <motion.h2 variants={fadeUp} className="font-display text-4xl font-semibold leading-tight">
+          </m.div>
+          <m.h2 variants={fadeUp} className="font-display text-4xl font-semibold leading-tight">
             Mutfağınızın ritmi, tek ekranda.
-          </motion.h2>
-          <motion.ul className="mt-8 flex flex-col gap-4" variants={stagger(0.1)}>
+          </m.h2>
+          <m.ul className="mt-8 flex flex-col gap-4" variants={stagger(0.1)}>
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
-              <motion.li
+              <m.li
                 key={text}
                 variants={{ hidden: { opacity: 0, x: -16 }, show: { opacity: 1, x: 0, transition: { duration: 0.5, ease: EASE_OUT } } }}
                 className="flex items-center gap-3 text-[15px] font-medium"
@@ -137,10 +138,10 @@ function SignInForm() {
                   <Icon size={18} />
                 </span>
                 {text}
-              </motion.li>
+              </m.li>
             ))}
-          </motion.ul>
-        </motion.div>
+          </m.ul>
+        </m.div>
 
         <p className="relative text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
           © {new Date().getFullYear()} QR Menü Platformu
@@ -149,8 +150,8 @@ function SignInForm() {
 
       {/* ── Form ───────────────────────────────────────────────────────────── */}
       <main id="main-content" className="flex items-center justify-center px-4 py-10 sm:px-8">
-        <motion.div className="w-full max-w-[420px]" initial="hidden" animate="show" variants={stagger(0.08, 0.05)}>
-          <motion.div variants={fadeUp} className="mb-8 text-center lg:text-left">
+        <m.div className="w-full max-w-[420px]" initial="hidden" animate="show" variants={stagger(0.08, 0.05)}>
+          <m.div variants={fadeUp} className="mb-8 text-center lg:text-left">
             <div
               className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl lg:hidden"
               style={{ background: "var(--gradient-brand)", boxShadow: "0 10px 24px rgba(217,68,31,0.32)" }}
@@ -163,12 +164,12 @@ function SignInForm() {
             <p className="mt-2 text-sm" style={{ color: "#6E4F3F" }}>
               Yönetim panelinize giriş yapın
             </p>
-          </motion.div>
+          </m.div>
 
-          <motion.div variants={fadeUp} className="card p-7" style={{ borderRadius: 24, boxShadow: "0 20px 50px rgba(68,34,18,0.08)", transition: "border-color 0.2s, box-shadow 0.2s" }}>
+          <m.div variants={fadeUp} className="card p-7" style={{ borderRadius: 24, boxShadow: "0 20px 50px rgba(68,34,18,0.08)", transition: "border-color 0.2s, box-shadow 0.2s" }}>
             <AnimatePresence initial={false}>
               {error && (
-                <motion.div
+                <m.div
                   key="signin-error"
                   role="alert"
                   initial={{ opacity: 0, height: 0, marginBottom: 0 }}
@@ -184,7 +185,7 @@ function SignInForm() {
                     <AlertCircle size={16} className="flex-shrink-0" />
                     {error}
                   </div>
-                </motion.div>
+                </m.div>
               )}
             </AnimatePresence>
 
@@ -242,10 +243,10 @@ function SignInForm() {
                 </Link>
               </p>
             </div>
-          </motion.div>
+          </m.div>
 
           {/* Demo hesapları */}
-          <motion.div variants={fadeUp} className="mt-4 rounded-2xl p-4" style={{ background: "#FFF1E6", border: "1px dashed #FFC8B0" }}>
+          <m.div variants={fadeUp} className="mt-4 rounded-2xl p-4" style={{ background: "#FFF1E6", border: "1px dashed #FFC8B0" }}>
             <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: "#B23415" }}>
               Demo Hesapları
             </p>
@@ -269,17 +270,18 @@ function SignInForm() {
                 </button>
               ))}
             </div>
-          </motion.div>
+          </m.div>
 
-          <motion.div variants={fadeUp} className="mt-6 text-center">
+          <m.div variants={fadeUp} className="mt-6 text-center">
             <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] font-semibold hover:underline" style={{ color: "#816B5D" }}>
               <ArrowLeft size={14} /> Ana Sayfaya Dön
             </Link>
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       </main>
     </div>
     </MotionConfig>
+    </LazyMotion>
   );
 }
 

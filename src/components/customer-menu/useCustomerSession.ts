@@ -47,6 +47,49 @@ export function useCustomerSession(businessId: string) {
     };
   }, []);
 
+  /**
+   * QR tarama kanıtıyla (sessionStorage qr_token) oturum oluşturur ya da tazeler. Ağ hatası
+   * ayrıca bildirilir: taze okutmada çağıran kayıtlı token'la devam edebilsin.
+   */
+  const createFromQr = useCallback(async (
+    tableId: string,
+    existingToken: string | null,
+  ): Promise<{ token: string | null; networkError?: boolean }> => {
+    const storageKey = `qr_session_${businessId}_${tableId}`;
+    const qrToken = sessionStorage.getItem("qr_token");
+    if (!qrToken) {
+      setBlockedMsg("Sipariş vermek için masadaki QR kodu okutmanız gerekir.");
+      setHydrated(true);
+      return { token: null };
+    }
+
+    try {
+      const sr = await fetch("/api/customer/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, tableId, qrToken, existingToken: existingToken || undefined }),
+      });
+      const sd = await sr.json();
+      if (sr.ok && sd.sessionToken) {
+        localStorage.setItem(storageKey, sd.sessionToken);
+        // Eski global anahtarları temizle
+        localStorage.removeItem("qr_session_token");
+        sessionStorage.removeItem("qr_session_token");
+        sessionStorage.removeItem("qr_order_blocked_msg");
+        setToken(sd.sessionToken);
+        setBlockedMsg(null);
+        if (sd.authorizationStatus) setStatus(sd.authorizationStatus as AuthStatus);
+        setHydrated(true);
+        return { token: sd.sessionToken };
+      }
+      setBlockedMsg(sd.message || sd.error || "Sipariş vermek için masadaki QR kodu tekrar okutun.");
+      setHydrated(true);
+      return { token: null };
+    } catch {
+      return { token: null, networkError: true };
+    }
+  }, [businessId]);
+
   const ensure = useCallback(async (tableId: string): Promise<string | null> => {
     const storageKey = `qr_session_${businessId}_${tableId}`;
 
@@ -90,47 +133,31 @@ export function useCustomerSession(businessId: string) {
       } catch { /* devam et */ }
     }
 
-    const qrToken = sessionStorage.getItem("qr_token");
-    if (!qrToken) {
-      setBlockedMsg("Sipariş vermek için masadaki QR kodu okutmanız gerekir.");
-      setHydrated(true);
-      return null;
-    }
-
-    try {
-      const sr = await fetch("/api/customer/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, tableId, qrToken, existingToken: existingToken || undefined }),
-      });
-      const sd = await sr.json();
-      if (sr.ok && sd.sessionToken) {
-        localStorage.setItem(storageKey, sd.sessionToken);
-        sessionStorage.removeItem("qr_session_token");
-        sessionStorage.removeItem("qr_order_blocked_msg");
-        setToken(sd.sessionToken);
-        setBlockedMsg(null);
-        if (sd.authorizationStatus) setStatus(sd.authorizationStatus as AuthStatus);
-        setHydrated(true);
-        return sd.sessionToken;
-      }
-      setBlockedMsg(sd.message || sd.error || "Sipariş vermek için masadaki QR kodu tekrar okutun.");
-      setHydrated(true);
-      return null;
-    } catch {
+    const r = await createFromQr(tableId, existingToken);
+    if (r.networkError) {
       setBlockedMsg("Oturum oluşturulamadı. Lütfen QR kodu tekrar okutun.");
       setHydrated(true);
-      return null;
     }
-  }, [businessId]);
+    return r.token;
+  }, [businessId, createFromQr]);
 
   // İlk menü yanıtından sonra arka planda çalışır; menüyü bekletmez
   const hydrateInner = useCallback(async (tableId: string) => {
     const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
     if (blockedHint) setBlockedMsg(blockedHint);
 
-    // ✅ Masa bazlı localStorage'dan token al + canonical status ile hydrate
     const storageKey = `qr_session_${businessId}_${tableId}`;
+
+    // QR az önce okutulduysa (qr sayfası işaret bırakır, oturumu beklemeden yönlendirir)
+    // oturum QR kanıtıyla kurulur/tazelenir; eskiden bu istek menüyü bir gidiş-dönüş geciktiriyordu.
+    // Ağ hatasında aşağıdaki kayıtlı token yoluna düşülür (eski QR sayfası da öyle devam ediyordu).
+    if (sessionStorage.getItem("qr_fresh_scan") === tableId) {
+      sessionStorage.removeItem("qr_fresh_scan");
+      const r = await createFromQr(tableId, localStorage.getItem(storageKey));
+      if (!r.networkError) return;
+    }
+
+    // ✅ Masa bazlı localStorage'dan token al + canonical status ile hydrate
     const storedToken = localStorage.getItem(storageKey) || sessionStorage.getItem("qr_session_token");
     if (!storedToken) {
       await ensure(tableId);
@@ -176,7 +203,7 @@ export function useCustomerSession(businessId: string) {
       setToken(storedToken);
       setHydrated(true);
     }
-  }, [businessId, ensure]);
+  }, [businessId, ensure, createFromQr]);
 
   // Beklenmeyen hata (ör. depolama erişimi) butonu "kontrol ediliyor"da bırakmasın
   const hydrate = useCallback((tableId: string) => {

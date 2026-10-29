@@ -7,6 +7,7 @@ import React, {
   useState,
   useRef,
   useCallback,
+  useMemo,
 } from "react";
 import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
@@ -709,23 +710,27 @@ export function NotificationSoundProvider({
     };
   }, [session, mode, addNotification, showToast, isDuplicate]);
 
+  // Sağlayıcı başka bir nedenle çizildiğinde (ör. üst bileşen) tüketiciler boşuna çizilmesin
+  const value = useMemo(
+    () => ({
+      mode,
+      soundEnabled,
+      audioUnlocked,
+      enableSound,
+      disableSound,
+      newNotification,
+      dismissToast,
+      notifications,
+      clearNotification,
+      clearAll,
+      unreadCount,
+      markAllRead,
+    }),
+    [mode, soundEnabled, audioUnlocked, enableSound, disableSound, newNotification, dismissToast, notifications, clearNotification, clearAll, unreadCount, markAllRead],
+  );
+
   return (
-    <NotificationSoundContext.Provider
-      value={{
-        mode,
-        soundEnabled,
-        audioUnlocked,
-        enableSound,
-        disableSound,
-        newNotification,
-        dismissToast,
-        notifications,
-        clearNotification,
-        clearAll,
-        unreadCount,
-        markAllRead,
-      }}
-    >
+    <NotificationSoundContext.Provider value={value}>
       {children}
     </NotificationSoundContext.Provider>
   );

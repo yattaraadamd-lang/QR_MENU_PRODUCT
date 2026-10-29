@@ -1,104 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { GripVertical, Plus, Edit3, Trash2, Folder, Loader2 } from "lucide-react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { Plus, Folder, Loader2 } from "lucide-react";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import type { Category } from "./types";
 
-type Category = {
-  id: string;
-  name: string;
-  icon: string | null;
-  sortOrder: number;
-  isActive: boolean;
-  _count: { products: number };
-};
+const ListSkeleton = () => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    {[1, 2, 3].map((i) => (
+      <div key={i} className="skeleton" style={{ height: 64, borderRadius: 12 }} />
+    ))}
+  </div>
+);
 
-function SortableCategoryItem({
-  cat,
-  onEdit,
-  onDelete,
-}: {
-  cat: Category;
-  onEdit: (cat: Category) => void;
-  onDelete: (cat: Category) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: cat.id,
-  });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : 1,
-    opacity: isDragging ? 0.6 : 1,
-    padding: "14px 18px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    position: "relative",
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="card">
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button
-          {...attributes}
-          {...listeners}
-          type="button"
-          style={{
-            cursor: "grab",
-            background: "none",
-            border: "none",
-            color: "var(--text-muted)",
-            display: "flex",
-            alignItems: "center",
-            padding: 4,
-            touchAction: "none",
-          }}
-          title="Sıralamak için sürükleyin"
-        >
-          <GripVertical size={18} />
-        </button>
-        <span style={{ fontSize: 28 }}>{cat.icon || "📁"}</span>
-        <div>
-          <p style={{ fontWeight: 600, fontSize: 15 }}>{cat.name}</p>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            {cat._count?.products ?? 0} ürün • Sıra: {cat.sortOrder + 1}
-          </p>
-        </div>
-      </div>
-      <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={() => onEdit(cat)} className="btn btn-ghost btn-sm" title="Düzenle">
-          <Edit3 size={15} />
-        </button>
-        <button onClick={() => onDelete(cat)} className="btn btn-ghost btn-sm" style={{ color: "var(--danger-text)" }} title="Sil">
-          <Trash2 size={15} />
-        </button>
-      </div>
-    </div>
-  );
-}
+// dnd-kit (≈18 KB gzip) yalnız liste çizilirken iner; veri yüklenirken paralel gelir
+const SortableCategoryList = dynamic(() => import("./SortableCategoryList"), { ssr: false, loading: ListSkeleton });
 
 export default function AdminCategoriesPage() {
   const { data: session } = useSession();
@@ -112,17 +33,6 @@ export default function AdminCategoriesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   useEffect(() => {
     fetchCategories();
@@ -144,15 +54,16 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = categories.findIndex((c) => c.id === active.id);
-    const newIndex = categories.findIndex((c) => c.id === over.id);
+  // dnd-kit'in arrayMove'u ile aynı
+  const handleMove = async (activeId: string, overId: string) => {
+    const oldIndex = categories.findIndex((c) => c.id === activeId);
+    const newIndex = categories.findIndex((c) => c.id === overId);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const newCategories = arrayMove(categories, oldIndex, newIndex).map((c, idx) => ({
+    const moved = [...categories];
+    const [item] = moved.splice(oldIndex, 1);
+    moved.splice(newIndex, 0, item);
+    const newCategories = moved.map((c, idx) => ({
       ...c,
       sortOrder: idx,
     }));
@@ -307,31 +218,19 @@ export default function AdminCategoriesPage() {
 
       {/* Categories List with Drag and Drop */}
       {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton" style={{ height: 64, borderRadius: 12 }} />
-          ))}
-        </div>
+        <ListSkeleton />
       ) : categories.length === 0 ? (
         <div className="card" style={{ padding: 48, textAlign: "center" }}>
           <Folder size={48} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 12px" }} />
           <p style={{ color: "var(--text-secondary)" }}>Henüz kategori yok</p>
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={categories.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {categories.map((cat) => (
-                <SortableCategoryItem
-                  key={cat.id}
-                  cat={cat}
-                  onEdit={startEdit}
-                  onDelete={(c) => setDeleteTarget(c)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <SortableCategoryList
+          items={categories}
+          onMove={handleMove}
+          onEdit={startEdit}
+          onDelete={(c) => setDeleteTarget(c)}
+        />
       )}
     </div>
   );
