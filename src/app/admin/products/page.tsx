@@ -23,6 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Dialog from "@/components/ui/Dialog";
+import { formatTRY } from "@/lib/format";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -128,7 +129,7 @@ function SortableProductItem({
       </div>
 
       <span style={{ fontWeight: 700, fontSize: 15, color: p.isAvailable ? "var(--primary-light)" : "var(--text-secondary)", flexShrink: 0 }}>
-        {Number(p.price).toFixed(2)} ₺
+        {formatTRY(p.price)}
       </span>
 
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Loader from "@/components/ui/Loader";
+import { formatTRY } from "@/lib/format";
 
 export default function SuperAdminDashboardPage() {
   const { data: session } = useSession();
@@ -37,16 +38,12 @@ export default function SuperAdminDashboardPage() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(value);
-  };
-
   if (loading) return <Loader />;
 
   const statCards = [
     { label: "Toplam İşletme", value: stats.totalBusinesses, icon: "🏢", color: "#A3477A" },
     { label: "Aktif İşletme", value: stats.activeBusinesses, icon: "🟢", color: "#3BA55C" },
-    { label: "Aylık Platform Geliri", value: formatCurrency(stats.monthlyPlatformRevenue), icon: "💎", color: "#A3477A" },
+    { label: "Aylık Platform Geliri", value: formatTRY(stats.monthlyPlatformRevenue), icon: "💎", color: "#A3477A" },
     { label: "Toplam Admin", value: stats.totalAdmins, icon: "👑", color: "#F4A623" },
     { label: "Toplam Garson", value: stats.totalWaiters, icon: "👔", color: "#ef4444" },
     { label: "Toplam Sipariş", value: stats.totalOrders, icon: "📋", color: "#3b82f6" },

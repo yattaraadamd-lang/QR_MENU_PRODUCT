@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Loader from "@/components/ui/Loader";
 import ScrollRegion from "@/components/ui/ScrollRegion";
+import { formatTRY } from "@/lib/format";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Müşteri Talebi",
@@ -93,7 +94,7 @@ export default function AdminPaymentsPage() {
         </div>
         <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #3BA55C" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Bugün Alınan Ciro</p>
-          <p style={{ fontSize: 24, fontWeight: 700, color: "#3BA55C" }}>₺{todayTotal.toFixed(2)}</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: "#3BA55C" }}>{formatTRY(todayTotal)}</p>
         </div>
       </div>
 
@@ -148,12 +149,12 @@ export default function AdminPaymentsPage() {
             {filteredPayments.map((p) => (
               <tr key={p.id}>
                 <td style={{ fontWeight: 600 }}>{p.table?.tableName || `Masa ${p.table?.tableNumber}`}</td>
-                <td style={{ fontWeight: 700, color: "var(--primary-light)" }}>₺{Number(p.amount).toFixed(2)}</td>
+                <td style={{ fontWeight: 700, color: "var(--primary-light)" }}>{formatTRY(p.amount)}</td>
                 <td style={{ fontSize: 13 }}>
                   {p.method === "CASH" && p.receivedAmount ? (
                     <span>
-                      Alınan: ₺{Number(p.receivedAmount).toFixed(2)}
-                      {p.changeAmount ? <small style={{ display: "block", color: "#3BA55C" }}>Üstü: ₺{Number(p.changeAmount).toFixed(2)}</small> : null}
+                      Alınan: {formatTRY(p.receivedAmount)}
+                      {p.changeAmount ? <small style={{ display: "block", color: "#3BA55C" }}>Üstü: {formatTRY(p.changeAmount)}</small> : null}
                     </span>
                   ) : "-"}
                 </td>

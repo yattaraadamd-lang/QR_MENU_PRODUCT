@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Loader from "@/components/ui/Loader";
+import { formatTRY } from "@/lib/format";
 
 export default function SuperAdminSubscriptionsPage() {
   const { data: session } = useSession();
@@ -63,7 +64,7 @@ export default function SuperAdminSubscriptionsPage() {
                   </span>
                 </td>
                 <td style={{ color: "var(--primary-light)", fontWeight: 600 }}>
-                  ₺{Number(s.plan?.monthlyPrice || 0).toFixed(2)}
+                  {formatTRY(s.plan?.monthlyPrice || 0)}
                 </td>
                 <td>{new Date(s.startedAt).toLocaleDateString("tr-TR")}</td>
                 <td>{s.endsAt ? new Date(s.endsAt).toLocaleDateString("tr-TR") : "Süresiz"}</td>

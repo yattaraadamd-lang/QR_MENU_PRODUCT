@@ -7,6 +7,7 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
 import { CreditCard, Banknote, Loader2, Clock, Info, Calculator, ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
+import { formatTRY } from "@/lib/format";
 
 export default function WaiterPaymentsPage() {
   const { data: session } = useSession();
@@ -78,7 +79,7 @@ export default function WaiterPaymentsPage() {
 
     const dueAmount = Number(selectedPayment.amount);
     if (amountToSend > dueAmount) {
-      toast.error(`Tahsil edilecek tutar kalan borçtan (₺${dueAmount.toFixed(2)}) fazla olamaz.`);
+      toast.error(`Tahsil edilecek tutar kalan borçtan (${formatTRY(dueAmount)}) fazla olamaz.`);
       return;
     }
 
@@ -92,7 +93,7 @@ export default function WaiterPaymentsPage() {
       }
 
       if (received < amountToSend) {
-        toast.error(`Alınan tutar (₺${received.toFixed(2)}), tahsil edilecek tutardan (₺${amountToSend.toFixed(2)}) küçük olamaz.`);
+        toast.error(`Alınan tutar (${formatTRY(received)}), tahsil edilecek tutardan (${formatTRY(amountToSend)}) küçük olamaz.`);
         return;
       }
     }
@@ -212,18 +213,18 @@ export default function WaiterPaymentsPage() {
 
                 {isAwaitingApproval && (
                   <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,0.08)", marginBottom: 10, fontSize: 13, color: "#60a5fa" }}>
-                    Garson {p.requestedByName ? `(${p.requestedByName})` : ""} admin onayına gönderdi. (Yöntem: {p.method === "CASH" ? "Nakit" : "Kart"}, Tutar: ₺{Number(p.amount).toFixed(2)})
+                    Garson {p.requestedByName ? `(${p.requestedByName})` : ""} admin onayına gönderdi. (Yöntem: {p.method === "CASH" ? "Nakit" : "Kart"}, Tutar: {formatTRY(p.amount)})
                   </div>
                 )}
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid var(--border-color)" }}>
                   <div>
                     <span style={{ fontWeight: 700, fontSize: 18, color: "var(--primary-light)" }}>
-                      ₺{Number(p.amount).toFixed(2)}
+                      {formatTRY(p.amount)}
                     </span>
                     {p.bill && (
                       <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: 8 }}>
-                        (Adisyon Kalanı: ₺{Number(p.bill.remainingAmount).toFixed(2)})
+                        (Adisyon Kalanı: {formatTRY(p.bill.remainingAmount)})
                       </span>
                     )}
                   </div>
@@ -272,7 +273,7 @@ export default function WaiterPaymentsPage() {
                 Adisyon / Kalan Borç
               </p>
               <p style={{ fontSize: 26, fontWeight: 800, color: "var(--primary-light)" }}>
-                ₺{dueAmount.toFixed(2)}
+                {formatTRY(dueAmount)}
               </p>
             </div>
 
@@ -338,7 +339,7 @@ export default function WaiterPaymentsPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Hesaplanan Para Üstü</span>
                   <span style={{ fontSize: 18, fontWeight: 800, color: change > 0 ? "#3BA55C" : "var(--text-primary)" }}>
-                    ₺{change.toFixed(2)}
+                    {formatTRY(change)}
                   </span>
                 </div>
               </div>

@@ -6,6 +6,7 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import { formatTRY } from "@/lib/format";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   EMPTY:             { label: "Boş",              color: "#A89585", bg: "rgba(166,138,120,0.12)", icon: "⚪" },
@@ -127,7 +128,7 @@ export default function WaiterTablesPage() {
         return;
       }
       if (received! < amount) {
-        setPayError(`Alınan nakit (${received!.toFixed(2)} ₺) ödeme tutarından (${amount.toFixed(2)} ₺) az olamaz.`);
+        setPayError(`Alınan nakit (${formatTRY(received!)}) ödeme tutarından (${formatTRY(amount)}) az olamaz.`);
         return;
       }
     }
@@ -200,6 +201,7 @@ export default function WaiterTablesPage() {
   };
 
 
+  // Ödeme tutarı alanının değeri (type="number" "12.50" bekler); ekranda formatTRY
   const fmt = (v: number | string) => Number(v).toFixed(2);
 
   return (
@@ -294,18 +296,18 @@ export default function WaiterTablesPage() {
                   <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span>Toplam:</span>
-                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{fmt(bill.totalAmount)} ₺</span>
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{formatTRY(bill.totalAmount)}</span>
                     </div>
                     {Number(bill.paidAmount) > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span>Ödenen:</span>
-                        <span style={{ fontWeight: 600, color: "#3BA55C" }}>{fmt(bill.paidAmount)} ₺</span>
+                        <span style={{ fontWeight: 600, color: "#3BA55C" }}>{formatTRY(bill.paidAmount)}</span>
                       </div>
                     )}
                     {hasUnpaid && (
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span>Kalan:</span>
-                        <span style={{ fontWeight: 700, color: "var(--danger-text)" }}>{fmt(bill.remainingAmount)} ₺</span>
+                        <span style={{ fontWeight: 700, color: "var(--danger-text)" }}>{formatTRY(bill.remainingAmount)}</span>
                       </div>
                     )}
                   </div>
@@ -362,9 +364,9 @@ export default function WaiterTablesPage() {
                       <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Adisyon</p>
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {[
-                          { label: "Toplam Hesap", value: `${fmt(sessionDetail.totalAmount)} ₺`, color: "var(--text-primary)" },
-                          { label: "Ödenen", value: `${fmt(sessionDetail.paidAmount)} ₺`, color: "#3BA55C" },
-                          { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "var(--danger-text)" : "#3BA55C" },
+                          { label: "Toplam Hesap", value: formatTRY(sessionDetail.totalAmount), color: "var(--text-primary)" },
+                          { label: "Ödenen", value: formatTRY(sessionDetail.paidAmount), color: "#3BA55C" },
+                          { label: "Kalan", value: formatTRY(sessionDetail.remainingAmount), color: Number(sessionDetail.remainingAmount) > 0 ? "var(--danger-text)" : "#3BA55C" },
                         ].map(r => (
                           <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
                             <span style={{ color: "var(--text-secondary)" }}>{r.label}</span>
@@ -389,12 +391,12 @@ export default function WaiterTablesPage() {
                         <div key={order.id} style={{ background: "var(--bg-card)", borderRadius: 10, padding: "10px 14px", marginBottom: 8, border: "1px solid var(--border-subtle)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                             <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{new Date(order.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary-light)" }}>{fmt(order.totalPrice)} ₺</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary-light)" }}>{formatTRY(order.totalPrice)}</span>
                           </div>
                           {order.items.map((item: any, i: number) => (
                             <div key={i} style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", justifyContent: "space-between" }}>
                               <span>{item.quantity}× {item.productName}</span>
-                              <span>{fmt(item.totalPrice)} ₺</span>
+                              <span>{formatTRY(item.totalPrice)}</span>
                             </div>
                           ))}
                         </div>
@@ -412,7 +414,7 @@ export default function WaiterTablesPage() {
                             {PAYMENT_METHODS.find(m => m.value === p.method)?.label || p.method}
                             {p.handledByWaiterName && ` · ${p.handledByWaiterName}`}
                           </span>
-                          <span style={{ fontWeight: 700, color: "#3BA55C" }}>+{fmt(p.amount)} ₺</span>
+                          <span style={{ fontWeight: 700, color: "#3BA55C" }}>+{formatTRY(p.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -446,7 +448,7 @@ export default function WaiterTablesPage() {
               <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
               <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
                 {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
-                {sessionDetail && <span style={{ color: "var(--danger-text)", fontWeight: 700 }}> · Kalan: {fmt(sessionDetail.remainingAmount)} ₺</span>}
+                {sessionDetail && <span style={{ color: "var(--danger-text)", fontWeight: 700 }}> · Kalan: {formatTRY(sessionDetail.remainingAmount)}</span>}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
@@ -510,12 +512,12 @@ export default function WaiterTablesPage() {
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>Para Üstü</span>
                           <span style={{ fontSize: 18, fontWeight: 800, color: change >= 0 ? "#3BA55C" : "#ef4444" }}>
-                            {change >= 0 ? `${change.toFixed(2)} ₺` : "⚠️ Yetersiz"}
+                            {change >= 0 ? formatTRY(change) : "⚠️ Yetersiz"}
                           </span>
                         </div>
                         {change >= 0 && dueAmount > 0 && (
                           <div style={{ fontSize: 11, color: "var(--text-secondary)", paddingTop: 6, borderTop: "1px solid var(--border-subtle)" }}>
-                            Ciroya yansıyacak: <span style={{ fontWeight: 700, color: "var(--primary-light)" }}>{dueAmount.toFixed(2)} ₺</span>
+                            Ciroya yansıyacak: <span style={{ fontWeight: 700, color: "var(--primary-light)" }}>{formatTRY(dueAmount)}</span>
                           </div>
                         )}
                       </div>

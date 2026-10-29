@@ -6,6 +6,7 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import { formatTRY } from "@/lib/format";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   EMPTY:             { label: "Boş",              color: "#A89585", bg: "rgba(166,138,120,0.12)" },
@@ -227,6 +228,7 @@ export default function AdminTablesPage() {
     }
   };
 
+  // Ödeme tutarı alanının değeri (type="number" "12.50" bekler); ekranda formatTRY
   const fmt = (v: any) => Number(v || 0).toFixed(2);
   const occupied = tables.filter(t => t.status !== "EMPTY").length;
   const pendingPayment = tables.filter(t => t.bill && Number(t.bill.remainingAmount) > 0).length;
@@ -385,18 +387,18 @@ export default function AdminTablesPage() {
                   <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 8, padding: "6px 8px", background: "var(--bg-hover)", borderRadius: 8 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                       <span>Toplam:</span>
-                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{fmt(bill.totalAmount)} ₺</span>
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{formatTRY(bill.totalAmount)}</span>
                     </div>
                     {Number(bill.paidAmount) > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                         <span>Ödenen:</span>
-                        <span style={{ fontWeight: 600, color: "#3BA55C" }}>{fmt(bill.paidAmount)} ₺</span>
+                        <span style={{ fontWeight: 600, color: "#3BA55C" }}>{formatTRY(bill.paidAmount)}</span>
                       </div>
                     )}
                     {hasUnpaid && (
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
                         <span>Kalan:</span>
-                        <span style={{ fontWeight: 700, color: "var(--danger-text)" }}>{fmt(bill.remainingAmount)} ₺</span>
+                        <span style={{ fontWeight: 700, color: "var(--danger-text)" }}>{formatTRY(bill.remainingAmount)}</span>
                       </div>
                     )}
                   </div>
@@ -451,9 +453,9 @@ export default function AdminTablesPage() {
                     <div style={{ background: "var(--bg-hover)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Adisyon</p>
                       {[
-                        { label: "Toplam Hesap", value: `${fmt(sessionDetail.totalAmount)} ₺`, color: "var(--text-primary)" },
-                        { label: "Ödenen", value: `${fmt(sessionDetail.paidAmount)} ₺`, color: "#3BA55C" },
-                        { label: "Kalan", value: `${fmt(sessionDetail.remainingAmount)} ₺`, color: Number(sessionDetail.remainingAmount) > 0 ? "var(--danger-text)" : "#3BA55C" },
+                        { label: "Toplam Hesap", value: formatTRY(sessionDetail.totalAmount), color: "var(--text-primary)" },
+                        { label: "Ödenen", value: formatTRY(sessionDetail.paidAmount), color: "#3BA55C" },
+                        { label: "Kalan", value: formatTRY(sessionDetail.remainingAmount), color: Number(sessionDetail.remainingAmount) > 0 ? "var(--danger-text)" : "#3BA55C" },
                       ].map(r => (
                         <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
                           <span style={{ color: "var(--text-secondary)" }}>{r.label}</span>
@@ -476,12 +478,12 @@ export default function AdminTablesPage() {
                         <div key={order.id} style={{ background: "var(--bg-card)", borderRadius: 10, padding: "10px 14px", marginBottom: 8, border: "1px solid var(--border-subtle)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                             <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{new Date(order.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary-light)" }}>{fmt(order.totalPrice)} ₺</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary-light)" }}>{formatTRY(order.totalPrice)}</span>
                           </div>
                           {order.items.map((item: any, i: number) => (
                             <div key={i} style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", justifyContent: "space-between" }}>
                               <span>{item.quantity}× {item.productName}</span>
-                              <span>{fmt(item.totalPrice)} ₺</span>
+                              <span>{formatTRY(item.totalPrice)}</span>
                             </div>
                           ))}
                         </div>
@@ -498,7 +500,7 @@ export default function AdminTablesPage() {
                             {PAYMENT_METHODS.find(m => m.value === p.method)?.label || p.method}
                             {p.handledByWaiterName && ` · ${p.handledByWaiterName}`}
                           </span>
-                          <span style={{ fontWeight: 700, color: "#3BA55C" }}>+{fmt(p.amount)} ₺</span>
+                          <span style={{ fontWeight: 700, color: "#3BA55C" }}>+{formatTRY(p.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -526,7 +528,7 @@ export default function AdminTablesPage() {
             <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
-              {sessionDetail && <span style={{ color: "var(--danger-text)", fontWeight: 700 }}> · Kalan: {fmt(sessionDetail.remainingAmount)} ₺</span>}
+              {sessionDetail && <span style={{ color: "var(--danger-text)", fontWeight: 700 }}> · Kalan: {formatTRY(sessionDetail.remainingAmount)}</span>}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
@@ -553,7 +555,7 @@ export default function AdminTablesPage() {
                   <input id="f-alinan-tutar" className="input" type="number" step="0.01" min="0.01" value={payReceivedAmount} onChange={e => setPayReceivedAmount(e.target.value)} placeholder="0.00" style={{ fontSize: 18, fontWeight: 700 }} />
                   {payReceivedAmount && payAmount && parseFloat(payReceivedAmount) >= parseFloat(payAmount) && (
                     <p style={{ marginTop: 6, fontSize: 13, color: "var(--success-text)", fontWeight: 600 }}>
-                      Para Üstü: {(parseFloat(payReceivedAmount) - parseFloat(payAmount)).toFixed(2)} ₺
+                      Para Üstü: {formatTRY(parseFloat(payReceivedAmount) - parseFloat(payAmount))}
                     </p>
                   )}
                   {payReceivedAmount && payAmount && parseFloat(payReceivedAmount) < parseFloat(payAmount) && (
