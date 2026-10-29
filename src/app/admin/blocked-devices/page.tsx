@@ -310,7 +310,7 @@ export default function BlockedDevicesPage() {
                 className="input"
                 placeholder="Engel kaldırma nedenini belirtin..."
                 rows={3}
-                style={{ resize: "vertical", fontSize: 13 }}
+                style={{ resize: "vertical" }}
                 maxLength={500}
               />
               <div style={{ textAlign: "right", fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>

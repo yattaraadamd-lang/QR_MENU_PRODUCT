@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useCallback, useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/ui/Loader";
 
@@ -10,13 +10,11 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    resolveQRToken();
-  }, []);
+  const qrToken = resolvedParams.qrToken;
 
-  const resolveQRToken = async () => {
+  const resolveQRToken = useCallback(async () => {
     try {
-      const response = await fetch(`/api/qr/${resolvedParams.qrToken}`);
+      const response = await fetch(`/api/qr/${qrToken}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -32,7 +30,7 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
       // Masa ve işletme bilgilerini sessionStorage'a kaydet
       sessionStorage.setItem("qr_business", JSON.stringify(data.business));
       sessionStorage.setItem("qr_table", JSON.stringify(data.table));
-      sessionStorage.setItem("qr_token", resolvedParams.qrToken);
+      sessionStorage.setItem("qr_token", qrToken);
 
       // ✅ CustomerSession oluştur — qrToken ile (QR tarama kanıtı)
       // Masa bazlı localStorage anahtarı kullan
@@ -46,7 +44,7 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
           body: JSON.stringify({
             businessId: bId,
             tableId: tId,
-            qrToken: resolvedParams.qrToken,
+            qrToken,
             existingToken: existingToken || undefined,
           }),
         });
@@ -70,7 +68,11 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
       setLoading(false);
     }
-  };
+  }, [qrToken, router]);
+
+  useEffect(() => {
+    resolveQRToken();
+  }, [resolveQRToken]);
 
   if (error) {
     return (

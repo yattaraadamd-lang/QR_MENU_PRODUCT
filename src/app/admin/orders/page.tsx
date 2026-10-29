@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Dialog from "@/components/ui/Dialog";
 
@@ -59,22 +59,24 @@ export default function AdminOrdersPage() {
   const [selectedOutOfStockPids, setSelectedOutOfStockPids] = useState<string[]>([]);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchOrders();
-      const iv = setInterval(fetchOrders, 10000);
-      return () => clearInterval(iv);
-    }
-  }, [session]);
+  const businessId = session?.user.businessId;
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
-      const res = await fetch(`/api/orders?businessId=${session?.user.businessId}`);
+      const res = await fetch(`/api/orders?businessId=${businessId}`);
       const data = await res.json();
       if (res.ok) setOrders(data.orders || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  };
+  }, [businessId]);
+
+  // session nesnesine değil businessId'ye bağlı: oturum her yenilendiğinde aralık yeniden kurulmasın
+  useEffect(() => {
+    if (!businessId) return;
+    fetchOrders();
+    const iv = setInterval(fetchOrders, 10000);
+    return () => clearInterval(iv);
+  }, [businessId, fetchOrders]);
 
   const getUniqueOrderProducts = (order: any) => {
     if (!order || !order.items) return [];
@@ -324,7 +326,7 @@ export default function AdminOrdersPage() {
                   value={cancelReasonText}
                   onChange={e => setCancelReasonText(e.target.value)}
                   placeholder="İptal nedenini detaylandırın..."
-                  style={{ height: 70, resize: "none", width: "100%", fontSize: 13 }}
+                  style={{ height: 70, resize: "none", width: "100%" }}
                   data-autofocus={selectedReasonCode === "OTHER" || undefined}
                 />
               </div>

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
+import Loader from "@/components/ui/Loader";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -50,8 +51,11 @@ const groups: Record<string, string> = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
+
+  // Oturum okunurken kilit ekranı çizilirse yetkili admin her yenilemede "Erişim Engellendi" görür
+  if (status === "loading") return <Loader fullScreen label="Panel yükleniyor" />;
 
   if (session?.user.role !== "ADMIN") {
     return (

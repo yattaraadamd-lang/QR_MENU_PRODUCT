@@ -10,6 +10,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <Toaster
         position="top-center"
         richColors
+        // Canlı bölgenin ekran okuyucu adı (varsayılan İngilizce "Notifications")
+        containerAriaLabel="Bildirimler"
         toastOptions={{
           style: {
             fontFamily: "var(--font-body)",

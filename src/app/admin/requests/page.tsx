@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Loader from "@/components/ui/Loader";
 
@@ -38,17 +38,11 @@ export default function AdminRequestsPage() {
   const [openingTable, setOpeningTable] = useState<string | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchRequests();
-      const interval = setInterval(fetchRequests, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [session]);
+  const businessId = session?.user.businessId;
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
-      const res = await fetch(`/api/service-requests?businessId=${session?.user.businessId}`);
+      const res = await fetch(`/api/service-requests?businessId=${businessId}`);
       const data = await res.json();
       if (res.ok) setRequests(data.serviceRequests || []);
     } catch (e) {
@@ -56,7 +50,15 @@ export default function AdminRequestsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [businessId]);
+
+  // session nesnesine değil businessId'ye bağlı: oturum her yenilendiğinde aralık yeniden kurulmasın
+  useEffect(() => {
+    if (!businessId) return;
+    fetchRequests();
+    const interval = setInterval(fetchRequests, 5000);
+    return () => clearInterval(interval);
+  }, [businessId, fetchRequests]);
 
   // ✅ Talep durumunu güncelle — garson ekranıyla aynı uç: masa durumunu yeniden hesaplar ve
   // socket olayı yayınlar (eski /api/service-requests/[id] ikisini de yapmıyordu)
