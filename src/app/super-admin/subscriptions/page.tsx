@@ -33,7 +33,8 @@ export default function SuperAdminSubscriptionsPage() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <h2 style={{ fontSize: 24, fontWeight: 700 }}>Abonelikler</h2>
-        <button className="btn btn-primary" onClick={() => alert("Plan ekleme formu yakında eklenecek!")}>+ Yeni Plan Ekle</button>
+        {/* Plan ekleme formu henüz yok: tıklanınca alert açmak yerine kapalı */}
+        <button type="button" className="btn btn-primary" disabled>+ Yeni Plan Ekle (yakında)</button>
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>

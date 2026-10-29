@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useState } from "react";
 import Loader from "@/components/ui/Loader";
+import AuthSessionProvider from "@/components/AuthSessionProvider";
 
 const sidebarLinks = [
   { href: "/super-admin/dashboard", label: "Dashboard", icon: "📊" },
@@ -16,6 +17,14 @@ const sidebarLinks = [
 ];
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
+  return (
+    <AuthSessionProvider>
+      <SuperAdminGate>{children}</SuperAdminGate>
+    </AuthSessionProvider>
+  );
+}
+
+function SuperAdminGate({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();

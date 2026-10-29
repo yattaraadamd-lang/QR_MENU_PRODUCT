@@ -31,8 +31,12 @@ export default function SuperAdminSettingsPage() {
               <p style={{ fontSize: 14 }}><strong>Rol:</strong> {session?.user?.role || "-"}</p>
             </div>
           </div>
-          <button className="btn btn-primary btn-lg" style={{ marginTop: 8 }} onClick={() => alert("Ayarlar kaydedildi (henüz API bağlanmadı)")}>
-            💾 Kaydet
+          {/* API henüz yok: "kaydedildi" demek yanıltıcıydı; buton kapalı ve nedeni yazıyor */}
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
+            Platform ayarlarını kaydetme yakında eklenecek; şimdilik buradaki değişiklikler saklanmıyor.
+          </p>
+          <button type="button" className="btn btn-primary btn-lg" disabled>
+            💾 Kaydet (yakında)
           </button>
         </div>
       </div>

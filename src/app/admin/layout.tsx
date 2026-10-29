@@ -8,6 +8,7 @@ import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import Loader from "@/components/ui/Loader";
+import AuthSessionProvider from "@/components/AuthSessionProvider";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -51,6 +52,14 @@ const groups: Record<string, string> = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthSessionProvider>
+      <AdminGate>{children}</AdminGate>
+    </AuthSessionProvider>
+  );
+}
+
+function AdminGate({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -168,11 +177,6 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                 <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em" }}>QR Menü</p>
                 <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 1 }}>Admin Paneli</p>
               </div>
-            </div>
-
-            {/* Admin Header Notification Panel Button */}
-            <div className="lg-hidden" style={{ display: "none" }}>
-              <NotificationPanel />
             </div>
           </div>
 

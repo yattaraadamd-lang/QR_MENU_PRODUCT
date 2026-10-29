@@ -1,11 +1,11 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 
+// Oturum sağlayıcısı burada değil: yalnız personel ve auth layout'larında (AuthSessionProvider)
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <>
       {children}
       <Toaster
         position="top-center"
@@ -21,6 +21,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           },
         }}
       />
-    </SessionProvider>
+    </>
   );
 }

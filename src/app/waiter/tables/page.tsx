@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
+import FormError from "@/components/ui/FormError";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   EMPTY:             { label: "Boş",              color: "#A89585", bg: "rgba(166,138,120,0.12)", icon: "⚪" },
@@ -41,6 +42,9 @@ export default function WaiterTablesPage() {
   const [payNote, setPayNote] = useState("");
   const [receivedAmount, setReceivedAmount] = useState(""); // ✅ Nakit ödemede müşteriden alınan tutar
   const [paying, setPaying] = useState(false);
+  // Modal içi hata (FormError): toast açık <dialog>'un arkasında kalırdı
+  const [payError, setPayError] = useState<string | null>(null);
+  const closePay = () => { setPayModal(false); setPayError(null); };
 
   // Masa kapatma modalı
   const [closeModal, setCloseModal] = useState(false);
@@ -105,29 +109,30 @@ export default function WaiterTablesPage() {
     
     // ✅ CASH için receivedAmount zorunlu
     if (payMethod === "CASH" && !receivedAmount) {
-      alert("Müşteriden alınan nakit tutarını girin.");
+      setPayError("Müşteriden alınan nakit tutarını girin.");
       return;
     }
-    
+
     const received = payMethod === "CASH" ? parseFloat(receivedAmount) : null;
 
     // ✅ Frontend validations
     if (!Number.isFinite(amount) || amount <= 0) {
-      alert("Geçerli bir ödeme tutarı girin.");
+      setPayError("Geçerli bir ödeme tutarı girin.");
       return;
     }
 
     if (payMethod === "CASH") {
       if (!Number.isFinite(received) || received! <= 0) {
-        alert("Müşteriden alınan nakit tutarını girin.");
+        setPayError("Müşteriden alınan nakit tutarını girin.");
         return;
       }
       if (received! < amount) {
-        alert(`Alınan nakit (${received!.toFixed(2)} ₺) ödeme tutarından (${amount.toFixed(2)} ₺) az olamaz.`);
+        setPayError(`Alınan nakit (${received!.toFixed(2)} ₺) ödeme tutarından (${amount.toFixed(2)} ₺) az olamaz.`);
         return;
       }
     }
 
+    setPayError(null);
     setPaying(true);
     setActionLoadingTableId(selectedTable.id);
     try {
@@ -144,7 +149,7 @@ export default function WaiterTablesPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setPayModal(false);
+        closePay();
         setPayAmount("");
         setReceivedAmount(""); // ✅ Clear received amount
         setPayNote("");
@@ -155,9 +160,9 @@ export default function WaiterTablesPage() {
         if (r2.ok) setSessionDetail(d2.bill);
         await fetchTables();
       } else {
-        alert(data.error || "Ödeme alınamadı");
+        setPayError(data.error || "Ödeme alınamadı");
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setPayError("Bağlantı hatası. Lütfen tekrar deneyin."); }
     finally {
       setPaying(false);
       setActionLoadingTableId(null);
@@ -437,7 +442,7 @@ export default function WaiterTablesPage() {
         const change = payMethod === "CASH" && received > 0 ? received - dueAmount : 0;
 
         return (
-          <Dialog onClose={() => setPayModal(false)} contentStyle={{ padding: 24, maxWidth: 400 }}>
+          <Dialog onClose={closePay} contentStyle={{ padding: 24, maxWidth: 400 }}>
               <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
               <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
                 {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
@@ -523,6 +528,7 @@ export default function WaiterTablesPage() {
                   <input id="f-not-opsiyonel" className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
                 </div>
               </div>
+              <FormError message={payError} style={{ marginTop: 14 }} />
               <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
                 <button
                   onClick={handlePay}
@@ -532,7 +538,7 @@ export default function WaiterTablesPage() {
                 >
                   {paying ? "İşleniyor..." : "Ödemeyi Onayla"}
                 </button>
-                <button onClick={() => { setPayModal(false); setReceivedAmount(""); }} className="btn btn-ghost">İptal</button>
+                <button onClick={() => { closePay(); setReceivedAmount(""); }} className="btn btn-ghost">İptal</button>
               </div>
             </Dialog>
         );

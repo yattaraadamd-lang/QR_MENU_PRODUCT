@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Loader from "@/components/ui/Loader";
+import { useConfirm } from "@/components/ui/useConfirm";
+import { toast } from "sonner";
 
 type Usage = { current: number; limit: number | null };
 type Plan = {
@@ -71,6 +73,7 @@ function SubscriptionContent() {
   const [submitting, setSubmitting] = useState(false);
   const [checkoutReady, setCheckoutReady] = useState(false);
   const formHostRef = useRef<HTMLDivElement>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const load = async () => {
     try {
@@ -121,10 +124,20 @@ function SubscriptionContent() {
   };
 
   const cancelPaid = async () => {
-    if (!confirm("Ücretli aboneliğiniz iptal edilecek. Emin misiniz?")) return;
-    const res = await fetch("/api/admin/billing/cancel", { method: "POST" });
-    const json = await res.json();
-    alert(json.message || json.error);
+    const ok = await confirm({
+      title: "Ücretli abonelik iptal edilsin mi?",
+      description: "Ücretli aboneliğiniz iptal edilecek.",
+      confirmText: "Aboneliği iptal et",
+    });
+    if (!ok) return;
+    try {
+      const res = await fetch("/api/admin/billing/cancel", { method: "POST" });
+      const json = await res.json();
+      if (res.ok) toast.success(json.message || "Abonelik iptal edildi");
+      else toast.error(json.error || json.message || "Abonelik iptal edilemedi");
+    } catch {
+      toast.error("Bağlantı hatası");
+    }
     load();
   };
 
@@ -278,6 +291,7 @@ function SubscriptionContent() {
           )}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

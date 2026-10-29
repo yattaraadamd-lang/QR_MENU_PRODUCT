@@ -58,6 +58,8 @@ export default function AdminOrdersPage() {
   const [cancelReasonText, setCancelReasonText] = useState("");
   const [selectedOutOfStockPids, setSelectedOutOfStockPids] = useState<string[]>([]);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  // Hata modalın içinde gösterilir: toast açık <dialog>'un arkasında kalırdı
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const businessId = session?.user.businessId;
 
@@ -92,6 +94,7 @@ export default function AdminOrdersPage() {
 
   const handleSelectReasonCode = (code: ReasonCode) => {
     setSelectedReasonCode(code);
+    setCancelError(null);
     if (code === "OUT_OF_STOCK" && selectedOrder) {
       const prods = getUniqueOrderProducts(selectedOrder);
       if (prods.length === 1) {
@@ -116,20 +119,22 @@ export default function AdminOrdersPage() {
     setSelectedReasonCode(null);
     setCancelReasonText("");
     setSelectedOutOfStockPids([]);
+    setCancelError(null);
   };
 
   const handleCancelOrder = async () => {
     if (!selectedOrder || !selectedReasonCode) return;
 
     if (selectedReasonCode === "OUT_OF_STOCK" && selectedOutOfStockPids.length === 0) {
-      alert("Lütfen stok dışı kalan en az bir ürün seçin.");
+      setCancelError("Lütfen stok dışı kalan en az bir ürün seçin.");
       return;
     }
     if (selectedReasonCode === "OTHER" && !cancelReasonText.trim()) {
-      alert("Lütfen iptal nedeni açıklamasını girin.");
+      setCancelError("Lütfen iptal nedeni açıklamasını girin.");
       return;
     }
 
+    setCancelError(null);
     setCancellingId(selectedOrder.id);
     const selectedOption = REASON_OPTIONS.find(o => o.code === selectedReasonCode);
     const reasonLabel = selectedOption?.label || selectedReasonCode;
@@ -152,10 +157,10 @@ export default function AdminOrdersPage() {
         resetCancelState();
       } else {
         const d = await res.json();
-        alert(d.error || "İptal edilemedi");
+        setCancelError(d.error || "İptal edilemedi");
       }
     } catch {
-      alert("Bağlantı hatası");
+      setCancelError("Bağlantı hatası. Lütfen tekrar deneyin.");
     } finally {
       setCancellingId(null);
     }
@@ -331,6 +336,11 @@ export default function AdminOrdersPage() {
                 />
               </div>
 
+              {cancelError && (
+                <p role="alert" style={{ marginBottom: 12, fontSize: 13, fontWeight: 600, color: "var(--danger-text)" }}>
+                  {cancelError}
+                </p>
+              )}
               <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#fca5a5" }}>
                 ⚠️ Bu işlem geri alınamaz.
               </div>

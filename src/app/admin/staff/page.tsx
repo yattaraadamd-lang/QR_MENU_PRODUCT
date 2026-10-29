@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import QRCode from "qrcode";
+import { toast } from "sonner";
 import Loader from "@/components/ui/Loader";
 import ScrollRegion from "@/components/ui/ScrollRegion";
+import { useConfirm } from "@/components/ui/useConfirm";
 
 export default function AdminStaffPage() {
   const { data: session } = useSession();
@@ -14,6 +15,8 @@ export default function AdminStaffPage() {
   const [creating, setCreating] = useState(false);
   const [newInvite, setNewInvite] = useState<{ url: string; qrDataUrl: string; expiresAt?: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const inviteUrlRef = useRef<HTMLParagraphElement>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   useEffect(() => {
     fetchInvites();
@@ -52,42 +55,47 @@ export default function AdminStaffPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Davet linki oluşturulurken bir hata oluştu");
+        toast.error(data.error || "Davet linki oluşturulurken bir hata oluştu");
         return;
       }
       // ✅ Link sadece şimdi gösterilir — veritabanında yalnızca hash'i tutulur
       const url: string = data.invite?.inviteUrl || `${window.location.origin}/auth/join/${data.invite?.inviteCode}`;
+      // qrcode yalnız davet oluşturulurken iner (sayfa paketinde değil)
+      const { default: QRCode } = await import("qrcode");
       const qrDataUrl = await QRCode.toDataURL(url, { width: 320, margin: 2 });
       setNewInvite({ url, qrDataUrl, expiresAt: data.invite?.expiresAt });
       setCopied(false);
       fetchInvites();
     } catch (e) {
       console.error(e);
-      alert("Davet linki oluşturulurken bir hata oluştu");
+      toast.error("Davet linki oluşturulurken bir hata oluştu");
     } finally {
       setCreating(false);
     }
   };
   const deleteInvite = async (inviteId: string) => {
-    if (!confirm("Bu daveti iptal etmek istediğinizden emin misiniz? Link artık çalışmayacak.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Davet iptal edilsin mi?",
+      description: "Link artık çalışmayacak.",
+      confirmText: "Daveti iptal et",
+    });
+    if (!ok) return;
 
     try {
       const res = await fetch(`/api/admin/waiter-invites?id=${inviteId}`, {
         method: "DELETE",
       });
-      
+
       if (res.ok) {
-        alert("✅ Davet kodu silindi");
+        toast.success("Davet iptal edildi");
         fetchInvites();
       } else {
         const data = await res.json();
-        alert(data.error || "Davet kodu silinirken bir hata oluştu");
+        toast.error(data.error || "Davet kodu silinirken bir hata oluştu");
       }
     } catch (e) {
       console.error(e);
-      alert("Davet kodu silinirken bir hata oluştu");
+      toast.error("Davet kodu silinirken bir hata oluştu");
     }
   };
 
@@ -97,7 +105,9 @@ export default function AdminStaffPage() {
       await navigator.clipboard.writeText(newInvite.url);
       setCopied(true);
     } catch {
-      prompt("Linki kopyalayın:", newInvite.url);
+      // Pano izni yoksa (ör. http, eski tarayıcı) görünen linki seç; kullanıcı kendisi kopyalar
+      if (inviteUrlRef.current) window.getSelection()?.selectAllChildren(inviteUrlRef.current);
+      toast.info("Link seçildi; kopyalamak için Ctrl+C (mobilde uzun basın).");
     }
   };
 
@@ -182,7 +192,7 @@ export default function AdminStaffPage() {
               style={{ borderRadius: 8, background: "white", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 220 }}>
               <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Davet linki hazır</p>
-              <p style={{
+              <p ref={inviteUrlRef} style={{
                 fontFamily: "monospace",
                 fontSize: 12,
                 wordBreak: "break-all",
@@ -283,6 +293,7 @@ export default function AdminStaffPage() {
           </div>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }

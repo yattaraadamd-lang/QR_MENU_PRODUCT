@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
+import FormError from "@/components/ui/FormError";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   EMPTY:             { label: "Boş",              color: "#A89585", bg: "rgba(166,138,120,0.12)" },
@@ -36,6 +37,10 @@ export default function AdminTablesPage() {
   const [qrModal, setQrModal] = useState<any>(null);
   const [deleteModal, setDeleteModal] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+  // Modal içi hatalar (FormError): toast açık <dialog>'un arkasında kalırdı
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [payError, setPayError] = useState<string | null>(null);
 
   // Detay modal state
   const [selectedTable, setSelectedTable] = useState<any>(null);
@@ -85,17 +90,21 @@ export default function AdminTablesPage() {
     };
   }, [session, fetchTables]);
 
+  const closeCreate = () => { setShowCreate(false); setCreateError(null); };
+  const closeDelete = () => { setDeleteModal(null); setDeleteError(null); };
+  const closePay = () => { setPayModal(false); setPayError(null); };
+
   const createTable = async () => {
     if (!createForm.tableNumber.trim()) return;
-    setCreating(true);
+    setCreating(true); setCreateError(null);
     try {
       const res = await fetch("/api/admin/tables", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(createForm),
       });
-      if (res.ok) { fetchTables(); setShowCreate(false); setCreateForm({ tableNumber: "", tableName: "" }); }
-      else { const d = await res.json(); alert(d.error); }
-    } catch (e) { console.error(e); }
+      if (res.ok) { fetchTables(); closeCreate(); setCreateForm({ tableNumber: "", tableName: "" }); }
+      else { const d = await res.json(); setCreateError(d.error || "Masa oluşturulamadı"); }
+    } catch (e) { console.error(e); setCreateError("Bağlantı hatası. Lütfen tekrar deneyin."); }
     finally { setCreating(false); }
   };
 
@@ -107,13 +116,13 @@ export default function AdminTablesPage() {
 
   const deleteTable = async () => {
     if (!deleteModal) return;
-    setDeleting(true);
+    setDeleting(true); setDeleteError(null);
     try {
       const res = await fetch(`/api/admin/tables/${deleteModal.id}`, { method: "DELETE" });
       const data = await res.json();
-      if (res.ok && data.success) { fetchTables(); setDeleteModal(null); }
-      else alert(data.message || data.error || "Masa silinirken hata oluştu.");
-    } catch (e) { console.error(e); }
+      if (res.ok && data.success) { fetchTables(); closeDelete(); }
+      else setDeleteError(data.message || data.error || "Masa silinirken hata oluştu.");
+    } catch (e) { console.error(e); setDeleteError("Bağlantı hatası. Lütfen tekrar deneyin."); }
     finally { setDeleting(false); }
   };
 
@@ -138,10 +147,10 @@ export default function AdminTablesPage() {
     if (!selectedTable?.activeSession || !payAmount || !payMethod) return;
     // Nakit ödeme için alınan tutar zorunlu
     if (payMethod === "CASH" && (!payReceivedAmount || parseFloat(payReceivedAmount) < parseFloat(payAmount))) {
-      alert("Nakit ödeme için alınan tutar, ödeme tutarından az olamaz.");
+      setPayError("Nakit ödeme için alınan tutar, ödeme tutarından az olamaz.");
       return;
     }
-    setPaying(true);
+    setPaying(true); setPayError(null);
     try {
       const requestBody: Record<string, unknown> = {
         tableSessionId: selectedTable.activeSession.id,
@@ -159,13 +168,13 @@ export default function AdminTablesPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setPayModal(false); setPayAmount(""); setPayNote(""); setPayMethod("CASH"); setPayReceivedAmount("");
+        closePay(); setPayAmount(""); setPayNote(""); setPayMethod("CASH"); setPayReceivedAmount("");
         const r2 = await fetch(`/api/bills/${selectedTable.activeSession.id}`);
         const d2 = await r2.json();
         if (r2.ok) setSessionDetail(d2.bill);
         fetchTables();
-      } else alert(data.error || "Ödeme alınamadı");
-    } catch (e) { console.error(e); }
+      } else setPayError(data.error || "Ödeme alınamadı");
+    } catch (e) { console.error(e); setPayError("Bağlantı hatası. Lütfen tekrar deneyin."); }
     finally { setPaying(false); }
   };
 
@@ -245,10 +254,10 @@ export default function AdminTablesPage() {
 
       {/* Create Modal */}
       {showCreate && (
-        <Dialog onClose={() => setShowCreate(false)} contentStyle={{ padding: 28, maxWidth: 380 }}>
+        <Dialog onClose={closeCreate} contentStyle={{ padding: 28, maxWidth: 380 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 18, fontWeight: 700 }}>Yeni Masa Ekle</h3>
-              <button aria-label="Kapat" className="tap-target" onClick={() => setShowCreate(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
+              <button aria-label="Kapat" className="tap-target" onClick={closeCreate} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
@@ -260,11 +269,12 @@ export default function AdminTablesPage() {
                 <input id="f-masa-adi-opsiyonel" className="input" value={createForm.tableName} onChange={e => setCreateForm({ ...createForm, tableName: e.target.value })} placeholder="Örn: Bahçe 3, Teras 1" />
               </div>
             </div>
+            <FormError message={createError} style={{ marginTop: 14 }} />
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <button onClick={createTable} disabled={creating || !createForm.tableNumber.trim()} className="btn btn-primary" style={{ flex: 1 }}>
                 {creating ? "Oluşturuluyor..." : "Masa Oluştur"}
               </button>
-              <button onClick={() => setShowCreate(false)} className="btn btn-ghost">İptal</button>
+              <button onClick={closeCreate} className="btn btn-ghost">İptal</button>
             </div>
           </Dialog>
       )}
@@ -287,7 +297,7 @@ export default function AdminTablesPage() {
 
       {/* Delete Modal */}
       {deleteModal && (
-        <Dialog onClose={() => setDeleteModal(null)} contentStyle={{ padding: 28, maxWidth: 380 }}>
+        <Dialog onClose={closeDelete} contentStyle={{ padding: 28, maxWidth: 380 }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
               <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Masayı Sil</h3>
@@ -296,8 +306,9 @@ export default function AdminTablesPage() {
             <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, marginBottom: 20, fontSize: 13, color: "#fca5a5" }}>
               ⚠️ Aktif sipariş, talep veya ödeme varsa silme engellenecektir.
             </div>
+            <FormError message={deleteError} style={{ marginBottom: 16 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setDeleteModal(null)} className="btn btn-ghost" style={{ flex: 1 }}>İptal</button>
+              <button onClick={closeDelete} className="btn btn-ghost" style={{ flex: 1 }}>İptal</button>
               <button onClick={deleteTable} disabled={deleting} className="btn btn-danger" style={{ flex: 1 }}>{deleting ? "Siliniyor..." : "Evet, Sil"}</button>
             </div>
           </Dialog>
@@ -511,7 +522,7 @@ export default function AdminTablesPage() {
 
       {/* ── Ödeme Alma Modalı ─────────────────────────────────────────────── */}
       {payModal && (
-        <Dialog onClose={() => setPayModal(false)} contentStyle={{ padding: 24, maxWidth: 380 }}>
+        <Dialog onClose={closePay} contentStyle={{ padding: 24, maxWidth: 380 }}>
             <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
@@ -557,11 +568,12 @@ export default function AdminTablesPage() {
                 <input id="f-not-opsiyonel" className="input" value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Ödeme notu..." />
               </div>
             </div>
+            <FormError message={payError} style={{ marginTop: 14 }} />
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
               <button onClick={handlePay} disabled={paying || !payAmount || parseFloat(payAmount) <= 0 || (payMethod === "CASH" && (!payReceivedAmount || parseFloat(payReceivedAmount) < parseFloat(payAmount)))} className="btn btn-success" style={{ flex: 1 }}>
                 {paying ? "İşleniyor..." : "Ödemeyi Onayla"}
               </button>
-              <button onClick={() => setPayModal(false)} className="btn btn-ghost">İptal</button>
+              <button onClick={closePay} className="btn btn-ghost">İptal</button>
             </div>
           </Dialog>
       )}

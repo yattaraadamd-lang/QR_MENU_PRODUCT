@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
+import { useConfirm } from "@/components/ui/useConfirm";
+import { toast } from "sonner";
 
 const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
   CALL_WAITER:         { label: "Garson Çağrısı",  icon: "🙋", color: "#ef4444" },
@@ -43,6 +45,7 @@ export default function WaiterRequestsPage() {
 
   const [codeInputs, setCodeInputs] = useState<Record<string, string>>({});
   const [rejectingRequest, setRejectingRequest] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -90,7 +93,7 @@ export default function WaiterRequestsPage() {
     if (!session?.user.businessId || !req.tableId) return;
     const code = codeInputs[req.id]?.trim();
     if (!code || code.length !== 6) {
-      alert("Lütfen 6 haneli doğrulama kodunu girin.");
+      toast.error("Lütfen 6 haneli doğrulama kodunu girin.");
       return;
     }
     setOpeningTable(req.id);
@@ -108,12 +111,13 @@ export default function WaiterRequestsPage() {
           return next;
         });
         fetchRequests();
+        toast.success("Masa açıldı, müşteri sipariş verebilir.");
       } else {
-        alert(data.error || "Masa açma hatası");
+        toast.error(data.error || "Masa açma hatası");
       }
     } catch (e) {
       console.error("Masa açma hatası:", e);
-      alert("Bağlantı hatası");
+      toast.error("Bağlantı hatası");
     } finally {
       setOpeningTable(null);
     }
@@ -121,9 +125,11 @@ export default function WaiterRequestsPage() {
 
   // ✅ Sipariş Talebi Reddetme ve Cihaz Engelleme
   const rejectOrderRequest = async (req: any) => {
-    const confirmed = window.confirm(
-      "Masada müşteri bulunmadığını ve bu cihazın işletmede engelleneceğini onaylıyor musunuz?"
-    );
+    const confirmed = await confirm({
+      title: "Sipariş talebi reddedilsin mi?",
+      description: "Masada müşteri bulunmadığını onaylıyorsunuz. Müşteri oturumu kapatılacak ve bu cihaz işletmede engellenecek.",
+      confirmText: "Reddet ve engelle",
+    });
     if (!confirmed) return;
 
     setRejectingRequest(req.id);
@@ -137,11 +143,11 @@ export default function WaiterRequestsPage() {
       if (res.ok) {
         fetchRequests();
       } else {
-        alert(data.error || "Sipariş talebi reddedilemedi");
+        toast.error(data.error || "Sipariş talebi reddedilemedi");
       }
     } catch (e) {
       console.error("Reddetme hatası:", e);
-      alert("Bağlantı hatası");
+      toast.error("Bağlantı hatası");
     } finally {
       setRejectingRequest(null);
     }
@@ -363,6 +369,7 @@ export default function WaiterRequestsPage() {
           })}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
