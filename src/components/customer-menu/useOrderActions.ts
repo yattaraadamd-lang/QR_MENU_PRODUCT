@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import type { CartApi } from "./useCart";
@@ -24,7 +24,6 @@ type Params = {
   refreshRequests: () => void;
 };
 
-const showError = (msg: string) => toast.error(msg);
 const BLOCKED_DEVICE = "Bu cihazın bu işletmede işlem yapması engellendi.";
 const TABLE_CLAIMED = "Bu masa başka bir aktif oturuma ait. Personelden yardım isteyin.";
 
@@ -33,6 +32,15 @@ export function useOrderActions(p: Params) {
   const { session, cart } = p;
   const [submitting, setSubmitting] = useState(false);
   const [sendingRequest, setSendingRequest] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const clearError = useCallback(() => setActionError(null), []);
+
+  // Açık <dialog> (top layer) varken toast modalın arkasında kalır: hata pencerenin içinde
+  // (FormError) gösterilir, pencere yoksa toast
+  const showError = (msg: string) => {
+    if (document.querySelector("dialog[open]")) setActionError(msg);
+    else toast.error(msg);
+  };
 
   // ✅ Tek gerçek sipariş gönderme fonksiyonu — yalnız AUTHORIZED durumda çağrılır
   const sendActualOrder = async (token: string): Promise<boolean> => {
@@ -71,6 +79,7 @@ export function useOrderActions(p: Params) {
     const { business, table } = p;
     if (!cart.items.length || !business || !table) return;
     if (submitting) return;
+    setActionError(null);
 
     // REVOKED veya TABLE_ALREADY_CLAIMED durumunda engelle
     if (session.status === "REVOKED" || session.status === "TABLE_ALREADY_CLAIMED") {
@@ -189,6 +198,7 @@ export function useOrderActions(p: Params) {
     const { business, table, activeRequests } = p;
     if (!business || !table) return;
     if (sendingRequest) return;
+    setActionError(null);
 
     // Hizmet talepleri için AUTHORIZED gerekli (ORDER_REQUEST hariç)
     if (type !== "ORDER_REQUEST" && session.status !== "AUTHORIZED") {
@@ -250,5 +260,5 @@ export function useOrderActions(p: Params) {
     }
   };
 
-  return { submitOrder, sendRequest, submitting, sendingRequest };
+  return { submitOrder, sendRequest, submitting, sendingRequest, actionError, clearError };
 }

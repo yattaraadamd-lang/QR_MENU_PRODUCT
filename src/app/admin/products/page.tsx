@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import FormError from "@/components/ui/FormError";
 import Dialog from "@/components/ui/Dialog";
 import { formatTRY } from "@/lib/format";
 
@@ -175,6 +176,8 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  // Modal içi hata (FormError): toast açık <dialog>'un arkasında kalırdı
+  const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -240,6 +243,7 @@ export default function AdminProductsPage() {
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.price) return;
+    setFormError(null);
     setSaving(true);
     try {
       const url = editingId ? `/api/admin/products/${editingId}` : "/api/admin/products";
@@ -253,9 +257,9 @@ export default function AdminProductsPage() {
         resetForm();
         toast.success(editingId ? "Ürün güncellendi" : "Ürün eklendi");
       } else {
-        toast.error("İşlem başarısız oldu");
+        setFormError("İşlem başarısız oldu");
       }
-    } catch { toast.error("Bağlantı hatası"); }
+    } catch { setFormError("Bağlantı hatası"); }
     finally { setSaving(false); }
   };
 
@@ -304,7 +308,7 @@ export default function AdminProductsPage() {
     setShowForm(true);
   };
 
-  const resetForm = () => { setShowForm(false); setEditingId(null); setForm(emptyForm); };
+  const resetForm = () => { setShowForm(false); setFormError(null); setEditingId(null); setForm(emptyForm); };
 
   const filtered = products
     .filter(p => filterCat === "all" || p.category?.id === filterCat)
@@ -417,6 +421,7 @@ export default function AdminProductsPage() {
                 </label>
               </div>
             </div>
+            <FormError message={formError} style={{ marginTop: 14 }} />
             <div style={{ display: "flex", gap: 10, marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
               <button onClick={handleSubmit} disabled={saving || !form.name.trim() || !form.price} className="btn btn-primary" style={{ flex: 1, gap: 6 }}>
                 {saving ? <><Loader2 size={14} className="animate-spin" /> Kaydediliyor...</> : editingId ? "Güncelle" : "Ürün Ekle"}

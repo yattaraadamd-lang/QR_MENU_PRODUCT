@@ -2,9 +2,12 @@
 
 import { useId, useState } from "react";
 import Dialog from "@/components/ui/Dialog";
+import FormError from "@/components/ui/FormError";
 import { WAITER_REASONS } from "./constants";
 
 type Props = {
+  /** Çağrı gönderilemediyse pencerenin içinde gösterilir (toast modalın arkasında kalırdı) */
+  error: string | null;
   onClose: () => void;
   /** Seçilen neden ya da "Diğer" için yazılan açıklama */
   onSubmit: (reason: string) => void;
@@ -12,7 +15,7 @@ type Props = {
 };
 
 /** Garson çağırma: nedenler gerçek bir radyo grubu (ok tuşlarıyla gezilir, seçim okunur) */
-export default function WaiterSheet({ onClose, onSubmit, sending }: Props) {
+export default function WaiterSheet({ error, onClose, onSubmit, sending }: Props) {
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const noteId = useId();
@@ -50,6 +53,7 @@ export default function WaiterSheet({ onClose, onSubmit, sending }: Props) {
             <textarea id={noteId} value={note} onChange={e => setNote(e.target.value)} placeholder="Açıklama yazın..." maxLength={200} className="input" style={{ resize: "none", height: 60, marginBottom: 14 }} />
           </>
         )}
+        <FormError message={error} style={{ marginBottom: 14 }} />
         <button
           type="button"
           onClick={() => onSubmit(isOther ? note.trim() : reason)}

@@ -7,6 +7,7 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
 import { CreditCard, Banknote, Loader2, Clock, Info, Calculator, ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
+import FormError from "@/components/ui/FormError";
 import { formatTRY } from "@/lib/format";
 
 export default function WaiterPaymentsPage() {
@@ -19,6 +20,9 @@ export default function WaiterPaymentsPage() {
   const [customAmount, setCustomAmount] = useState("");
   const [receivedAmount, setReceivedAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Modal içi hata (FormError): toast açık <dialog>'un arkasında kalırdı
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const closeModal = () => { setSelectedPayment(null); setApprovalError(null); };
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -60,6 +64,7 @@ export default function WaiterPaymentsPage() {
   }, [session, fetchPayments]);
 
   const openModalForPayment = (p: any) => {
+    setApprovalError(null);
     setSelectedPayment(p);
     setPaymentMethod(p.method || "CASH");
     setPaymentNote(p.note || "");
@@ -73,13 +78,13 @@ export default function WaiterPaymentsPage() {
 
     const amountToSend = parseFloat(customAmount);
     if (isNaN(amountToSend) || amountToSend <= 0) {
-      toast.error("Lütfen geçerli bir tahsilat tutarı giriniz.");
+      setApprovalError("Lütfen geçerli bir tahsilat tutarı giriniz.");
       return;
     }
 
     const dueAmount = Number(selectedPayment.amount);
     if (amountToSend > dueAmount) {
-      toast.error(`Tahsil edilecek tutar kalan borçtan (${formatTRY(dueAmount)}) fazla olamaz.`);
+      setApprovalError(`Tahsil edilecek tutar kalan borçtan (${formatTRY(dueAmount)}) fazla olamaz.`);
       return;
     }
 
@@ -88,16 +93,17 @@ export default function WaiterPaymentsPage() {
       const received = parseFloat(receivedAmount);
 
       if (!receivedAmount || isNaN(received) || received <= 0) {
-        toast.error("Lütfen alınan nakit tutarını giriniz.");
+        setApprovalError("Lütfen alınan nakit tutarını giriniz.");
         return;
       }
 
       if (received < amountToSend) {
-        toast.error(`Alınan tutar (${formatTRY(received)}), tahsil edilecek tutardan (${formatTRY(amountToSend)}) küçük olamaz.`);
+        setApprovalError(`Alınan tutar (${formatTRY(received)}), tahsil edilecek tutardan (${formatTRY(amountToSend)}) küçük olamaz.`);
         return;
       }
     }
 
+    setApprovalError(null);
     setSubmitting(true);
     try {
       const body: any = {
@@ -127,10 +133,10 @@ export default function WaiterPaymentsPage() {
         setCustomAmount("");
         fetchPayments();
       } else {
-        toast.error(data.error || "Onay talebi gönderilemedi. Lütfen tekrar deneyin.");
+        setApprovalError(data.error || "Onay talebi gönderilemedi. Lütfen tekrar deneyin.");
       }
     } catch {
-      toast.error("Bağlantı hatası.");
+      setApprovalError("Bağlantı hatası. Lütfen tekrar deneyin.");
     } finally {
       setSubmitting(false);
     }
@@ -252,7 +258,7 @@ export default function WaiterPaymentsPage() {
 
       {/* Payment Approval Modal */}
       {selectedPayment && (
-        <Dialog onClose={() => setSelectedPayment(null)} contentStyle={{ padding: 24, maxWidth: 460 }}>
+        <Dialog onClose={closeModal} contentStyle={{ padding: 24, maxWidth: 460 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
               <Calculator size={20} /> Ödeme Bilgisini Admin Onayına Gönder
             </h2>
@@ -363,9 +369,11 @@ export default function WaiterPaymentsPage() {
               <input className="input" value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} placeholder="Örn: 200 TL nakit alındı..." />
             </div>
 
+            <FormError message={approvalError} style={{ marginBottom: 14 }} />
+
             {/* Actions */}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setSelectedPayment(null)} className="btn btn-ghost" style={{ flex: 1 }}>İptal</button>
+              <button onClick={closeModal} className="btn btn-ghost" style={{ flex: 1 }}>İptal</button>
               <button onClick={handleRequestApproval} className="btn btn-primary" style={{ flex: 2, gap: 6 }} disabled={submitting}>
                 {submitting ? (
                   <><Loader2 size={16} className="animate-spin" /> İletiliyor...</>

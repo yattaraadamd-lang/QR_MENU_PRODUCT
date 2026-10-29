@@ -68,6 +68,11 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     refreshRequests: activity.refreshRequests,
   });
 
+  // Hata yalnız açık pencerede tutulur (toast modalın arkasında kalırdı); pencereler kapanınca silinir
+  const dialogOpen = showCartMobile || showServiceMenu || showWaiterModal;
+  const { clearError } = actions;
+  useEffect(() => { if (!dialogOpen) clearError(); }, [dialogOpen, clearError]);
+
   const addToCart = useCallback((p: Product, note?: string) => {
     if (!orderable(p)) { toast.error("Bu ürün şu anda mevcut değil"); return; }
     addItem(p, note);
@@ -112,8 +117,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   if (menu.loading) return <MenuLoading />;
   if (menu.error || !menu.business) return <MenuAccessError message={menu.error || "Bu sayfa bulunamadı."} />;
 
-  const cartPanel = (
+  const renderCart = (error?: string | null) => (
     <CartPanel
+      error={error}
       items={cart.items}
       total={cart.total}
       status={session.status}
@@ -193,7 +199,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                   <span key={cart.count} className="animate-bump" style={{ background: "var(--primary)", color: "white", borderRadius: 99, fontSize: 12, fontWeight: 700, padding: "2px 8px", minWidth: 24, textAlign: "center", display: "inline-block" }}>{cart.count}</span>
                 )}
               </h2>
-              <div style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>{cartPanel}</div>
+              <div style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>{renderCart()}</div>
             </div>
           </aside>
         </div>
@@ -209,12 +215,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>🛒 Sepetim</h2>
             <button type="button" aria-label="Kapat" className="tap-target" onClick={() => setShowCartMobile(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
           </div>
-          <div style={{ padding: "12px 20px 20px", maxHeight: "70dvh", overflowY: "auto" }}>{cartPanel}</div>
+          <div style={{ padding: "12px 20px 20px", maxHeight: "70dvh", overflowY: "auto" }}>{renderCart(actions.actionError)}</div>
         </Dialog>
       )}
 
       {showWaiterModal && (
         <WaiterSheet
+          error={actions.actionError}
           onClose={() => setShowWaiterModal(false)}
           onSubmit={(reason) => actions.sendRequest("CALL_WAITER", reason)}
           sending={actions.sendingRequest}
@@ -225,8 +232,9 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         <ServiceSheet
           activeRequests={activity.activeRequests}
           sending={actions.sendingRequest}
+          error={actions.actionError}
           onClose={() => setShowServiceMenu(false)}
-          onCallWaiter={() => { setShowServiceMenu(false); setShowWaiterModal(true); }}
+          onCallWaiter={() => { clearError(); setShowServiceMenu(false); setShowWaiterModal(true); }}
           onPayment={() => actions.sendRequest("PAYMENT_REQUEST")}
           onHelp={() => actions.sendRequest("HELP_REQUEST")}
         />
