@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNotificationSound, NotificationItem } from "@/contexts/NotificationSoundContext";
+import Dialog from "@/components/ui/Dialog";
 import { Bell, X, CheckCheck, Volume2, VolumeX } from "lucide-react";
 
 /**
@@ -60,44 +61,17 @@ export function NotificationPanel() {
     return () => clearInterval(timer);
   }, []);
 
-  const togglePanel = useCallback(() => {
-    setIsOpen((prev) => {
-      const nextState = !prev;
-      // Panel açılırsa okunmamış bildirimleri sıfırla
-      if (nextState) {
-        markAllRead();
-      }
-      return nextState;
-    });
+  // Panel modal: açıkken zil etkisiz, yalnız açar. markAllRead state güncelleyicisinin
+  // dışında: içeride çağrılınca React "render sırasında başka bileşeni güncelleme" uyarısı veriyordu
+  const openPanel = useCallback(() => {
+    markAllRead();
+    setIsOpen(true);
   }, [markAllRead]);
 
   const closePanel = useCallback(() => {
     setIsOpen(false);
   }, []);
-
-  // Açılınca odak panele girer, kapanınca paneli açan butona döner
-  const panelRef = useRef<HTMLElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (isOpen) {
-      returnFocusRef.current = document.activeElement as HTMLElement | null;
-      panelRef.current?.querySelector<HTMLElement>("[data-panel-close]")?.focus();
-    } else if (returnFocusRef.current) {
-      if (panelRef.current?.contains(document.activeElement)) returnFocusRef.current.focus();
-      returnFocusRef.current = null;
-    }
-  }, [isOpen]);
-
-  // Close on Escape key
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && isOpen) {
-        closePanel();
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, closePanel]);
+  // Odak tuzağı, Esc, arka planı etkisizleştirme ve odağın zile dönüşü Dialog'dan (yerel <dialog>)
 
   return (
     <>
@@ -105,7 +79,7 @@ export function NotificationPanel() {
       <NotificationBell
         count={notifications.length}
         unreadCount={unreadCount}
-        onClick={togglePanel}
+        onClick={openPanel}
       />
 
       {/* Ses kontrolü — açık/kapalı tercihi + tarayıcı kilidi durumu */}
@@ -180,20 +154,16 @@ export function NotificationPanel() {
         </div>
       )}
 
-      {/* Overlay */}
-      <div
-        aria-hidden="true"
-        className={`notification-overlay ${isOpen ? "active" : ""}`}
-        onClick={closePanel}
-      />
-
-      {/* Panel */}
-      <aside ref={panelRef} className={`notification-panel ${isOpen ? "open" : ""}`} aria-label="Bildirimler">
+      {/* Panel: sağdan açılan modal çekmece */}
+      <Dialog open={isOpen} onClose={closePanel} overlayClassName="notification-dialog" contentClassName="notification-panel open">
         {/* Header */}
         <div className="notification-panel-header">
-          <div className="notification-panel-title">
-            <Bell size={20} />
+          {/* Dialog pencerenin adını ilk başlıktan alır: "Bildirimler (n)" */}
+          <h2 className="notification-panel-title">
+            <Bell size={20} aria-hidden="true" />
             Bildirimler
+            {/* Satır içi span boşluk eklemez: ad "Bildirimler(1)" okunurdu */}
+            {notifications.length > 0 && " "}
             {notifications.length > 0 && (
               <span
                 style={{
@@ -205,63 +175,21 @@ export function NotificationPanel() {
                 ({notifications.length})
               </span>
             )}
-          </div>
+          </h2>
           <div className="notification-panel-actions">
             {notifications.length > 0 && (
-              <button
-                onClick={clearAll}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: "0.75rem",
-                  color: "var(--text-muted)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "4px 8px",
-                  borderRadius: "var(--radius-sm)",
-                  transition: "all 0.15s",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.target as HTMLElement).style.color =
-                    "var(--text-secondary)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.target as HTMLElement).style.color = "var(--text-muted)")
-                }
-                title="Tümünü temizle"
-              >
-                <CheckCheck size={14} />
+              <button type="button" onClick={clearAll} className="notification-clear-btn" title="Tümünü temizle">
+                <CheckCheck size={14} aria-hidden="true" />
                 Temizle
               </button>
             )}
             <button
+              type="button"
               onClick={closePanel}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: "var(--radius-sm)",
-                border: "none",
-                background: "transparent",
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                // "all" olmasın: panelin visibility geçişini miras alıp açılışta odak alamaz
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) =>
-                ((e.target as HTMLElement).style.background =
-                  "rgba(239, 68, 68, 0.15)")
-              }
-              onMouseLeave={(e) =>
-                ((e.target as HTMLElement).style.background = "transparent")
-              }
+              className="notification-close-btn"
               title="Paneli kapat"
               aria-label="Paneli kapat"
-              data-panel-close
+              data-autofocus
             >
               <X size={18} aria-hidden="true" />
             </button>
@@ -272,7 +200,7 @@ export function NotificationPanel() {
         <div className="notification-panel-body">
           {notifications.length === 0 ? (
             <div className="notification-empty">
-              <div className="notification-empty-icon">🔔</div>
+              <div className="notification-empty-icon" aria-hidden="true">🔔</div>
               <div className="notification-empty-text">
                 Tüm bildirimler okundu
               </div>
@@ -281,13 +209,15 @@ export function NotificationPanel() {
               </div>
             </div>
           ) : (
-            notifications.map((notif) => (
-              <NotificationCard
-                key={notif.id}
-                notification={notif}
-                onDismiss={clearNotification}
-              />
-            ))
+            <ul className="notification-list">
+              {notifications.map((notif) => (
+                <NotificationCard
+                  key={notif.id}
+                  notification={notif}
+                  onDismiss={clearNotification}
+                />
+              ))}
+            </ul>
           )}
         </div>
 
@@ -341,7 +271,7 @@ export function NotificationPanel() {
             {soundEnabled && audioUnlocked ? "Kapat" : "Aç"}
           </button>
         </div>
-      </aside>
+      </Dialog>
     </>
   );
 }
@@ -536,7 +466,7 @@ function NotificationCard({
   }, [translateX, notification.id, onDismiss]);
 
   return (
-    <div
+    <li
       className="notification-card"
       data-type={notification.type}
       onTouchStart={handleTouchStart}
@@ -549,9 +479,9 @@ function NotificationCard({
       }}
     >
       {/* Icon */}
-      <div className="notification-icon">{notification.icon}</div>
+      <div className="notification-icon" aria-hidden="true">{notification.icon}</div>
 
-      {/* Content (XSS-safe via textContent) */}
+      {/* Content (React metin kaçışı) */}
       <div className="notification-content">
         <div className="notification-title">{notification.title}</div>
         <div className="notification-message">
@@ -564,17 +494,19 @@ function NotificationCard({
 
       {/* Dismiss button */}
       <button
+        type="button"
         className="notification-dismiss"
         onClick={(e) => {
           e.stopPropagation();
           onDismiss(notification.id);
         }}
         title="Bildirimi kaldır"
-        aria-label="Bildirimi kaldır"
+        // Liste içinde birden çok "kaldır" butonu var: hangisi olduğu adında
+        aria-label={`${notification.title} bildirimini kaldır`}
       >
         <X size={14} aria-hidden="true" />
       </button>
-    </div>
+    </li>
   );
 }
 

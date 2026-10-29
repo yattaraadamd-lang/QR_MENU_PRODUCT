@@ -161,7 +161,7 @@ export default function WaiterRequestsPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 style={{ fontSize: 19, fontWeight: 800 }}>Talepler</h2>
+          <h1 className="page-title page-title-sm">Talepler</h1>
           {pendingCount > 0 && filter === "active" && (
             <span style={{
               background: "var(--danger)", color: "white", borderRadius: 99,

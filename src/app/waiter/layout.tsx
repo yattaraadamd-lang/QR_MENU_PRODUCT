@@ -65,9 +65,9 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-primary)", paddingBottom: 72 }}>
-      {/* Top bar */}
-      <div style={{
+    <div style={{ minHeight: "100dvh", background: "var(--bg-primary)", paddingBottom: 72 }}>
+      {/* Üst çubuk: banner landmark'ı */}
+      <header style={{
         background: "var(--bg-secondary)",
         borderBottom: "1px solid var(--border-color)",
         padding: "0 16px",
@@ -102,7 +102,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
             <LogOut size={18} aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Content */}
       <main id="main-content" key={pathname} className="page-enter" style={{ padding: "16px 14px" }}>

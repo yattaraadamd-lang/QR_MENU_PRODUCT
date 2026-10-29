@@ -243,9 +243,9 @@ export default function WaiterOrdersPage() {
       <Dialog onClose={() => !isSubmitting && resetModalState()} contentStyle={{ padding: 24, maxWidth: 420, width: "90vw" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <AlertTriangle size={20} color="#ef4444" />
-            <h3 style={{ fontSize: 18, fontWeight: 700 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700 }}>
               {isReject ? "Siparişi Reddet" : "Siparişi İptal Et"}
-            </h3>
+            </h2>
           </div>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
             <strong style={{ color: "var(--text-primary)" }}>{order.table?.tableName || `Masa ${order.table?.tableNumber}`}</strong> — Neden seçin:
@@ -350,7 +350,7 @@ export default function WaiterOrdersPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 style={{ fontSize: 19, fontWeight: 800 }}>Siparişler</h2>
+          <h1 className="page-title page-title-sm">Siparişler</h1>
           {pendingCount > 0 && filter === "active" && (
             <span style={{
               background: "var(--danger)", color: "white", borderRadius: 99,

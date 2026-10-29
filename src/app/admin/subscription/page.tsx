@@ -153,7 +153,7 @@ function SubscriptionContent() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Abonelik</h2>
+      <h1 className="page-title" style={{ marginBottom: 24 }}>Abonelik</h1>
 
       {paymentResult === "success" && (
         <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid #3BA55C" }}>
@@ -204,7 +204,7 @@ function SubscriptionContent() {
       </div>
 
       {/* Planlar */}
-      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Planlar</h3>
+      <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Planlar</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12, marginBottom: 24 }}>
         {data.plans.map((plan) => {
           const isCurrent = sub?.status === "ACTIVE" && sub.plan?.code === plan.code;
@@ -241,7 +241,7 @@ function SubscriptionContent() {
       {/* Fatura bilgileri + iyzico formu */}
       {selectedPlan && (
         <div className="card" style={{ padding: 20, maxWidth: 520 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{selectedPlan.name} — Ödeme</h3>
+          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{selectedPlan.name} — Ödeme</h2>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
             Ödeme iyzico güvenli ödeme sayfasında alınır. Kart bilgileriniz bize ulaşmaz.
           </p>

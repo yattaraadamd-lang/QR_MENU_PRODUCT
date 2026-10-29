@@ -365,7 +365,7 @@ export default function AdminProductsPage() {
       {showForm && (
         <Dialog onClose={resetForm} contentStyle={{ padding: 28 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700 }}>{editingId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</h3>
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>{editingId ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</h2>
               <button aria-label="Kapat" className="tap-target" onClick={resetForm} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center" }}>
                 <X size={20} />
               </button>

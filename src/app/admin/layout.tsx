@@ -96,15 +96,31 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { counts } = useBadgeCounts(); // ✅ PERF: default 30sn (önceki: 8sn)
 
-  // Mobil kenar çubuğu: açılınca odak ilk linke gider, Esc kapatıp odağı menü butonuna döndürür
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  // Masaüstü genişliğine geçilince mobil menü kapanır; açık kalsa içerik inert ve örtülü kalırdı
   useEffect(() => {
-    if (!sidebarOpen) return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => { if (mq.matches) setSidebarOpen(false); };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // Mobil kenar çubuğu: açılınca odak ilk linke gider; Esc ya da örtüye tıklama kapatıp
+  // odağı menü butonuna döndürür. İade efektte: butonun sarmalayıcısı kapanana kadar inert.
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(false);
+  useEffect(() => {
+    if (!sidebarOpen) {
+      if (restoreFocusRef.current) {
+        restoreFocusRef.current = false;
+        menuButtonRef.current?.focus();
+      }
+      return;
+    }
     document.querySelector<HTMLElement>("#admin-sidebar nav a")?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      restoreFocusRef.current = true;
       setSidebarOpen(false);
-      menuButtonRef.current?.focus();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -121,11 +137,11 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   const grouped = Object.entries(groups);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div style={{ display: "flex", minHeight: "100dvh" }}>
       {sidebarOpen && (
         <div
           aria-hidden="true"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => { restoreFocusRef.current = true; setSidebarOpen(false); }}
           style={{
             position: "fixed",
             inset: 0,
@@ -202,7 +218,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
+        <nav aria-label="Yönetim menüsü" style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
           {grouped.map(([groupKey, groupLabel]) => {
             const items = adminMenuItems.filter((item) => item.group === groupKey);
             if (!items.length) return null;
@@ -277,8 +293,8 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                             textAlign: "center",
                             lineHeight: "16px",
                             flexShrink: 0,
-                            animation: "pulse-glow 2s infinite",
                           }}
+                          className="animate-pulse-glow"
                         >
                           {badge > 99 ? "99+" : badge}
                         </span>
@@ -337,9 +353,10 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main id="main-content" style={{ flex: 1, marginLeft: 0, minWidth: 0 }} className="lg-ml-260">
-        {/* Top Header bar for Desktop + Mobile */}
-        <div
+      {/* Mobil menü açıkken içerik etkisiz: Tab kenar çubuğundan arkaya kaçmasın */}
+      <div style={{ flex: 1, minWidth: 0 }} className="lg-ml-sidebar" inert={sidebarOpen}>
+        {/* Üst çubuk main dışında: banner landmark'ı */}
+        <header
           style={{
             display: "flex",
             alignItems: "center",
@@ -383,29 +400,12 @@ function AdminContent({ children }: { children: React.ReactNode }) {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <NotificationPanel />
           </div>
-        </div>
+        </header>
 
-        <div key={pathname} className="page-enter" style={{ padding: "24px 20px", maxWidth: 1280, margin: "0 auto" }}>
+        <main id="main-content" key={pathname} className="page-enter" style={{ padding: "24px 20px", maxWidth: 1280, margin: "0 auto" }}>
           {children}
-        </div>
-      </main>
-
-      <style jsx global>{`
-        @media (min-width: 1024px) {
-          .lg-hidden {
-            display: none !important;
-          }
-
-          .lg-left-0 {
-            left: 0 !important;
-            visibility: visible !important;
-          }
-
-          .lg-ml-260 {
-            margin-left: 248px !important;
-          }
-        }
-      `}</style>
+        </main>
+      </div>
     </div>
   );
 }

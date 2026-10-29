@@ -149,7 +149,7 @@ export default function WaiterPaymentsPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Ödeme Talepleri ve Garson Bildirimleri</h2>
+      <h1 className="page-title page-title-sm" style={{ marginBottom: 16 }}>Ödeme Talepleri ve Garson Bildirimleri</h1>
 
       {payments.length === 0 ? (
         <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
@@ -178,9 +178,9 @@ export default function WaiterPaymentsPage() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 10 }}>
                   <div>
-                    <h3 style={{ fontWeight: 700, fontSize: 16 }}>
+                    <h2 style={{ fontWeight: 700, fontSize: 16 }}>
                       {p.table?.tableName || `Masa ${p.table?.tableNumber}`}
-                    </h3>
+                    </h2>
                     <p style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
                       <Clock size={12} />
                       Talep: {new Date(p.requestedAt || p.createdAt).toLocaleTimeString("tr-TR")}
@@ -253,9 +253,9 @@ export default function WaiterPaymentsPage() {
       {/* Payment Approval Modal */}
       {selectedPayment && (
         <Dialog onClose={() => setSelectedPayment(null)} contentStyle={{ padding: 24, maxWidth: 460 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
               <Calculator size={20} /> Ödeme Bilgisini Admin Onayına Gönder
-            </h3>
+            </h2>
 
             {/* Table info */}
             <div style={{ marginBottom: 16, padding: "12px 16px", background: "var(--bg-hover)", borderRadius: 12 }}>

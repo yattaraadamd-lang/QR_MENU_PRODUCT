@@ -258,7 +258,7 @@ export default function AdminTablesPage() {
       {showCreate && (
         <Dialog onClose={closeCreate} contentStyle={{ padding: 28, maxWidth: 380 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700 }}>Yeni Masa Ekle</h3>
+              <h2 style={{ fontSize: 18, fontWeight: 700 }}>Yeni Masa Ekle</h2>
               <button aria-label="Kapat" className="tap-target" onClick={closeCreate} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -284,7 +284,7 @@ export default function AdminTablesPage() {
       {/* QR Modal */}
       {qrModal && (
         <Dialog onClose={() => setQrModal(null)} contentStyle={{ padding: 28, textAlign: "center", maxWidth: 380 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{qrModal.tableName}</h3>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{qrModal.tableName}</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>QR Kodu yazdırın veya indirin</p>
             <div style={{ background: "white", borderRadius: 16, padding: 16, display: "inline-block", marginBottom: 16 }}>
               <img src={qrModal.qrImageData} alt="QR" style={{ width: 220, height: 220, display: "block" }} />
@@ -302,7 +302,7 @@ export default function AdminTablesPage() {
         <Dialog onClose={closeDelete} contentStyle={{ padding: 28, maxWidth: 380 }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Masayı Sil</h3>
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Masayı Sil</h2>
               <p style={{ color: "var(--text-secondary)", fontSize: 14 }}><strong style={{ color: "var(--text-primary)" }}>"{deleteModal.name}"</strong> adlı masayı silmek üzeresiniz.</p>
             </div>
             <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, marginBottom: 20, fontSize: 13, color: "#fca5a5" }}>
@@ -426,7 +426,7 @@ export default function AdminTablesPage() {
         <Dialog onClose={() => setSelectedTable(null)} contentStyle={{ padding: 0, maxWidth: 500 }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <h3 style={{ fontSize: 17, fontWeight: 800 }}>{selectedTable.tableName || `Masa ${selectedTable.tableNumber}`}</h3>
+                <h2 style={{ fontSize: 17, fontWeight: 800 }}>{selectedTable.tableName || `Masa ${selectedTable.tableNumber}`}</h2>
                 <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                   {STATUS_META[selectedTable.status]?.label}
                   {selectedTable.activeSession && (
@@ -525,7 +525,7 @@ export default function AdminTablesPage() {
       {/* ── Ödeme Alma Modalı ─────────────────────────────────────────────── */}
       {payModal && (
         <Dialog onClose={closePay} contentStyle={{ padding: 24, maxWidth: 380 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
+            <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
               {sessionDetail && <span style={{ color: "var(--danger-text)", fontWeight: 700 }}> · Kalan: {formatTRY(sessionDetail.remainingAmount)}</span>}
@@ -583,7 +583,7 @@ export default function AdminTablesPage() {
       {/* ── Masa Kapatma Modalı ───────────────────────────────────────────── */}
       {closeModal && (
         <Dialog onClose={() => setCloseModal(false)} contentStyle={{ padding: 24, maxWidth: 380 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>🔒 Masayı Kapat</h3>
+            <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>🔒 Masayı Kapat</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
             </p>

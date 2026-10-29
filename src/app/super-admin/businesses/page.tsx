@@ -105,7 +105,7 @@ export default function SuperAdminBusinessesPage() {
     <div>
       {/* Başlık + Yeni İşletme butonu */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700 }}>İşletme Yönetimi</h2>
+        <h1 className="page-title">İşletme Yönetimi</h1>
         <button className="btn btn-primary" onClick={openModal}>+ Yeni İşletme Ekle</button>
       </div>
 
@@ -172,7 +172,7 @@ export default function SuperAdminBusinessesPage() {
           }}
         >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Yeni İşletme Ekle</h3>
+              <h2 style={{ fontSize: 20, fontWeight: 700 }}>Yeni İşletme Ekle</h2>
               <button type="button" onClick={() => setShowModal(false)} aria-label="Kapat" style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "var(--text-secondary)", minWidth: 32, minHeight: 32 }}>✕</button>
             </div>
 

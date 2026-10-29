@@ -254,7 +254,7 @@ export default function AdminCategoriesPage() {
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
-          <h2 style={{ fontSize: 24, fontWeight: 700 }}>Kategori Yönetimi</h2>
+          <h1 className="page-title">Kategori Yönetimi</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 2 }}>
             Sürükle-bırak ile kategorilerin menüdeki görünüm sırasını belirleyin
           </p>
@@ -267,9 +267,9 @@ export default function AdminCategoriesPage() {
       {/* Form Modal */}
       {showForm && (
         <Dialog onClose={resetForm} contentStyle={{ padding: 24 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
               {editingId ? "Kategori Düzenle" : "Yeni Kategori"}
-            </h3>
+            </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div>
                 <label htmlFor="f-kategori-adi" style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, display: "block", color: "var(--text-secondary)" }}>

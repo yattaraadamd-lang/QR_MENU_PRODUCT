@@ -33,7 +33,7 @@ export default function SuperAdminSubscriptionsPage() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700 }}>Abonelikler</h2>
+        <h1 className="page-title">Abonelikler</h1>
         {/* Plan ekleme formu henüz yok: tıklanınca alert açmak yerine kapalı */}
         <button type="button" className="btn btn-primary" disabled>+ Yeni Plan Ekle (yakında)</button>
       </div>

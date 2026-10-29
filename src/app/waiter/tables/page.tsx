@@ -206,7 +206,7 @@ export default function WaiterTablesPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 19, fontWeight: 800, marginBottom: 16 }}>Masa Durumları</h2>
+      <h1 className="page-title page-title-sm" style={{ marginBottom: 16 }}>Masa Durumları</h1>
 
       {/* Legend */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
@@ -335,7 +335,7 @@ export default function WaiterTablesPage() {
             {/* Header */}
             <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <h3 style={{ fontSize: 17, fontWeight: 800 }}>{selectedTable.tableName || `Masa ${selectedTable.tableNumber}`}</h3>
+                <h2 style={{ fontSize: 17, fontWeight: 800 }}>{selectedTable.tableName || `Masa ${selectedTable.tableNumber}`}</h2>
                 <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                   {STATUS_META[selectedTable.status]?.label}
                   {selectedTable.activeSession && (
@@ -445,7 +445,7 @@ export default function WaiterTablesPage() {
 
         return (
           <Dialog onClose={closePay} contentStyle={{ padding: 24, maxWidth: 400 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h3>
+              <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>💰 Ödeme Al</h2>
               <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 20 }}>
                 {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
                 {sessionDetail && <span style={{ color: "var(--danger-text)", fontWeight: 700 }}> · Kalan: {formatTRY(sessionDetail.remainingAmount)}</span>}
@@ -549,7 +549,7 @@ export default function WaiterTablesPage() {
       {/* ── Masa Kapatma Modalı ───────────────────────────────────────────── */}
       {closeModal && (
         <Dialog onClose={() => setCloseModal(false)} contentStyle={{ padding: 24, maxWidth: 380 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>🔒 Masayı Kapat</h3>
+            <h2 style={{ fontSize: 17, fontWeight: 800, marginBottom: 4 }}>🔒 Masayı Kapat</h2>
             <p style={{ color: "var(--text-secondary)", fontSize: 13, marginBottom: 16 }}>
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
             </p>
