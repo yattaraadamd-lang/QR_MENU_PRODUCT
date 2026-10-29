@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { connectToBusinessRoom } from "@/lib/socket-client";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useBusinessSocket } from "@/hooks/useBusinessSocket";
+import QueryError from "@/components/ui/QueryError";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
@@ -28,8 +30,14 @@ const PAYMENT_METHODS = [
 
 export default function WaiterTablesPage() {
   const { data: session } = useSession();
-  const [tables, setTables] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Sekme gizliyken polling durur; ekran ayrılınca uçuştaki istek iptal edilir
+  const tablesQuery = useApiQuery<any[]>(
+    session?.user.businessId ? "/api/waiter/tables" : null,
+    { select: (j) => (j as { tables?: any[] } | null)?.tables ?? [], refreshInterval: 5000 },
+  );
+  const tables = tablesQuery.data ?? [];
+  const loading = tablesQuery.isLoading;
+  const fetchTables = tablesQuery.refresh;
   const [selectedTable, setSelectedTable] = useState<any>(null);
   const [sessionDetail, setSessionDetail] = useState<any>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -56,35 +64,8 @@ export default function WaiterTablesPage() {
   const [actionLoadingTableId, setActionLoadingTableId] = useState<string | null>(null);
 
 
-  const fetchTables = useCallback(async () => {
-    try {
-      const res = await fetch("/api/waiter/tables");
-      const data = await res.json();
-      if (res.ok) setTables(data.tables || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchTables();
-      const iv = setInterval(fetchTables, 5000);
-      return () => clearInterval(iv);
-    }
-  }, [session, fetchTables]);
-
   // ✅ Socket.IO — masa durumu değişikliklerini anında yansıt
-  useEffect(() => {
-    if (!session?.user.businessId) return;
-    const accessToken = (session as any).accessToken;
-    if (!accessToken) return;
-    const socket = connectToBusinessRoom(accessToken, fetchTables);
-    const events = ["table_status_update", "table_opened", "request_status_update", "payment_collected"];
-    events.forEach((ev) => socket.on(ev, fetchTables));
-    return () => {
-      events.forEach((ev) => socket.off(ev, fetchTables));
-    };
-  }, [session, fetchTables]);
+  useBusinessSocket(["table_status_update", "table_opened", "request_status_update", "payment_collected"], fetchTables);
 
 
 
@@ -216,6 +197,8 @@ export default function WaiterTablesPage() {
           </span>
         ))}
       </div>
+
+      <QueryError message={tablesQuery.error} onRetry={fetchTables} />
 
       {loading ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>

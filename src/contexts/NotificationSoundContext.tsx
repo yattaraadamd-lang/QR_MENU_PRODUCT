@@ -10,7 +10,7 @@ import React, {
   useMemo,
 } from "react";
 import { useSession } from "next-auth/react";
-import { connectToBusinessRoom } from "@/lib/socket-client";
+import { subscribeToBusinessRoom } from "@/lib/socket-client";
 
 export type NotificationItem = {
   id: string;
@@ -598,23 +598,17 @@ export function NotificationSoundProvider({
   }, []);
 
   // ─── Socket bağlantısı ──────────────────────────────────────────────────────
+  // Oturum nesnesine değil içindeki kararlı değerlere bağlı: sekme her odağa geldiğinde
+  // oturum yenilenir ve efekt yeniden kurulurdu
+  const businessId = session?.user.businessId;
+  const role = session?.user.role;
+  const accessToken = session?.accessToken;
   useEffect(() => {
-    if (!session?.user.businessId) return;
-    if (
-      session.user.role !== "WAITER" &&
-      session.user.role !== "ADMIN" &&
-      session.user.role !== "SUPER_ADMIN"
-    )
-      return;
+    if (!businessId) return;
+    if (role !== "WAITER" && role !== "ADMIN" && role !== "SUPER_ADMIN") return;
 
     // ✅ FIX: accessToken yoksa socket bağlantısı başlatma
-    const accessToken = (session as any).accessToken;
     if (!accessToken) return;
-
-    const businessId = session.user.businessId;
-
-    // connectToBusinessRoom: reconnect sonrası otomatik odaya tekrar katılır
-    const socket = connectToBusinessRoom(accessToken);
 
     // ─── Event handler factory ──────────────────────────────────────────────
     const handle =
@@ -701,14 +695,9 @@ export function NotificationSoundProvider({
       ),
     };
 
-    Object.entries(handlers).forEach(([event, fn]) => socket.on(event, fn));
-
-    return () => {
-      Object.entries(handlers).forEach(([event, fn]) =>
-        socket.off(event, fn)
-      );
-    };
-  }, [session, mode, addNotification, showToast, isDuplicate]);
+    // Sunucu yeniden bağlanınca odaya kendiliğinden katılır; çıkışta yalnız bu dinleyiciler kalkar
+    return subscribeToBusinessRoom(accessToken, handlers);
+  }, [businessId, role, accessToken, mode, addNotification, showToast, isDuplicate]);
 
   // Sağlayıcı başka bir nedenle çizildiğinde (ör. üst bileşen) tüketiciler boşuna çizilmesin
   const value = useMemo(

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { connectToBusinessRoom } from "@/lib/socket-client";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useBusinessSocket } from "@/hooks/useBusinessSocket";
+import QueryError from "@/components/ui/QueryError";
 import { useConfirm } from "@/components/ui/useConfirm";
 import { toast } from "sonner";
 import { formatTRY } from "@/lib/format";
@@ -39,8 +41,6 @@ function isExpired(expiresAt: string | null | undefined): boolean {
 
 export default function WaiterRequestsPage() {
   const { data: session } = useSession();
-  const [requests, setRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("active");
   const [openingTable, setOpeningTable] = useState<string | null>(null);
 
@@ -48,35 +48,20 @@ export default function WaiterRequestsPage() {
   const [rejectingRequest, setRejectingRequest] = useState<string | null>(null);
   const [confirm, confirmDialog] = useConfirm();
 
-  const fetchRequests = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/waiter/service-requests?status=${filter}`);
-      const data = await res.json();
-      if (res.ok) setRequests(data.serviceRequests || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [filter]);
+  // Filtre değişince eski istek iptal edilir; sekme gizliyken polling durur
+  const requestsQuery = useApiQuery<any[]>(
+    session?.user.businessId ? `/api/waiter/service-requests?status=${filter}` : null,
+    { select: (j) => (j as { serviceRequests?: any[] } | null)?.serviceRequests ?? [], refreshInterval: 5000 },
+  );
+  const requests = requestsQuery.data ?? [];
+  const loading = requestsQuery.isLoading;
+  const fetchRequests = requestsQuery.refresh;
 
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchRequests();
-      const iv = setInterval(fetchRequests, 5000);
-      return () => clearInterval(iv);
-    }
-  }, [session, fetchRequests]);
-
-  // ✅ Socket.IO
-  useEffect(() => {
-    if (!session?.user.businessId) return;
-    const accessToken = (session as any).accessToken;
-    if (!accessToken) return;
-    const socket = connectToBusinessRoom(accessToken, fetchRequests);
-    const events = ["call_waiter", "payment_request", "help_request", "service_request", "order_request_update", "table_opened"];
-    events.forEach((ev) => socket.on(ev, fetchRequests));
-    return () => {
-      events.forEach((ev) => socket.off(ev, fetchRequests));
-    };
-  }, [session, fetchRequests]);
+  // ✅ Socket.IO — ekran ayrılınca yalnız kendi dinleyicileri kalkar
+  useBusinessSocket(
+    ["call_waiter", "payment_request", "help_request", "service_request", "order_request_update", "table_opened"],
+    fetchRequests,
+  );
 
   const updateStatus = async (id: string, status: string) => {
     try {
@@ -195,6 +180,8 @@ export default function WaiterRequestsPage() {
           <button onClick={() => setFilter("completed")} className={`btn btn-sm ${filter === "completed" ? "btn-primary" : "btn-ghost"}`}>Geçmiş</button>
         </div>
       </div>
+
+      <QueryError message={requestsQuery.error} onRetry={fetchRequests} />
 
       {loading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

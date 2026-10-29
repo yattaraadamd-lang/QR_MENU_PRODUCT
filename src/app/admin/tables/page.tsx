@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
-import { connectToBusinessRoom } from "@/lib/socket-client";
+import { useState } from "react";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useBusinessSocket } from "@/hooks/useBusinessSocket";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import QueryError from "@/components/ui/QueryError";
 import { formatTRY } from "@/lib/format";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -28,10 +29,9 @@ const PAYMENT_METHODS = [
 
 const FORCE_CLOSE_REASONS = ["İkram", "İptal", "Müşteri ayrıldı", "Hatalı sipariş", "Diğer"];
 
+const TABLE_EVENTS = ["table_status_update", "table_opened", "request_status_update", "payment_collected"];
+
 export default function AdminTablesPage() {
-  const { data: session } = useSession();
-  const [tables, setTables] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ tableNumber: "", tableName: "" });
   const [creating, setCreating] = useState(false);
@@ -63,33 +63,17 @@ export default function AdminTablesPage() {
   const [closeReason, setCloseReason] = useState("");
   const [closing, setClosing] = useState(false);
 
-  const fetchTables = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/tables");
-      const data = await res.json();
-      if (res.ok) setTables(data.tables || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => {
-    fetchTables();
-    const iv = setInterval(fetchTables, 8000);
-    return () => clearInterval(iv);
-  }, [fetchTables]);
+  // Sekme gizliyken polling durur; ekran ayrılınca uçuştaki istek iptal edilir
+  const tablesQuery = useApiQuery<any[]>("/api/admin/tables", {
+    select: (j) => (j as { tables?: any[] } | null)?.tables ?? [],
+    refreshInterval: 8000,
+  });
+  const tables = tablesQuery.data ?? [];
+  const loading = tablesQuery.isLoading;
+  const fetchTables = tablesQuery.refresh;
 
   // ✅ Socket.IO — masa durumu değişikliklerini anında yansıt
-  useEffect(() => {
-    if (!session?.user.businessId) return;
-    const accessToken = (session as any).accessToken;
-    if (!accessToken) return;
-    const socket = connectToBusinessRoom(accessToken, fetchTables);
-    const events = ["table_status_update", "table_opened", "request_status_update", "payment_collected"];
-    events.forEach((ev) => socket.on(ev, fetchTables));
-    return () => {
-      events.forEach((ev) => socket.off(ev, fetchTables));
-    };
-  }, [session, fetchTables]);
+  useBusinessSocket(TABLE_EVENTS, fetchTables);
 
   const closeCreate = () => { setShowCreate(false); setCreateError(null); };
   const closeDelete = () => { setDeleteModal(null); setDeleteError(null); };
@@ -315,6 +299,8 @@ export default function AdminTablesPage() {
             </div>
           </Dialog>
       )}
+
+      <QueryError message={tablesQuery.error} onRetry={fetchTables} />
 
       {/* Tables Grid */}
       {loading ? (
