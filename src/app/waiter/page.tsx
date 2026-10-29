@@ -6,6 +6,7 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
 import { Check, X, ChefHat, UtensilsCrossed, Clock, AlertTriangle, Loader2, ClipboardList } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
+import FormError from "@/components/ui/FormError";
 import { formatTRY } from "@/lib/format";
 
 type OrderItem = {
@@ -72,6 +73,8 @@ export default function WaiterOrdersPage() {
   const [selectedOutOfStockPids, setSelectedOutOfStockPids] = useState<string[]>([]);
   
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // Modal içi hata (FormError): toast açık <dialog>'un arkasında kalırdı
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -118,8 +121,11 @@ export default function WaiterOrdersPage() {
       cancelReason?: string;
       reasonCode?: ReasonCode | null;
       outOfStockProductIds?: string[] | null;
-    }
+    },
+    // Açık pencereden çağrılırken hata toast yerine pencerenin içinde gösterilir
+    onError?: (message: string) => void
   ): Promise<boolean> => {
+    const fail = (message: string) => (onError ? onError(message) : toast.error(message));
     setActionLoading(orderId);
     try {
       const res = await fetch(`/api/waiter/orders/${orderId}/status`, {
@@ -143,11 +149,11 @@ export default function WaiterOrdersPage() {
         if (labels[status]) toast.success(labels[status]);
         return true;
       } else {
-        toast.error(data.error || "İşlem başarısız oldu.");
+        fail(data.error || "İşlem başarısız oldu.");
         return false;
       }
     } catch {
-      toast.error("Bağlantı hatası. Lütfen tekrar deneyin.");
+      fail("Bağlantı hatası. Lütfen tekrar deneyin.");
       return false;
     } finally {
       setActionLoading(null);
@@ -155,6 +161,7 @@ export default function WaiterOrdersPage() {
   };
 
   const resetModalState = () => {
+    setModalError(null);
     setRejectModal(null);
     setCancelModal(null);
     setSelectedReasonCode(null);
@@ -198,14 +205,16 @@ export default function WaiterOrdersPage() {
     if (!currentModalOrder || !selectedReasonCode) return;
 
     if (selectedReasonCode === "OUT_OF_STOCK" && selectedOutOfStockPids.length === 0) {
-      toast.error("Lütfen en az bir stok dışı kalacak ürün seçin.");
+      setModalError("Lütfen en az bir stok dışı kalacak ürün seçin.");
       return;
     }
 
     if (selectedReasonCode === "OTHER" && !customReasonText.trim()) {
-      toast.error("Lütfen iptal nedeni açıklamasını yazın.");
+      setModalError("Lütfen iptal nedeni açıklamasını yazın.");
       return;
     }
+
+    setModalError(null);
 
     const selectedOption = REASON_OPTIONS.find(o => o.code === selectedReasonCode);
     const reasonLabel = selectedOption?.label || selectedReasonCode;
@@ -217,7 +226,7 @@ export default function WaiterOrdersPage() {
       cancelReason: finalReasonText,
       reasonCode: selectedReasonCode,
       outOfStockProductIds: selectedReasonCode === "OUT_OF_STOCK" ? selectedOutOfStockPids : null,
-    });
+    }, setModalError);
 
     if (ok) {
       resetModalState();
@@ -315,6 +324,8 @@ export default function WaiterOrdersPage() {
               />
             </div>
           )}
+
+          <FormError message={modalError} style={{ marginBottom: 14 }} />
 
           <div style={{ display: "flex", gap: 8 }}>
             <button

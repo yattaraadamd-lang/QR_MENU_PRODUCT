@@ -23,6 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import Dialog from "@/components/ui/Dialog";
+import FormError from "@/components/ui/FormError";
 
 type Category = {
   id: string;
@@ -107,6 +108,8 @@ export default function AdminCategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", icon: "", sortOrder: 0 });
   const [saving, setSaving] = useState(false);
+  // Modal içi hata (FormError): toast açık <dialog>'un arkasında kalırdı
+  const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -177,9 +180,10 @@ export default function AdminCategoriesPage() {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      toast.error("Kategori adı gereklidir");
+      setFormError("Kategori adı gereklidir");
       return;
     }
+    setFormError(null);
     setSaving(true);
     try {
       const url = editingId ? `/api/admin/categories/${editingId}` : "/api/admin/categories";
@@ -196,11 +200,11 @@ export default function AdminCategoriesPage() {
         toast.success(editingId ? "Kategori güncellendi" : "Kategori oluşturuldu");
       } else {
         const error = await res.json();
-        toast.error(error.error || "Kategori kaydedilemedi");
+        setFormError(error.error || "Kategori kaydedilemedi");
       }
     } catch (e) {
       console.error(e);
-      toast.error("Bir hata oluştu. Lütfen tekrar deneyin.");
+      setFormError("Bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
       setSaving(false);
     }
@@ -234,6 +238,7 @@ export default function AdminCategoriesPage() {
 
   const resetForm = () => {
     setShowForm(false);
+    setFormError(null);
     setEditingId(null);
     setForm({ name: "", icon: "", sortOrder: 0 });
   };
@@ -289,6 +294,7 @@ export default function AdminCategoriesPage() {
                 </label>
                 <input id="f-siralama-degeri" className="input" type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })} />
               </div>
+              <FormError message={formError} />
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <button onClick={handleSubmit} disabled={saving || !form.name.trim()} className="btn btn-primary" style={{ flex: 1, gap: 6 }}>
                   {saving ? <><Loader2 size={14} className="animate-spin" /> Kaydediliyor...</> : editingId ? "Güncelle" : "Oluştur"}

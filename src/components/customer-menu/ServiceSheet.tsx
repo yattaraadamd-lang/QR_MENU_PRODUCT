@@ -1,11 +1,14 @@
 "use client";
 
 import Dialog from "@/components/ui/Dialog";
+import FormError from "@/components/ui/FormError";
 import type { ActiveRequests } from "./types";
 
 type Props = {
   activeRequests: ActiveRequests;
   sending: boolean;
+  /** Talep gönderilemediyse pencerenin içinde gösterilir (toast modalın arkasında kalırdı) */
+  error: string | null;
   onClose: () => void;
   onCallWaiter: () => void;
   onPayment: () => void;
@@ -13,7 +16,7 @@ type Props = {
 };
 
 /** Hizmet talepleri menüsü: garson çağır, ödeme iste, yardım iste */
-export default function ServiceSheet({ activeRequests, sending, onClose, onCallWaiter, onPayment, onHelp }: Props) {
+export default function ServiceSheet({ activeRequests, sending, error, onClose, onCallWaiter, onPayment, onHelp }: Props) {
   const items = [
     {
       type: "CALL_WAITER", icon: "🙋", title: "Garson Çağır", desc: "Garsonun masanıza gelmesini sağlayın",
@@ -72,6 +75,7 @@ export default function ServiceSheet({ activeRequests, sending, onClose, onCallW
             </button>
           );
         })}
+        <FormError message={error} />
       </div>
     </Dialog>
   );

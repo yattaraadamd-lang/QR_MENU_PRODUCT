@@ -1,10 +1,13 @@
 "use client";
 
 import { useId } from "react";
+import FormError from "@/components/ui/FormError";
 import { formatTRY } from "@/lib/format";
 import type { AuthStatus, CartItem } from "./types";
 
 type Props = {
+  /** Yalnız modal (mobil sepet) içinde verilir: toast modalın arkasında kalırdı */
+  error?: string | null;
   items: CartItem[];
   total: number;
   status: AuthStatus;
@@ -109,6 +112,7 @@ export default function CartPanel(p: Props) {
             <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Toplam</span>
             <span style={{ fontSize: 22, fontWeight: 800, color: "var(--primary)" }}>{formatTRY(p.total)}</span>
           </div>
+          <FormError message={p.error} style={{ marginBottom: 12 }} />
           <button
             type="button"
             onClick={p.onSubmit}
