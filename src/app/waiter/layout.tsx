@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
+import Loader from "@/components/ui/Loader";
 import { ClipboardList, Bell, CreditCard, Table2, LogOut, QrCode } from "lucide-react";
 
 const NAV = [
@@ -16,8 +17,11 @@ const NAV = [
 ];
 
 export default function WaiterLayout({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
+
+  // Oturum okunurken kilit ekranı çizilirse yetkili garson her yenilemede "Erişim Engellendi" görür
+  if (status === "loading") return <Loader fullScreen label="Panel yükleniyor" />;
 
   if (session?.user.role !== "WAITER" && session?.user.role !== "ADMIN") {
     return (

@@ -345,7 +345,7 @@ export default function AdminProductsPage() {
           <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
           <input
             className="input" aria-label="Ürün ara" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Ürün ara..." style={{ maxWidth: 220, fontSize: 13, paddingLeft: 36 }}
+            placeholder="Ürün ara..." style={{ maxWidth: 220, paddingLeft: 36 }}
           />
         </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>

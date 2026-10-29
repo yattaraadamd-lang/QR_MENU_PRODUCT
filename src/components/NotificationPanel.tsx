@@ -13,20 +13,11 @@ import { Bell, X, CheckCheck, Volume2, VolumeX } from "lucide-react";
  * - Relative time display ("Az önce", "2 dk önce")
  * - Empty state illustration
  * - Swipe-to-dismiss on mobile (touch events)
- * - XSS-safe text rendering via textContent
+ * - XSS-safe text: metinler React çocuğu olarak basılır, React kaçırır
+ *   (elle kaçırmak "Masa 5'ten" metnini "Masa 5&#039;ten" gösteriyordu)
  * - Persistent toast for critical notifications (iOS-friendly)
  * - Unread badge with pulse animation on bell icon
  */
-
-// ─── Safe text sanitizer (XSS protection) ─────────────────────────────────────
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 // ─── Relative time formatter ──────────────────────────────────────────────────
 function relativeTime(date: Date): string {
@@ -138,7 +129,7 @@ export function NotificationPanel() {
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: 2 }}>
-                {escapeHtml(newNotification.title)}
+                {newNotification.title}
               </div>
               <div style={{
                 fontSize: "0.8125rem",
@@ -147,7 +138,7 @@ export function NotificationPanel() {
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
               }}>
-                {escapeHtml(newNotification.message)}
+                {newNotification.message}
               </div>
               {soundEnabled && !audioUnlocked && (
                 <div style={{
@@ -562,9 +553,9 @@ function NotificationCard({
 
       {/* Content (XSS-safe via textContent) */}
       <div className="notification-content">
-        <div className="notification-title">{escapeHtml(notification.title)}</div>
+        <div className="notification-title">{notification.title}</div>
         <div className="notification-message">
-          {escapeHtml(notification.message)}
+          {notification.message}
         </div>
         <div className="notification-time">
           {relativeTime(notification.createdAt)}

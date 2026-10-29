@@ -309,7 +309,7 @@ export default function WaiterOrdersPage() {
                 value={customReasonText}
                 onChange={e => setCustomReasonText(e.target.value)}
                 placeholder="İptal/red nedenini detaylandırın..."
-                style={{ height: 70, resize: "none", width: "100%", fontSize: 13 }}
+                style={{ height: 70, resize: "none", width: "100%" }}
                 data-autofocus
               />
             </div>

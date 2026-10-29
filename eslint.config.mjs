@@ -17,11 +17,14 @@ export default [
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
-  // Kodda react-hooks kuralları için disable yorumları var; eklenti kayıtlı
-  // olmazsa ESLint "kural bulunamadı" hatası verir. Kurallar burada açılmaz.
+  // Hook kuralları. lint:a11y --max-warnings=0 ile çalıştığı için uyarı da CI'ı kırar.
   {
     files: ["src/**/*.{ts,tsx}"],
     languageOptions: { parser: tsParser },
     plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
+    },
   },
 ];

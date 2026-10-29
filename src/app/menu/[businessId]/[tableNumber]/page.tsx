@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import Loader from "@/components/ui/Loader";
 import Dialog from "@/components/ui/Dialog";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
+import { toast } from "sonner";
 
 type Product = {
   id: string; name: string; description: string | null;
@@ -42,6 +43,10 @@ const FOOD_TILES = [
 const foodTile = (id: string) =>
   FOOD_TILES[Array.from(id).reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % FOOD_TILES.length];
 
+// JS scrollTo, CSS'teki prefers-reduced-motion kuralından etkilenmez
+const scrollBehavior = (): ScrollBehavior =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+
 type AuthStatus = "VIEW_ONLY" | "PENDING" | "AUTHORIZED" | "REVOKED" | "TABLE_ALREADY_CLAIMED";
 
 // ✅ PERF: Polling aralıkları — sekme gizliyken hepsi durur, görünür olunca hemen yenilenir
@@ -64,7 +69,6 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   const [showCartMobile, setShowCartMobile] = useState(false);
   const [orderNote, setOrderNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
   const [showServiceMenu, setShowServiceMenu] = useState(false);
   const [showWaiterModal, setShowWaiterModal] = useState(false);
   const [waiterReason, setWaiterReason] = useState("");
@@ -91,6 +95,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
   const [sessionStateHydrated, setSessionStateHydrated] = useState(false);
 
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // Yalnız mobil yatay şerit; masaüstü dikey listesi kaydırılmaz
   const categoryTabsRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const authPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -104,9 +109,10 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     authStatusRef.current = authStatus;
   }, [authStatus]);
 
+  // Kökteki Toaster (Providers): kuyruklar, uzun metni sarar, aria-live bölgesi taşır
   const showToast = (msg: string, type: "ok" | "err" = "ok") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    if (type === "err") toast.error(msg);
+    else toast.success(msg);
   };
 
   // ✅ Masa bazlı localStorage token yönetimi
@@ -201,6 +207,64 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
       return null;
     }
   }, [resolvedParams.businessId]);
+
+  // İlk menü yanıtından sonra arka planda çalışır; menüyü bekletmez.
+  // Sipariş butonu sessionStateHydrated true olana kadar zaten kapalı.
+  const hydrateSession = useCallback(async (businessId: string, tableId: string) => {
+    const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
+    if (blockedHint) setOrderBlockedMsg(blockedHint);
+
+    // ✅ Masa bazlı localStorage'dan token al + canonical status ile hydrate
+    const storageKey = `qr_session_${businessId}_${tableId}`;
+    const storedToken = localStorage.getItem(storageKey) || sessionStorage.getItem("qr_session_token");
+    if (!storedToken) {
+      await ensureCustomerSession(tableId);
+      return;
+    }
+
+    // ✅ FIX: Önce canonical status endpoint ile doğrula, sonra state güncelle
+    try {
+      const canonRes = await fetch("/api/customer/session/status", {
+        headers: { "x-session-token": storedToken },
+        cache: "no-store",
+      });
+      const canonData = await canonRes.json();
+      if (canonData.valid) {
+        // Route-table eşleşme kontrolü
+        if (canonData.businessId !== resolvedParams.businessId || canonData.tableId !== tableId) {
+          // Başka masaya ait token — kullanma
+          localStorage.removeItem(storageKey);
+          await ensureCustomerSession(tableId);
+          return;
+        }
+        setSessionToken(storedToken);
+        setOrderBlockedMsg(null);
+        sessionStorage.removeItem("qr_order_blocked_msg");
+        localStorage.setItem(storageKey, storedToken);
+        sessionStorage.removeItem("qr_session_token");
+        if (canonData.authorizationStatus) {
+          setAuthStatus(canonData.authorizationStatus as AuthStatus);
+        }
+        // Pending ORDER_REQUEST varsa verificationCode'u koru
+        if (canonData.orderRequestStatus === "PENDING" || canonData.orderRequestStatus === "SEEN") {
+          setAuthStatus("PENDING");
+        }
+        setSessionStateHydrated(true);
+      } else if (canonData.code === "SESSION_REVOKED") {
+        setAuthStatus("REVOKED");
+        localStorage.removeItem(storageKey);
+        setSessionStateHydrated(true);
+      } else {
+        // Token geçersiz — yeni oturum oluştur
+        localStorage.removeItem(storageKey);
+        await ensureCustomerSession(tableId);
+      }
+    } catch {
+      // Network error — tokeni koru, odak/visibility senkronu sonra tekrar dener
+      setSessionToken(storedToken);
+      setSessionStateHydrated(true);
+    }
+  }, [resolvedParams.businessId, ensureCustomerSession]);
 
   // ✅ Canonical session status helper — tek canonical okuma noktası
   const fetchCanonicalSessionStatus = useCallback(
@@ -321,66 +385,20 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
           }
           return validCart;
         });
+        // Menü hemen gösterilir (finally → loading=false); oturum arka planda doğrulanır
+        // Beklenmeyen hata (ör. depolama erişimi) butonu "kontrol ediliyor"da bırakmasın
         if (initial) {
-          const blockedHint = sessionStorage.getItem("qr_order_blocked_msg");
-          if (blockedHint) setOrderBlockedMsg(blockedHint);
-
-          // ✅ Masa bazlı localStorage'dan token al + canonical status ile hydrate
-          const storageKey = `qr_session_${data.business.id}_${data.table.id}`;
-          const storedToken = localStorage.getItem(storageKey) || sessionStorage.getItem("qr_session_token");
-          if (storedToken) {
-            // ✅ FIX: Önce canonical status endpoint ile doğrula, sonra state güncelle
-            try {
-              const canonRes = await fetch("/api/customer/session/status", {
-                headers: { "x-session-token": storedToken },
-                cache: "no-store",
-              });
-              const canonData = await canonRes.json();
-              if (canonData.valid) {
-                // Route-table eşleşme kontrolü
-                if (canonData.businessId !== resolvedParams.businessId || canonData.tableId !== data.table.id) {
-                  // Başka masaya ait token — kullanma
-                  localStorage.removeItem(storageKey);
-                  await ensureCustomerSession(data.table.id);
-                } else {
-                  setSessionToken(storedToken);
-                  setOrderBlockedMsg(null);
-                  sessionStorage.removeItem("qr_order_blocked_msg");
-                  localStorage.setItem(storageKey, storedToken);
-                  sessionStorage.removeItem("qr_session_token");
-                  if (canonData.authorizationStatus) {
-                    setAuthStatus(canonData.authorizationStatus as AuthStatus);
-                  }
-                  // Pending ORDER_REQUEST varsa verificationCode'u koru
-                  if (canonData.orderRequestStatus === "PENDING" || canonData.orderRequestStatus === "SEEN") {
-                    setAuthStatus("PENDING");
-                  }
-                  setSessionStateHydrated(true);
-                }
-              } else if (canonData.code === "SESSION_REVOKED") {
-                setAuthStatus("REVOKED");
-                localStorage.removeItem(storageKey);
-                setSessionStateHydrated(true);
-              } else {
-                // Token geçersiz — yeni oturum oluştur
-                localStorage.removeItem(storageKey);
-                await ensureCustomerSession(data.table.id);
-              }
-            } catch {
-              // Network error — tokeni koru, sonra tekrar dene
-              setSessionToken(storedToken);
-              setSessionStateHydrated(true);
-            }
-          } else {
-            await ensureCustomerSession(data.table.id);
-          }
+          hydrateSession(data.business.id, data.table.id).catch(() => {
+            setOrderBlockedMsg("Oturum doğrulanamadı. Lütfen QR kodu tekrar okutun.");
+            setSessionStateHydrated(true);
+          });
         }
       } else {
         if (initial) setSessionError(data.error || "Menü yüklenemedi.");
       }
     } catch { if (initial) setSessionError("Bağlantı hatası."); }
     finally { if (initial) setLoading(false); }
-  }, [resolvedParams.businessId, resolvedParams.tableNumber, ensureCustomerSession]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resolvedParams.businessId, resolvedParams.tableNumber, hydrateSession]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { fetchMenu(true); }, [fetchMenu]);
   // İlk yükleme yukarıda; burada yalnız periyodik ve sekme öne gelince yenileme
@@ -458,12 +476,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             const catId = entry.target.getAttribute("data-category-id");
             if (catId) {
               setActiveCategory(catId);
-              const activeTab = document.querySelector(`[data-tab-id="${catId}"]`);
-              if (activeTab && categoryTabsRef.current) {
-                const container = categoryTabsRef.current;
-                const tab = activeTab as HTMLElement;
+              // Sekmeyi şeridin içinde ara: masaüstü listesi DOM'da önce gelir ve
+              // mobilde display:none olduğundan offsetLeft'i 0'dır
+              const container = categoryTabsRef.current;
+              const tab = container?.querySelector<HTMLElement>(`[data-tab-id="${catId}"]`);
+              if (container && tab && container.offsetParent !== null) {
                 const scrollLeft = tab.offsetLeft - container.offsetWidth / 2 + tab.offsetWidth / 2;
-                container.scrollTo({ left: scrollLeft, behavior: "smooth" });
+                container.scrollTo({ left: scrollLeft, behavior: scrollBehavior() });
               }
             }
           }
@@ -753,13 +772,14 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
     const el = categoryRefs.current[catId];
     if (el) {
       const y = el.getBoundingClientRect().top + window.scrollY - 140;
-      window.scrollTo({ top: y, behavior: 'smooth' });
+      window.scrollTo({ top: y, behavior: scrollBehavior() });
     }
   };
 
   const stockLabel = (p: Product) => {
-    if (!p.isAvailable || p.stockStatus === "OUT_OF_STOCK") return { text: "Stokta Yok", color: "#ef4444" };
-    if (p.stockStatus === "TEMPORARILY_UNAVAILABLE") return { text: "Geçici Yok", color: "#F4A623" };
+    // fg/bg: açık zeminde rozet, solid: görsel üstünde beyaz yazılı rozet — hepsi ≥4.5:1
+    if (!p.isAvailable || p.stockStatus === "OUT_OF_STOCK") return { text: "Stokta Yok", fg: "#B42318", bg: "#FDE3E1", solid: "#B42318" };
+    if (p.stockStatus === "TEMPORARILY_UNAVAILABLE") return { text: "Geçici Yok", fg: "#8A5208", bg: "#FEF0C7", solid: "#8A5208" };
     return null;
   };
 
@@ -812,7 +832,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             <p style={{ fontSize: 36, fontWeight: 900, color: "#CF411E", letterSpacing: "0.2em", fontFamily: "monospace" }}>
               {verificationCode}
             </p>
-            <p style={{ fontSize: 12, color: "#78716c", marginTop: 6 }}>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 6 }}>
               Garson masanıza geldiğinde bu kodu söyleyin.
             </p>
           </div>
@@ -825,10 +845,10 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             background: "rgba(239,68,68,0.08)", borderRadius: 12,
             border: "1px solid rgba(239,68,68,0.25)",
           }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: "#dc2626" }}>
+            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--danger-text)" }}>
               🔒 Bu masa başka bir aktif oturuma ait.
             </p>
-            <p style={{ fontSize: 12, color: "#78716c", marginTop: 4 }}>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
               Personelden yardım isteyin.
             </p>
           </div>
@@ -922,20 +942,6 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         </div>
       )}
 
-      {/* Toast */}
-      {toast && (
-        <div role={toast.type === "err" ? "alert" : "status"} style={{
-          position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)",
-          zIndex: 200, padding: "12px 20px", borderRadius: 12, fontSize: 14, fontWeight: 600,
-          background: toast.type === "err" ? "var(--danger)" : "#1F6B36",
-          color: "white", boxShadow: "var(--shadow-md)",
-          animation: "toastDrop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both", whiteSpace: "nowrap",
-          maxWidth: "90vw", textAlign: "center",
-        }}>
-          {toast.msg}
-        </div>
-      )}
-
       {/* ── Header ── */}
       <header style={{
         background: `radial-gradient(420px 180px at 92% -30%, rgba(244,166,35,0.55), transparent 70%), linear-gradient(150deg, #D24521 0%, ${BRAND} 45%, ${BRAND_DARK} 100%)`,
@@ -1005,9 +1011,12 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
         <div className="flex flex-col lg:flex-row gap-6" style={{ paddingTop: 16 }}>
 
           {/* Kolon 1: Kategoriler */}
-          <nav aria-label="Kategoriler" className="lg:w-64 flex-shrink-0">
-            <div className="hidden lg:block">
-              <div ref={categoryTabsRef} className="bg-white rounded-xl shadow-sm border p-2 sticky flex-col gap-2" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)", top: 96 }}>
+          {/* Mobilde yapışkan olan nav'ın kendisi: iç div'de sticky, nav şerit kadar
+              yüksek olduğu için hiç tutunmuyordu. Masaüstünde static; oradaki liste kendi sticky'si. */}
+          <nav aria-label="Kategoriler" className="lg:w-64 flex-shrink-0 sticky lg:static" style={{ top: 80, zIndex: 30 }}>
+            {/* sticky sarmalayıcıda: iç kutu kendi kadar yüksek sarmalayıcıda tutunamıyordu */}
+            <div className="hidden lg:block sticky" style={{ top: 96 }}>
+              <div className="bg-white rounded-xl shadow-sm border p-2 flex flex-col gap-2" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
                 {categories.map(cat => (
                   <button key={cat.id} data-tab-id={cat.id} aria-current={activeCategory === cat.id ? "true" : undefined} onClick={() => scrollTo(cat.id)} style={{
                     padding: "12px 16px", borderRadius: 10, fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", border: "none", cursor: "pointer", transition: "all 0.2s", textAlign: "left", display: "flex", alignItems: "center", gap: 8,
@@ -1023,8 +1032,8 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                 ))}
               </div>
             </div>
-            <div className="lg:hidden sticky bg-[var(--bg-primary)]" style={{ top: 80, zIndex: 30, marginLeft: -16, marginRight: -16, padding: "12px 0" }}>
-              <div ref={categoryTabsRef} className="flex gap-2 overflow-x-auto cat-scroll px-4" style={{ scrollPaddingLeft: 16 }}>
+            <div className="lg:hidden bg-[var(--bg-primary)]" style={{ marginLeft: -16, marginRight: -16, padding: "12px 0" }}>
+              <div ref={categoryTabsRef} className="relative flex gap-2 overflow-x-auto cat-scroll px-4" style={{ scrollPaddingLeft: 16 }}>
                 {categories.map(cat => (
                   <button key={cat.id} data-tab-id={cat.id} aria-current={activeCategory === cat.id ? "true" : undefined} onClick={() => scrollTo(cat.id)} style={{
                     padding: "10px 18px", borderRadius: 99, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap",
@@ -1074,7 +1083,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 55%, rgba(42,26,18,0.35) 100%)" }} />
                             <div style={{ position: "absolute", top: 10, left: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
                               {p.isPopular && <span className="badge" style={{ background: "rgba(255,255,255,0.92)", color: "#B3261E", backdropFilter: "blur(4px)" }}>🔥 Popüler</span>}
-                              {sl && <span className="badge" style={{ background: `${sl.color}`, color: "white", backdropFilter: "blur(4px)" }}>{sl.text}</span>}
+                              {sl && <span className="badge" style={{ background: sl.solid, color: "white" }}>{sl.text}</span>}
                             </div>
                           </div>
                         ) : (
@@ -1091,7 +1100,7 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
                             <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)", lineHeight: 1.3, flex: 1 }}>{p.name}</span>
                             {!p.image && (<>
                               {p.isPopular && <span className="badge badge-accent">🔥 Popüler</span>}
-                              {sl && <span className="badge" style={{ background: `${sl.color}15`, color: sl.color }}>{sl.text}</span>}
+                              {sl && <span className="badge" style={{ background: sl.bg, color: sl.fg }}>{sl.text}</span>}
                             </>)}
                           </div>
                           {p.description && (
@@ -1296,13 +1305,13 @@ export default function CustomerMenuPage({ params }: { params: Promise<{ busines
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {liveBillPaid > 0 && (
-                <span style={{ fontSize: 12, color: "#3BA55C", fontWeight: 600 }}>
+                <span style={{ fontSize: 12, color: "var(--success-text)", fontWeight: 600 }}>
                   ✓ {liveBillPaid.toFixed(2)} ₺ ödendi
                 </span>
               )}
               <span style={{
                 fontSize: 15, fontWeight: 800,
-                color: (liveBillTotal - liveBillPaid) > 0 ? "#ef4444" : "#3BA55C",
+                color: (liveBillTotal - liveBillPaid) > 0 ? "var(--danger-text)" : "var(--success-text)",
               }}>
                 {(liveBillTotal - liveBillPaid) > 0
                   ? `${(liveBillTotal - liveBillPaid).toFixed(2)} ₺`
