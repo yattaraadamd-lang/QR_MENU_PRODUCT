@@ -74,7 +74,7 @@ function SignInForm() {
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="never">
-    <div className="landing-theme grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
+    <div className="landing-theme grid min-h-viewport lg:grid-cols-[1fr_1.05fr]">
       {/* ── Marka paneli (desktop) ─────────────────────────────────────────── */}
       <aside
         className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"

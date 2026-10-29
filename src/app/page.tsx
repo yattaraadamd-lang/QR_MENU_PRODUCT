@@ -281,7 +281,7 @@ export default function HomePage() {
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="never">
-      <div className="landing-theme min-h-screen overflow-x-hidden">
+      <div className="landing-theme min-h-viewport overflow-x-hidden">
         {/* ── Navbar ──────────────────────────────────────────────────────────── */}
         <m.nav
           initial={{ y: -64, opacity: 0 }}
@@ -311,9 +311,13 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowDemoModal(true)} className="btn btn-ghost hidden sm:inline-flex">
-                Demoyu Deneyin
-              </button>
+              {/* Gizleme sarmalayıcıda: .btn'nin display'i Tailwind'in "hidden"ını ezer ve
+                  320px'de düğme başlığı taşırıp "Giriş Yapın"ı kesiyordu */}
+              <span className="hidden sm:inline-flex">
+                <button onClick={() => setShowDemoModal(true)} className="btn btn-ghost">
+                  Demoyu Deneyin
+                </button>
+              </span>
               <Link href="/auth/signin" className="btn btn-primary">
                 Giriş Yapın
               </Link>
@@ -324,7 +328,8 @@ export default function HomePage() {
         <main id="main-content">
         {/* ── Hero ───────────────────────────────────────────────────────────── */}
         <section className="relative px-4 pb-20 pt-28 sm:px-6 lg:pt-36">
-          <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
+          {/* grid-cols-1 = minmax(0,1fr): telefon maketinin taşmayan çip satırı sütunu 320px'de genişletmesin */}
+          <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
             <m.div className="text-center lg:text-left" initial="hidden" animate="show" variants={stagger(0.1, 0.1)}>
               <m.span
                 variants={fadeUp}

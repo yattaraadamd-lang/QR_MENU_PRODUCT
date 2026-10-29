@@ -50,7 +50,7 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
+      <div className="min-h-viewport flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
         <div className="text-center max-w-sm">
           <div className="text-6xl mb-4">❌</div>
           <h1 className="text-xl font-bold mb-2" style={{ color: "#2A1A12" }}>
@@ -69,7 +69,7 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
+    <div className="min-h-viewport flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
       <div className="text-center">
         
         <Loader label="Menü hazırlanıyor" emoji="🍽️" />

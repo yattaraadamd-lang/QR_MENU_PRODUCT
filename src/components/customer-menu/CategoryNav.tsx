@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { Ref, RefObject } from "react";
 import { BRAND, BRAND_RGB } from "./constants";
 import type { Category } from "./types";
 
@@ -10,15 +10,18 @@ type Props = {
   onSelect: (id: string) => void;
   /** Mobil yatay şerit: aktif çip gözlemciden burada ortalanır */
   stripRef: RefObject<HTMLDivElement | null>;
+  /** Mobil şerit kutusunun yükseklik ölçümü (--catnav-h); masaüstünde gizli, 0 */
+  barRef?: Ref<HTMLDivElement>;
 };
 
-export default function CategoryNav({ categories, activeId, onSelect, stripRef }: Props) {
+export default function CategoryNav({ categories, activeId, onSelect, stripRef, barRef }: Props) {
   return (
     // Mobilde yapışkan olan nav'ın kendisi (iç div'deki sticky, nav şerit kadar yüksek
     // olduğu için tutunmuyordu). Masaüstünde static; oradaki liste kendi sticky'si.
-    <nav aria-label="Kategoriler" className="lg:w-64 flex-shrink-0 sticky lg:static" style={{ top: 80, zIndex: 30 }}>
+    // top: globals.css .menu-catnav (başlık yüksekliğinden türetilir)
+    <nav aria-label="Kategoriler" className="lg:w-64 flex-shrink-0 sticky lg:static menu-catnav" style={{ zIndex: 30 }}>
       {/* sticky sarmalayıcıda: iç kutu kendi kadar yüksek sarmalayıcıda tutunamıyordu */}
-      <div className="hidden lg:block sticky" style={{ top: 96 }}>
+      <div className="hidden lg:block sticky menu-side-panel">
         <div className="bg-white rounded-xl shadow-sm border p-2 flex flex-col gap-2" style={{ background: "var(--bg-card)", borderColor: "var(--border-color)" }}>
           {categories.map(cat => {
             const active = activeId === cat.id;
@@ -38,7 +41,7 @@ export default function CategoryNav({ categories, activeId, onSelect, stripRef }
           })}
         </div>
       </div>
-      <div className="lg:hidden bg-[var(--bg-primary)]" style={{ marginLeft: -16, marginRight: -16, padding: "12px 0" }}>
+      <div ref={barRef} className="lg:hidden bg-[var(--bg-primary)]" style={{ marginLeft: -16, marginRight: -16, padding: "12px 0" }}>
         <div ref={stripRef} className="relative flex gap-2 overflow-x-auto cat-scroll px-4" style={{ scrollPaddingLeft: 16 }}>
           {categories.map(cat => {
             const active = activeId === cat.id;
