@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { connectToBusinessRoom } from "@/lib/socket-client";
 import { useConfirm } from "@/components/ui/useConfirm";
 import { toast } from "sonner";
+import { formatTRY } from "@/lib/format";
 
 const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
   CALL_WAITER:         { label: "Garson Çağrısı",  icon: "🙋", color: "#ef4444" },
@@ -262,7 +263,7 @@ export default function WaiterRequestsPage() {
                               {item.note ? <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>({item.note})</span> : null}
                             </span>
                             <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                              {(Number(item.unitPrice || 0) * Number(item.quantity || 1)).toFixed(2)} ₺
+                              {formatTRY(Number(item.unitPrice || 0) * Number(item.quantity || 1))}
                             </span>
                           </div>
                         ))}
@@ -272,7 +273,7 @@ export default function WaiterRequestsPage() {
                         borderTop: "1px dashed rgba(244,166,35,0.3)", fontWeight: 800, fontSize: 13
                       }}>
                         <span>Tahmini Toplam:</span>
-                        <span style={{ color: "var(--primary-light)" }}>{Number(req.orderPreview.total || 0).toFixed(2)} ₺</span>
+                        <span style={{ color: "var(--primary-light)" }}>{formatTRY(req.orderPreview.total || 0)}</span>
                       </div>
                       {req.orderPreview.orderNote && (
                         <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, fontStyle: "italic" }}>

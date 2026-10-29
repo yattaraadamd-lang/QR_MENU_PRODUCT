@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Dialog from "@/components/ui/Dialog";
+import { formatTRY } from "@/lib/format";
 
 const statusLabels: Record<string, string> = {
   PENDING: "Bekliyor", ACCEPTED: "Kabul Edildi", PREPARING: "Hazırlanıyor",
@@ -267,7 +268,7 @@ export default function AdminOrdersPage() {
               <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Siparişi İptal Et</h3>
               <div style={{ marginBottom: 16, padding: 12, background: "var(--bg-secondary)", borderRadius: 8 }}>
                 <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Masa:</strong> {selectedOrder.table?.tableName || `Masa ${selectedOrder.table?.tableNumber}`}</p>
-                <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Toplam:</strong> {Number(selectedOrder.totalPrice).toFixed(2)} ₺</p>
+                <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Toplam:</strong> {formatTRY(selectedOrder.totalPrice)}</p>
                 <p style={{ fontSize: 14 }}><strong>Durum:</strong> {statusLabels[selectedOrder.status]}</p>
               </div>
 
@@ -406,7 +407,7 @@ export default function AdminOrdersPage() {
                       <span>{item.quantity}× {item.productName || item.product?.name}</span>
                       {item.customerNote && <div style={{ fontSize: 11, color: "#F4A623", marginTop: 2 }}>📝 {item.customerNote}</div>}
                     </div>
-                    <span style={{ fontWeight: 600 }}>{Number(item.totalPrice).toFixed(2)} ₺</span>
+                    <span style={{ fontWeight: 600 }}>{formatTRY(item.totalPrice)}</span>
                   </div>
                 ))}
               </div>
@@ -424,7 +425,7 @@ export default function AdminOrdersPage() {
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
                 <span style={{ fontWeight: 700, fontSize: 16, color: "var(--primary-light)" }}>
-                  Toplam: {Number(order.totalPrice).toFixed(2)} ₺
+                  Toplam: {formatTRY(order.totalPrice)}
                 </span>
                 {!["CANCELLED", "SERVED", "REJECTED"].includes(order.status) && (
                   <button onClick={() => { setSelectedOrder(order); setSelectedReasonCode(null); setCancelReasonText(""); setSelectedOutOfStockPids([]); setShowCancelModal(true); }} className="btn btn-sm btn-danger" style={{ fontSize: 12 }}>

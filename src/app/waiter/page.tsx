@@ -6,6 +6,7 @@ import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
 import { Check, X, ChefHat, UtensilsCrossed, Clock, AlertTriangle, Loader2, ClipboardList } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
+import { formatTRY } from "@/lib/format";
 
 type OrderItem = {
   id?: string;
@@ -422,7 +423,7 @@ export default function WaiterOrdersPage() {
                     </p>
                   </div>
                   <span style={{ fontWeight: 800, fontSize: 16, color: "var(--primary-light)" }}>
-                    {Number(order.totalPrice).toFixed(2)} ₺
+                    {formatTRY(order.totalPrice)}
                   </span>
                 </div>
 
@@ -438,7 +439,7 @@ export default function WaiterOrdersPage() {
                         )}
                       </span>
                       <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
-                        {(Number(item.unitPrice) * item.quantity).toFixed(2)} ₺
+                        {formatTRY(Number(item.unitPrice) * item.quantity)}
                       </span>
                     </div>
                   ))}

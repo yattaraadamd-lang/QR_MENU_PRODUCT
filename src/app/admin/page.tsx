@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Loader from "@/components/ui/Loader";
+import { formatTRY } from "@/lib/format";
 import {
   TrendingUp, BarChart3, ClipboardList, Clock, Bell, CreditCard,
   Table2, Package, Users, Eye, EyeOff, ArrowRight,
@@ -73,7 +74,7 @@ export default function AdminDashboardPage() {
     localStorage.setItem("admin_hide_revenue", String(v));
   };
 
-  const fmt = (v: number) => hideRevenue ? "••••" : new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(v);
+  const fmt = (v: number) => hideRevenue ? "••••" : formatTRY(v);
 
   if (loading) return <Loader label="Panel hazırlanıyor" style={{ minHeight: 300 }} />;
 
@@ -210,7 +211,7 @@ export default function AdminDashboardPage() {
                     fontSize: 12,
                     color: "var(--text-secondary)",
                   }}>
-                    {order.items?.length} ürün · {Number(order.totalPrice).toFixed(2)} ₺ · {new Date(order.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                    {order.items?.length} ürün · {formatTRY(order.totalPrice)} · {new Date(order.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
                 <span className={`badge ${statusBadge[order.status] || "badge-neutral"}`}>

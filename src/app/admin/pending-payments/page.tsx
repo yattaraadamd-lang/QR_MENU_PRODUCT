@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { CheckCircle2, XCircle, Clock, Banknote, CreditCard, AlertCircle } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
+import { formatTRY } from "@/lib/format";
 
 type Bill = {
   id: string;
@@ -126,7 +127,7 @@ export default function PendingPaymentsPage() {
       if (res.ok && data.success) {
         setSuccessMessage(
           req.method === "CASH" && data.changeAmount > 0
-            ? `Ödeme onaylandı! Para üstü: ₺${Number(data.changeAmount).toFixed(2)}`
+            ? `Ödeme onaylandı! Para üstü: ${formatTRY(data.changeAmount)}`
             : "Ödeme onaylandı ve tahsil edildi!"
         );
         fetchData();
@@ -194,7 +195,7 @@ export default function PendingPaymentsPage() {
         return;
       }
       if (receivedNum < amountNum) {
-        setError(`Alınan tutar (₺${receivedNum.toFixed(2)}), ödenmesi gereken tutardan (₺${amountNum.toFixed(2)}) küçük olamaz.`);
+        setError(`Alınan tutar (${formatTRY(receivedNum)}), ödenmesi gereken tutardan (${formatTRY(amountNum)}) küçük olamaz.`);
         return;
       }
     }
@@ -224,7 +225,7 @@ export default function PendingPaymentsPage() {
         setPayModal(null);
         setSuccessMessage(
           paymentMethod === "CASH" && data.changeAmount > 0
-            ? `Ödeme alındı! Para üstü: ₺${Number(data.changeAmount).toFixed(2)}`
+            ? `Ödeme alındı! Para üstü: ${formatTRY(data.changeAmount)}`
             : "Ödeme başarıyla alındı!"
         );
         fetchData();
@@ -238,10 +239,6 @@ export default function PendingPaymentsPage() {
     } finally {
       setProcessingBillId(null);
     }
-  };
-
-  const formatCurrency = (value: number): string => {
-    return value.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   return (
@@ -301,14 +298,14 @@ export default function PendingPaymentsPage() {
                     <p><strong>Garson:</strong> {req.requestedByName || "Belirtilmedi"}</p>
                     <p><strong>Yöntem:</strong> {req.method === "CASH" ? "💵 Nakit" : "💳 Kart"}</p>
                     {req.method === "CASH" && req.receivedAmount && (
-                      <p><strong>Alınan Nakit:</strong> ₺{Number(req.receivedAmount).toFixed(2)} (Üstü: ₺{Number(req.changeAmount || 0).toFixed(2)})</p>
+                      <p><strong>Alınan Nakit:</strong> {formatTRY(req.receivedAmount)} (Üstü: {formatTRY(req.changeAmount || 0)})</p>
                     )}
                     {req.note && <p><strong>Not:</strong> {req.note}</p>}
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 8, borderTop: "1px solid var(--border-subtle)", marginBottom: 16 }}>
                     <span style={{ fontWeight: 600 }}>Tahsil Edilecek:</span>
-                    <span style={{ fontWeight: 800, fontSize: 18, color: "var(--primary-light)" }}>₺{Number(req.amount).toFixed(2)}</span>
+                    <span style={{ fontWeight: 800, fontSize: 18, color: "var(--primary-light)" }}>{formatTRY(req.amount)}</span>
                   </div>
                 </div>
 
@@ -361,19 +358,19 @@ export default function PendingPaymentsPage() {
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>Toplam Hesap:</span>
-                    <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>{formatCurrency(Number(bill.totalAmount))} ₺</span>
+                    <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 14 }}>{formatTRY(bill.totalAmount)}</span>
                   </div>
 
                   {Number(bill.paidAmount) > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                       <span style={{ color: "var(--text-secondary)", fontSize: 14 }}>Ödenen:</span>
-                      <span style={{ fontWeight: 600, color: "var(--success-text)", fontSize: 14 }}>-{formatCurrency(Number(bill.paidAmount))} ₺</span>
+                      <span style={{ fontWeight: 600, color: "var(--success-text)", fontSize: 14 }}>-{formatTRY(bill.paidAmount)}</span>
                     </div>
                   )}
 
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
                     <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>Kalan Tutar:</span>
-                    <span style={{ fontWeight: 800, color: "var(--primary-light)", fontSize: 18 }}>{formatCurrency(Number(bill.remainingAmount))} ₺</span>
+                    <span style={{ fontWeight: 800, color: "var(--primary-light)", fontSize: 18 }}>{formatTRY(bill.remainingAmount)}</span>
                   </div>
                 </div>
 
@@ -433,7 +430,7 @@ export default function PendingPaymentsPage() {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--text-secondary)" }}>Kalan Hesap:</span>
-                <span style={{ fontWeight: 800, color: "var(--primary-light)", fontSize: 18 }}>{formatCurrency(Number(payModal.remainingAmount))} ₺</span>
+                <span style={{ fontWeight: 800, color: "var(--primary-light)", fontSize: 18 }}>{formatTRY(payModal.remainingAmount)}</span>
               </div>
             </div>
 
@@ -501,7 +498,7 @@ export default function PendingPaymentsPage() {
                     className="input"
                     step="0.01"
                     min="0.01"
-                    placeholder={`En az ₺${formatCurrency(amountNum)}`}
+                    placeholder={`En az ${formatTRY(amountNum)}`}
                     style={{
                       fontSize: 18, fontWeight: 700, padding: "12px 16px",
                       borderColor: isCashInsufficient ? "var(--danger)" : undefined,
@@ -525,7 +522,7 @@ export default function PendingPaymentsPage() {
                     fontSize: 20, fontWeight: 800,
                     color: changeAmount > 0 ? "var(--success-text)" : "var(--text-muted)",
                   }}>
-                    ₺{formatCurrency(changeAmount)}
+                    {formatTRY(changeAmount)}
                   </span>
                 </div>
               </div>
