@@ -181,7 +181,7 @@ export default function AdminDashboardPage() {
         {/* Recent Orders */}
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700 }}>Son Siparişler</h3>
+            <h2 style={{ fontSize: 15, fontWeight: 700 }}>Son Siparişler</h2>
             <Link href="/admin/orders" style={{ color: "var(--primary-light)", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
               Tümünü Gör <ArrowRight size={12} />
             </Link>

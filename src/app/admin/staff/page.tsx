@@ -118,12 +118,12 @@ export default function AdminStaffPage() {
     : "#";
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Personel & Davetler</h2>
+      <h1 className="page-title" style={{ marginBottom: 24 }}>Personel & Davetler</h1>
 
       {/* Staff Roster */}
       <div className="card" style={{ marginBottom: 24 }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Personel Listesi</h3>
+          <h2 style={{ fontSize: 16, fontWeight: 700 }}>Personel Listesi</h2>
         </div>
         {loading ? (
           <Loader />
@@ -167,7 +167,7 @@ export default function AdminStaffPage() {
 
       {/* Garson Davet Et */}
       <div className="card" style={{ padding: 20, marginBottom: 24 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Garson Davet Et</h3>
+        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Garson Davet Et</h2>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12, lineHeight: 1.5 }}>
           Bir davet linki oluşturun ve garsonunuza WhatsApp'tan gönderin ya da QR kodu telefonuna okutun.
           Garson linki açıp kendi hesabını oluşturur; kod yazmasına gerek kalmaz.
@@ -227,7 +227,7 @@ export default function AdminStaffPage() {
       {/* Invites List */}
       <div className="card">
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Davet Geçmişi</h3>
+          <h2 style={{ fontSize: 16, fontWeight: 700 }}>Davet Geçmişi</h2>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
             Güvenlik nedeniyle linkler tekrar gösterilmez; yalnızca oluşturulduğu anda görüntülenir.
           </p>

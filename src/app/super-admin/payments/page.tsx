@@ -34,7 +34,7 @@ export default function SuperAdminPaymentsPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Platform Ödemeleri</h2>
+      <h1 className="page-title" style={{ marginBottom: 24 }}>Platform Ödemeleri</h1>
 
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
         <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #A3477A" }}>

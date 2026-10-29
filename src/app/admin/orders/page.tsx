@@ -190,7 +190,7 @@ export default function AdminOrdersPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Sipariş Yönetimi</h2>
+          <h1 className="page-title">Sipariş Yönetimi</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>{orders.length} sipariş</p>
         </div>
       </div>
@@ -265,7 +265,7 @@ export default function AdminOrdersPage() {
 
         return (
           <Dialog onClose={() => !isSubmitting && resetCancelState()} contentStyle={{ padding: 24, maxWidth: 440, width: "90vw" }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Siparişi İptal Et</h3>
+              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Siparişi İptal Et</h2>
               <div style={{ marginBottom: 16, padding: 12, background: "var(--bg-secondary)", borderRadius: 8 }}>
                 <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Masa:</strong> {selectedOrder.table?.tableName || `Masa ${selectedOrder.table?.tableNumber}`}</p>
                 <p style={{ fontSize: 14, marginBottom: 4 }}><strong>Toplam:</strong> {formatTRY(selectedOrder.totalPrice)}</p>

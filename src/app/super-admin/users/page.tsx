@@ -32,7 +32,7 @@ export default function SuperAdminUsersPage() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700 }}>Kullanıcı Yönetimi</h2>
+        <h1 className="page-title">Kullanıcı Yönetimi</h1>
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>

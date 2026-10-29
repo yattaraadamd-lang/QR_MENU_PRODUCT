@@ -156,7 +156,7 @@ export default function AdminRequestsPage() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700 }}>Müşteri Talepleri</h2>
+        <h1 className="page-title">Müşteri Talepleri</h1>
         {/* ✅ İptal Edilen sekmesi eklendi */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(["active", "completed", "cancelled", "all"] as const).map((f) => (

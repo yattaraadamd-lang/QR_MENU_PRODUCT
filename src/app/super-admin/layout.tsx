@@ -66,7 +66,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
           <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Super Admin Modu</p>
         </div>
 
-        <nav style={{ flex: 1, padding: "20px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
+        <nav aria-label="Platform menüsü" style={{ flex: 1, padding: "20px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
           {sidebarLinks.map((link) => {
             const isActive = pathname.startsWith(link.href);
             return (

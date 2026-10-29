@@ -93,6 +93,10 @@ body {
   outline-offset: 2px;
 }
 
+/* Personel sayfalarının başlığı: her rotada tek h1, bölümler h2 */
+.page-title { font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
+.page-title-sm { font-size: 19px; font-weight: 800; }
+
 .font-display {
   font-family: var(--font-heading);
   font-optical-sizing: auto;
@@ -732,31 +736,30 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
   .toast { right: 12px; left: 12px; max-width: none; }
 }
 
+/* Admin kabuğu (app/admin/layout): masaüstünde kenar çubuğu sabit ve görünür.
+   !important satır içi left/visibility/display stillerini ezmek için. */
 @media (min-width: 1024px) {
   .lg-hidden { display: none !important; }
-  .lg-left-0 { left: 0 !important; }
-  .lg-ml-260 { margin-left: 260px !important; }
+  .lg-left-0 { left: 0 !important; visibility: visible !important; }
+  .lg-ml-sidebar { margin-left: 248px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    NOTIFICATION SYSTEM — Premium UI (iOS-compatible)
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-/* ─── Panel overlay ─────────────────────────────────────────────────────────── */
-.notification-overlay {
-  position: fixed;
-  inset: 0;
+/* ─── Panel: yerel <dialog> (components/ui/Dialog) içinde sağ çekmece ─────────── */
+dialog.notification-dialog {
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
   background: rgba(10, 8, 6, 0.55);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: 998;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
 }
-.notification-overlay.active {
-  opacity: 1;
-  pointer-events: auto;
+@keyframes notif-panel-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }
 
 /* ─── Panel container ───────────────────────────────────────────────────────── */
@@ -776,17 +779,26 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
   z-index: 999;
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  /* Kapalıyken ekran dışındaki butonlar klavye odağı almasın */
-  visibility: hidden;
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s;
+  /* Yalnız açıkken çizilir (Dialog); kısa giriş kayması geri bildirim sayılır */
+  animation: notif-panel-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.notification-panel.open {
-  transform: translateX(0);
-  visibility: visible;
-  /* Açılırken görünürlük hemen gelsin ki odak içeri taşınabilsin */
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s;
+.notification-list { list-style: none; }
+
+.notification-clear-btn {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; color: var(--text-muted);
+  background: none; border: none; cursor: pointer;
+  padding: 4px 8px; min-height: 32px; border-radius: var(--radius-sm);
+  transition: color 0.15s;
 }
+.notification-clear-btn:hover { color: var(--text-secondary); }
+.notification-close-btn {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  border: none; background: transparent; color: var(--text-secondary); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.notification-close-btn:hover { background: rgba(239, 68, 68, 0.15); }
 
 /* ─── Panel header ──────────────────────────────────────────────────────────── */
 .notification-panel-header {
@@ -833,7 +845,8 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
   background: rgba(40,30,25, 0.7);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  cursor: pointer;
+  /* Kartın kendisi tıklanınca bir şey yapmaz; işaretçi yanıltmasın */
+  cursor: default;
   transition: all 0.2s ease;
   overflow: hidden;
   animation: notif-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -900,7 +913,10 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
   display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: all 0.15s ease;
 }
-.notification-card:hover .notification-dismiss { opacity: 1; }
+/* Yalnız :hover ile görünseydi klavye ve dokunmatikte görünmez ama odaklanabilir kalırdı */
+.notification-card:hover .notification-dismiss,
+.notification-card:focus-within .notification-dismiss { opacity: 1; }
+@media (hover: none) { .notification-dismiss { opacity: 1; } }
 .notification-dismiss:hover { background: rgba(239, 68, 68, 0.15); color: #EF4444; }
 
 /* ─── Empty state ───────────────────────────────────────────────────────────── */

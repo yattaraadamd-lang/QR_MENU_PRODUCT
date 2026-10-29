@@ -51,7 +51,7 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Platform Özeti</h2>
+      <h1 className="page-title" style={{ marginBottom: 24 }}>Platform Özeti</h1>
       
       <div className="stagger" style={{
         display: "grid",

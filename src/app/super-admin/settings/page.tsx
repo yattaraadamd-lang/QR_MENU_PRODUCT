@@ -7,7 +7,7 @@ export default function SuperAdminSettingsPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Platform Ayarları</h2>
+      <h1 className="page-title" style={{ marginBottom: 24 }}>Platform Ayarları</h1>
 
       <div className="card" style={{ padding: 24, maxWidth: 600 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
