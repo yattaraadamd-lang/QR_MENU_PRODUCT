@@ -57,7 +57,7 @@ export default function ConfirmDialog({
             )}
           </div>
           <div>
-            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>{title}</h3>
+            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>{title}</h2>
             {description && (
               <p style={{ color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.5 }}>
                 {description}
@@ -69,15 +69,19 @@ export default function ConfirmDialog({
         {children && <div style={{ marginBottom: 16 }}>{children}</div>}
 
         <div style={{ display: "flex", gap: 8, paddingTop: 8 }}>
+          {/* Açılışta odak geri dönülebilir seçenekte: Enter'a yanlışlıkla basmak işlemi onaylamasın */}
           <button
+            type="button"
             onClick={onClose}
             className="btn btn-ghost"
             style={{ flex: 1 }}
             disabled={loading}
+            data-autofocus
           >
             {cancelText}
           </button>
           <button
+            type="button"
             onClick={onConfirm}
             className={`btn ${isDanger ? "btn-danger" : "btn-warning"}`}
             style={{ flex: 1 }}

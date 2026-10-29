@@ -7,6 +7,7 @@ import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import Loader from "@/components/ui/Loader";
+import AuthSessionProvider from "@/components/AuthSessionProvider";
 import { ClipboardList, Bell, CreditCard, Table2, LogOut, QrCode } from "lucide-react";
 
 const NAV = [
@@ -17,6 +18,14 @@ const NAV = [
 ];
 
 export default function WaiterLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthSessionProvider>
+      <WaiterGate>{children}</WaiterGate>
+    </AuthSessionProvider>
+  );
+}
+
+function WaiterGate({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
 

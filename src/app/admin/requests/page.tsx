@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Loader from "@/components/ui/Loader";
+import { useConfirm } from "@/components/ui/useConfirm";
+import { toast } from "sonner";
 
 const requestTypeLabels: Record<string, string> = {
   CALL_WAITER: "🙋 Garson Çağrısı",
@@ -37,6 +39,7 @@ export default function AdminRequestsPage() {
   const [filter, setFilter] = useState("active");
   const [openingTable, setOpeningTable] = useState<string | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const businessId = session?.user.businessId;
 
@@ -70,19 +73,21 @@ export default function AdminRequestsPage() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) fetchRequests();
-      else alert((await res.json().catch(() => null))?.error || "Talep güncellenemedi");
+      else toast.error((await res.json().catch(() => null))?.error || "Talep güncellenemedi");
     } catch (e) {
       console.error(e);
-      alert("Bağlantı hatası");
+      toast.error("Bağlantı hatası");
     }
   };
 
   // ✅ Sipariş talebi yalnız bu uçla reddedilir: müşteri oturumu kapatılır ve cihaz engellenir
   // (eski uç yalnız talebi CANCELLED yapıyor, müşteri onay beklerken kalıyordu)
   const rejectOrderRequest = async (req: any) => {
-    const confirmed = window.confirm(
-      "Masada müşteri bulunmadığını ve bu cihazın işletmede engelleneceğini onaylıyor musunuz?"
-    );
+    const confirmed = await confirm({
+      title: "Sipariş talebi reddedilsin mi?",
+      description: "Masada müşteri bulunmadığını onaylıyorsunuz. Müşteri oturumu kapatılacak ve bu cihaz işletmede engellenecek.",
+      confirmText: "Reddet ve engelle",
+    });
     if (!confirmed) return;
 
     setRejectingRequest(req.id);
@@ -94,10 +99,10 @@ export default function AdminRequestsPage() {
       });
       const data = await res.json().catch(() => null);
       if (res.ok) fetchRequests();
-      else alert(data?.error || "Sipariş talebi reddedilemedi");
+      else toast.error(data?.error || "Sipariş talebi reddedilemedi");
     } catch (e) {
       console.error("Reddetme hatası:", e);
-      alert("Bağlantı hatası");
+      toast.error("Bağlantı hatası");
     } finally {
       setRejectingRequest(null);
     }
@@ -121,14 +126,14 @@ export default function AdminRequestsPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert("✅ Masa başarıyla açıldı ve müşteri yetkilendirildi!");
+        toast.success("Masa açıldı, müşteri sipariş verebilir.");
         fetchRequests();
       } else {
-        alert(data.error || "Masa açma hatası");
+        toast.error(data.error || "Masa açma hatası");
       }
     } catch (e) {
       console.error("Masa açma hatası:", e);
-      alert("Bağlantı hatası");
+      toast.error("Bağlantı hatası");
     }
     finally { setOpeningTable(null); }
   };
@@ -280,6 +285,7 @@ export default function AdminRequestsPage() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
