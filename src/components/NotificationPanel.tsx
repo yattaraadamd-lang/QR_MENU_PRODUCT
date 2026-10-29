@@ -334,13 +334,13 @@ function SoundToggle({
       <button
         id="sound-toggle-btn"
         onClick={onEnable}
+        className="animate-pulse-glow"
         style={{
           ...baseStyle,
           padding: "0 12px",
           border: "1px solid rgba(217,68,31, 0.5)",
           background: "rgba(217,68,31, 0.12)",
           color: "var(--primary-light)",
-          animation: "pulse-glow 2s infinite",
         }}
         title="Tarayıcı sesi kilitledi — ekranın herhangi bir yerine dokunmanız yeterli"
       >

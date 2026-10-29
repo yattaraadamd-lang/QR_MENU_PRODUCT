@@ -363,10 +363,9 @@ export default function WaiterOrdersPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <h1 className="page-title page-title-sm">Siparişler</h1>
           {pendingCount > 0 && filter === "active" && (
-            <span style={{
+            <span className="animate-pulse-glow" style={{
               background: "var(--danger)", color: "white", borderRadius: 99,
               fontSize: 11, fontWeight: 800, padding: "2px 8px",
-              animation: "pulse-glow 2s infinite",
             }}>{pendingCount} yeni</span>
           )}
         </div>

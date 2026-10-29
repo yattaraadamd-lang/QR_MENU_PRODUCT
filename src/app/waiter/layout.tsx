@@ -138,7 +138,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
               <span style={{ position: "relative", display: "inline-flex" }}>
                 {item.icon}
                 {badge > 0 && (
-                  <span style={{
+                  <span className="animate-pulse-glow" style={{
                     position: "absolute",
                     top: -4, right: -8,
                     background: "var(--danger)",
@@ -150,7 +150,6 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
                     minWidth: 15,
                     textAlign: "center",
                     lineHeight: "13px",
-                    animation: "pulse-glow 2s infinite",
                   }}>
                     {badge > 99 ? "99+" : badge}
                   </span>
