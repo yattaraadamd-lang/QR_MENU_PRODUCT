@@ -53,7 +53,7 @@ const DEMOS = [
     title: "Müşteri Demo",
     desc: "QR menüyü görüntüleyin, ürünleri sepete ekleyin ve sipariş akışını test edin.",
     tone: TONES[0],
-    href: "/menu/demo-business-id/1",
+    href: "/demo",
   },
   {
     icon: ConciergeBell,
@@ -474,7 +474,7 @@ export default function HomePage() {
                 const Icon = d.icon;
                 return (
                   <m.div key={d.title} variants={fadeUp} className="h-full">
-                    <Link href={d.href} className="group block h-full" style={{ textDecoration: "none" }}>
+                    <Link href={d.href} prefetch={d.href === "/demo" ? false : undefined} className="group block h-full" style={{ textDecoration: "none" }}>
                       <Tilt max={8} className="card flex h-full flex-col p-7" style={{ borderRadius: 24, ...MOTION_CARD_STYLE }}>
                         <div
                           className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -575,6 +575,8 @@ export default function HomePage() {
                       <m.div key={d.title} variants={fadeUp} whileHover={{ y: -2 }}>
                         <Link
                           href={d.href}
+                          // /demo veritabanından masa seçen bir yönlendirme: her landing ziyaretinde ön yüklenmesin
+                          prefetch={d.href === "/demo" ? false : undefined}
                           onClick={() => setShowDemoModal(false)}
                           className="flex items-center gap-3.5 rounded-2xl p-4"
                           style={{ border: `1.5px solid ${d.tone.bg}`, background: `${d.tone.bg}80`, textDecoration: "none" }}
