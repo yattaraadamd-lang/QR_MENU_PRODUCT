@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { formatTRY } from "@/lib/format";
 import { BRAND, BRAND_DARK, BRAND_RGB } from "./constants";
 import type { AuthStatus, LiveBill } from "./types";
@@ -12,14 +13,16 @@ type Props = {
   cartTotal: number;
   onOpenService: () => void;
   onOpenCart: () => void;
+  /** Yükseklik ölçümü (--bottombar-h): menünün alt boşluğu bar kadar olur */
+  ref?: Ref<HTMLDivElement>;
 };
 
 /** Mobil alt bar: canlı adisyon, hizmet menüsü ve sepet */
-export default function BottomBar({ status, liveBill, activeCount, cartCount, cartTotal, onOpenService, onOpenCart }: Props) {
+export default function BottomBar({ status, liveBill, activeCount, cartCount, cartTotal, onOpenService, onOpenCart, ref }: Props) {
   const remaining = (liveBill.total ?? 0) - liveBill.paid;
 
   return (
-    <div className="lg:hidden" style={{
+    <div ref={ref} className="lg:hidden" style={{
       position: "fixed", bottom: 0, left: 0, right: 0,
       background: "var(--bg-card)", borderTop: "1px solid var(--border-color)",
       paddingBottom: "max(0px, env(safe-area-inset-bottom))",

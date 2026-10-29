@@ -347,7 +347,7 @@ export default function WaiterTablesPage() {
               <button aria-label="Kapat" className="tap-target" onClick={() => setSelectedTable(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
 
-            <div style={{ padding: "16px 20px", maxHeight: "65vh", overflowY: "auto" }}>
+            <div style={{ padding: "16px 20px", maxHeight: "65dvh", overflowY: "auto" }}>
               {loadingDetail ? (
                 <Loader />
               ) : !selectedTable.activeSession ? (

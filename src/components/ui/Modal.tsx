@@ -32,7 +32,7 @@ export default function Modal({
           ? {
               borderRadius: "20px 20px 0 0",
               margin: 0,
-              maxHeight: "85vh",
+              maxHeight: "85dvh",
             }
           : {}),
       }}

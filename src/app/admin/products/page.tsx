@@ -227,7 +227,7 @@ export default function AdminProductsPage() {
                 <X size={20} />
               </button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "65vh", overflowY: "auto", paddingRight: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "65dvh", overflowY: "auto", paddingRight: 4 }}>
               <div>
                 <label htmlFor="f-urun-adi" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ürün Adı *</label>
                 <input id="f-urun-adi" className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Örn: Türk Kahvesi" />

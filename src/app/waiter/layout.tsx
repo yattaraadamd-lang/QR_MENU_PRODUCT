@@ -8,6 +8,7 @@ import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import Loader from "@/components/ui/Loader";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
+import { useCssHeightVar } from "@/hooks/useCssHeightVar";
 import { ClipboardList, Bell, CreditCard, Table2, LogOut, QrCode } from "lucide-react";
 
 const NAV = [
@@ -34,7 +35,7 @@ function WaiterGate({ children }: { children: React.ReactNode }) {
 
   if (session?.user.role !== "WAITER" && session?.user.role !== "ADMIN") {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="min-h-viewport" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", padding: 32 }}>
           <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Erişim Engellendi</h1>
@@ -56,6 +57,8 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const { counts } = useBadgeCounts(); // ✅ PERF: default 30sn (önceki: 8sn)
+  // Alt menü yüksekliği (güvenli alan payı dahil): içerik onun altında kalmasın
+  const navRef = useCssHeightVar("--waiter-nav-h");
 
   const badgeMap: Record<string, number> = {
     "/waiter":          counts.orders,
@@ -65,7 +68,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div style={{ minHeight: "100dvh", background: "var(--bg-primary)", paddingBottom: 72 }}>
+    <div className="min-h-viewport" data-height-vars style={{ background: "var(--bg-primary)", paddingBottom: "var(--waiter-nav-h, 72px)" }}>
       {/* Üst çubuk: banner landmark'ı */}
       <header style={{
         background: "var(--bg-secondary)",
@@ -110,7 +113,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Bottom nav */}
-      <nav aria-label="Garson menüsü" style={{
+      <nav ref={navRef} aria-label="Garson menüsü" style={{
         position: "fixed", bottom: 0, left: 0, right: 0,
         background: "var(--bg-secondary)",
         borderTop: "1px solid var(--border-color)",

@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { BRAND, BRAND_DARK, BRAND_RGB } from "./constants";
 import type { AuthStatus, Business, TableInfo } from "./types";
 
@@ -8,11 +9,13 @@ type Props = {
   table: TableInfo | null;
   status: AuthStatus;
   onOpenService: () => void;
+  /** Yükseklik ölçümü (--header-h) */
+  ref?: Ref<HTMLElement>;
 };
 
-export default function MenuHeader({ business, table, status, onOpenService }: Props) {
+export default function MenuHeader({ business, table, status, onOpenService, ref }: Props) {
   return (
-    <header style={{
+    <header ref={ref} style={{
       background: `radial-gradient(420px 180px at 92% -30%, rgba(244,166,35,0.55), transparent 70%), linear-gradient(150deg, #D24521 0%, ${BRAND} 45%, ${BRAND_DARK} 100%)`,
       padding: "16px 16px 24px",
       color: "white",

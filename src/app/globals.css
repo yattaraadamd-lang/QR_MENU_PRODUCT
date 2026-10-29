@@ -93,6 +93,11 @@ body {
   outline-offset: 2px;
 }
 
+/* Tam ekran yükseklik: mobilde tarayıcı çubuğu açılıp kapanınca taşmaz (dvh);
+   dvh'yi tanımayan tarayıcı ilk satırdaki vh'de kalır */
+.min-h-viewport { min-height: 100vh; min-height: 100dvh; }
+.h-viewport { height: 100vh; height: 100dvh; }
+
 /* Personel sayfalarının başlığı: her rotada tek h1, bölümler h2 */
 .page-title { font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
 .page-title-sm { font-size: 19px; font-weight: 800; }
@@ -347,8 +352,13 @@ body {
   border: none;
   white-space: nowrap;
   user-select: none;
-  min-height: 40px;
+  min-height: 44px; /* telefonda dokunma hedefi */
   text-decoration: none;
+}
+/* Mobil-önce: taban kurallar telefon içindir, 641px ve üstü (fare) daha sıkı.
+   .btn-lg/.btn-xl aşağıda geldiği için bu blok onların yüksekliğini ezmez. */
+@media (min-width: 641px) {
+  .btn { min-height: 40px; }
 }
 .btn:active { transform: scale(0.97); }
 .btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
@@ -414,10 +424,14 @@ body {
 }
 .btn-subtle:hover:not(:disabled) { background: var(--border-color); }
 
-.btn-sm  { padding: 6px 12px; font-size: 12px; border-radius: var(--radius-sm); min-height: 32px; }
+.btn-sm  { padding: 6px 12px; font-size: 12px; border-radius: var(--radius-sm); min-height: 36px; }
 .btn-lg  { padding: 13px 28px; font-size: 16px; border-radius: var(--radius-lg); min-height: 50px; }
 .btn-xl  { padding: 16px 32px; font-size: 17px; border-radius: var(--radius-xl); min-height: 56px; }
-.btn-icon { padding: 8px; min-height: 38px; width: 38px; border-radius: var(--radius-md); }
+.btn-icon { padding: 8px; min-height: 44px; width: 38px; border-radius: var(--radius-md); }
+@media (min-width: 641px) {
+  .btn-sm { min-height: 32px; }
+  .btn-icon { min-height: 38px; }
+}
 
 /* ─── Inputs ─────────────────────────────────────────────────────────────── */
 .input {
@@ -427,10 +441,14 @@ body {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: 14px;
+  /* iOS Safari 16px altındaki alanlarda odakta sayfayı yakınlaştırır */
+  font-size: 16px;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   outline: none;
   font-family: inherit;
+}
+@media (min-width: 641px) {
+  .input { font-size: 14px; }
 }
 .input:hover { border-color: rgba(var(--primary-rgb),0.35); }
 .input:focus {
@@ -491,13 +509,18 @@ select.input { cursor: pointer; }
 .modal-content {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   max-width: 500px;
   width: 100%;
-  max-height: 88vh;
+  /* dvh: mobilde tarayıcı çubuğu görünürken alt kenar ekran dışına taşmaz */
+  max-height: 92vh;
+  max-height: 92dvh;
   overflow-y: auto;
   animation: scaleIn 0.2s ease;
   box-shadow: var(--shadow-lg);
+}
+@media (min-width: 641px) {
+  .modal-content { border-radius: var(--radius-xl); max-height: 88vh; max-height: 88dvh; }
 }
 /* Yerel <dialog> (components/ui/Dialog): tarayıcı varsayılanlarını sıfırla;
    örtü rengini dialog'un kendisi taşır, ::backdrop şeffaf kalır. */
@@ -566,7 +589,8 @@ dialog.modal-overlay::backdrop { background: transparent; }
 .toast {
   position: fixed;
   top: 20px;
-  right: 20px;
+  right: 12px;
+  left: 12px;
   z-index: 100;
   padding: 12px 18px;
   border-radius: var(--radius-lg);
@@ -574,7 +598,9 @@ dialog.modal-overlay::backdrop { background: transparent; }
   font-weight: 600;
   animation: slideInRight 0.25s ease;
   box-shadow: var(--shadow-lg);
-  max-width: 320px;
+}
+@media (min-width: 641px) {
+  .toast { left: auto; right: 20px; max-width: 320px; }
 }
 
 /* sonner richColors (Providers): varsayılan metin renkleri açık zeminde ≈4.3:1;
@@ -698,6 +724,19 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
 }
 
 /* ─── Müşteri menüsü (components/customer-menu) ──────────────────────────── */
+/* Yapışkan ofsetler ölçülen yüksekliklerden (CustomerMenu → useCssHeightVar);
+   buradaki değerler yalnız ilk çizim içindir (375px telefonda ölçülen; alt bar
+   canlı adisyon satırıyla 99px'e çıkar) */
+.menu-shell { --header-h: 91px; --catnav-h: 65px; --bottombar-h: 67px; }
+@media (min-width: 1024px) {
+  .menu-shell { --catnav-h: 0px; --bottombar-h: 0px; }
+}
+/* Mobil şerit başlığın yuvarlak alt köşesinin 8px altına girer: aradaki boşluk görünmez */
+.menu-catnav { top: calc(var(--header-h) - 8px); }
+.menu-side-panel { top: calc(var(--header-h) + 8px); }
+/* Kategoriye atlayınca bölüm başlığı yapışkan başlık + şeridin altında kalır */
+.menu-section { scroll-margin-top: calc(var(--header-h) + var(--catnav-h) + 8px); }
+
 .prod-card:active { transform: scale(0.98); }
 .service-btn:hover:not([aria-disabled="true"]) { background: var(--bg-hover) !important; }
 .cat-scroll { scrollbar-width: none; }
@@ -730,22 +769,27 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
   --bg-card:      #2A1F1A;
 }
 
-/* ─── Responsive helpers ─────────────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .btn { min-height: 44px; }
-  .btn-sm { min-height: 36px; }
-  /* iOS Safari 16px altındaki alanlarda odakta sayfayı yakınlaştırır */
-  .input { font-size: 16px; }
-  .modal-content { border-radius: var(--radius-lg); max-height: 92vh; }
-  .toast { right: 12px; left: 12px; max-width: none; }
+/* ─── Admin kabuğu (app/admin/layout) ─────────────────────────────────────────
+   Telefonda kenar çubuğu soldan kayan çekmece; 1024px ve üstünde sabit ve görünür,
+   içerik onun kadar sağa kayar. Durum data-open ile gelir: satır içi stil olmadığı
+   için !important gerekmez. */
+.admin-sidebar {
+  position: fixed; top: 0; bottom: 0; left: -248px; z-index: 50;
+  width: 248px; display: flex; flex-direction: column;
+  background: var(--bg-secondary); border-right: 1px solid var(--border-color);
+  /* Kapalıyken linkler klavye odağı almasın: kayma bitince gizlenir */
+  visibility: hidden;
+  transition: left 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0s linear 0.25s;
 }
-
-/* Admin kabuğu (app/admin/layout): masaüstünde kenar çubuğu sabit ve görünür.
-   !important satır içi left/visibility/display stillerini ezmek için. */
+.admin-sidebar[data-open="true"] {
+  left: 0; visibility: visible;
+  transition: left 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0s;
+}
+.admin-mobile-only { display: flex; align-items: center; }
 @media (min-width: 1024px) {
-  .lg-hidden { display: none !important; }
-  .lg-left-0 { left: 0 !important; visibility: visible !important; }
-  .lg-ml-sidebar { margin-left: 248px; }
+  .admin-sidebar { left: 0; visibility: visible; transition: none; }
+  .admin-main { margin-left: 248px; }
+  .admin-mobile-only { display: none; }
 }
 
 /* ─── Zorunlu renkler (Windows yüksek kontrast) ──────────────────────────────
@@ -793,20 +837,23 @@ dialog.notification-dialog {
   position: fixed;
   top: 0;
   right: 0;
-  width: 400px;
+  width: 100vw; /* telefonda tam genişlik; 641px+ aşağıda */
   max-width: 100vw;
   height: 100vh;
   height: 100dvh;
   background: rgba(31,23,19, 0.88);
   backdrop-filter: blur(24px) saturate(1.3);
   -webkit-backdrop-filter: blur(24px) saturate(1.3);
-  border-left: 1px solid rgba(217,68,31, 0.15);
+  border-left: none;
   box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5), 0 0 80px rgba(217,68,31, 0.06);
   z-index: 999;
   display: flex;
   flex-direction: column;
   /* Yalnız açıkken çizilir (Dialog); kısa giriş kayması geri bildirim sayılır */
   animation: notif-panel-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (min-width: 641px) {
+  .notification-panel { width: 400px; border-left: 1px solid rgba(217,68,31, 0.15); }
 }
 .notification-list { list-style: none; }
 
@@ -976,8 +1023,8 @@ dialog.notification-dialog {
 
 /* ─── Toast notification ────────────────────────────────────────────────────── */
 .notification-toast {
-  position: fixed; top: 16px; right: 16px;
-  max-width: 380px; padding: 14px 20px;
+  position: fixed; top: 16px; right: 12px; left: 12px;
+  padding: 14px 20px;
   background: rgba(31,23,19, 0.92);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
@@ -1034,8 +1081,7 @@ dialog.notification-dialog {
 .notification-card:nth-child(4) { animation-delay: 0.12s; }
 .notification-card:nth-child(5) { animation-delay: 0.16s; }
 
-/* ─── Responsive mobile panel ───────────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .notification-panel { width: 100vw; border-left: none; }
-  .notification-toast { right: 12px; left: 12px; max-width: none; }
+/* ─── Geniş ekranda toast sağ üstte, sınırlı genişlikte (telefonda tam genişlik) ── */
+@media (min-width: 641px) {
+  .notification-toast { left: auto; right: 16px; max-width: 380px; }
 }
