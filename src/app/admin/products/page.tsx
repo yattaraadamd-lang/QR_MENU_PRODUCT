@@ -1,48 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { Plus, Search, Edit3, Trash2, Circle, Star, Loader2, Package, X, GripVertical } from "lucide-react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { Plus, Search, Star, Loader2, Package, X } from "lucide-react";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import FormError from "@/components/ui/FormError";
 import Dialog from "@/components/ui/Dialog";
-import { formatTRY } from "@/lib/format";
+import { STOCK_OPTIONS, type Category, type Product } from "./types";
 
-type Product = {
-  id: string; name: string; description: string | null;
-  ingredients: string | null; allergens: string | null;
-  price: number; isAvailable: boolean;
-  stockStatus: "IN_STOCK" | "OUT_OF_STOCK" | "TEMPORARILY_UNAVAILABLE";
-  isPopular: boolean; sortOrder: number;
-  category: { id: string; name: string } | null;
-};
-type Category = { id: string; name: string };
+const ListSkeleton = () => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 64, borderRadius: 12 }} />)}
+  </div>
+);
 
-// color: kendi saydam zemini (bg) ve kart üzerinde ≥4.5:1 metin rengi
-const STOCK_OPTIONS = [
-  { value: "IN_STOCK",               label: "Stokta Var",    color: "var(--success-text)", bg: "rgba(59,165,92,0.12)" },
-  { value: "OUT_OF_STOCK",           label: "Stokta Yok",    color: "var(--danger-text)", bg: "rgba(239,68,68,0.12)" },
-  { value: "TEMPORARILY_UNAVAILABLE",label: "Geçici Yok",    color: "#F4A623",            bg: "rgba(244,166,35,0.12)" },
-];
-type StockOption = typeof STOCK_OPTIONS[number];
+// dnd-kit (≈18 KB gzip) yalnız liste çizilirken iner; veri yüklenirken paralel gelir
+const SortableProductList = dynamic(() => import("./SortableProductList"), { ssr: false, loading: ListSkeleton });
 
 const emptyForm = {
   name: "", description: "", ingredients: "", allergens: "",
@@ -50,120 +25,6 @@ const emptyForm = {
   stockStatus: "IN_STOCK" as Product["stockStatus"],
   isPopular: false, sortOrder: 0,
 };
-
-function SortableProductItem({
-  p,
-  isLast,
-  stockInfo,
-  onToggleStock,
-  onEdit,
-  onDelete,
-}: {
-  p: Product;
-  isLast: boolean;
-  stockInfo: (s: Product["stockStatus"]) => StockOption;
-  onToggleStock: (p: Product) => void;
-  onEdit: (p: Product) => void;
-  onDelete: (target: { id: string; name: string }) => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: p.id,
-  });
-
-  const si = stockInfo(p.stockStatus);
-  const inStock = stockInfo(p.stockStatus === "IN_STOCK" ? "IN_STOCK" : "OUT_OF_STOCK");
-
-  // Gizli ürünler satırı soluklaştırmak yerine (metin AA altına düşerdi)
-  // ad ve fiyatı ikincil renge çekerek ayrışır; "Gizli" rozeti de eşlik eder.
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : 1,
-    opacity: isDragging ? 0.6 : 1,
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "14px 18px",
-    borderBottom: isLast ? "none" : "1px solid var(--border-subtle)",
-    background: isDragging ? "var(--surface-hover)" : undefined,
-    position: "relative",
-  };
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <button
-        {...attributes}
-        {...listeners}
-        type="button"
-        style={{
-          cursor: "grab",
-          background: "none",
-          border: "none",
-          color: "var(--text-muted)",
-          display: "flex",
-          alignItems: "center",
-          padding: 2,
-          touchAction: "none",
-          flexShrink: 0,
-        }}
-        title="Sıralamak için sürükleyin"
-      >
-        <GripVertical size={16} />
-      </button>
-
-      <Circle size={10} style={{ flexShrink: 0, color: si.color, fill: si.color }} />
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 600, fontSize: 14, color: p.isAvailable ? undefined : "var(--text-secondary)" }}>{p.name}</span>
-          {p.isPopular && <span className="badge badge-warning" style={{ fontSize: 10, gap: 3 }}><Star size={10} /> Popüler</span>}
-          {!p.isAvailable && <span className="badge badge-neutral" style={{ fontSize: 10 }}>Gizli</span>}
-          {p.stockStatus !== "IN_STOCK" && (
-            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: si.bg, color: si.color }}>
-              {si.label}
-            </span>
-          )}
-        </div>
-        <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
-          {p.category?.name || "Kategorisiz"}
-        </p>
-      </div>
-
-      <span style={{ fontWeight: 700, fontSize: 15, color: p.isAvailable ? "var(--primary-light)" : "var(--text-secondary)", flexShrink: 0 }}>
-        {formatTRY(p.price)}
-      </span>
-
-      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggleStock(p); }}
-          className="btn btn-sm"
-          title={p.stockStatus === "IN_STOCK" ? "Stoktan Çıkar" : "Stoğa Al"}
-          style={{
-            padding: "4px 10px",
-            borderRadius: 99,
-            fontSize: 11,
-            fontWeight: 700,
-            border: "none",
-            background: inStock.bg,
-            color: inStock.color,
-            cursor: "pointer",
-            transition: "all 0.2s",
-            display: "flex", alignItems: "center", gap: 4,
-          }}
-        >
-          <Circle size={8} style={{ fill: "currentColor" }} />
-          {p.stockStatus === "IN_STOCK" ? "Stokta" : "Yok"}
-        </button>
-        <button onClick={() => onEdit(p)} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px" }} title="Düzenle">
-          <Edit3 size={14} />
-        </button>
-        <button onClick={() => onDelete({ id: p.id, name: p.name })} className="btn btn-sm btn-ghost" style={{ padding: "5px 8px", color: "var(--danger-text)" }} title="Sil">
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function AdminProductsPage() {
   const { data: session } = useSession();
@@ -181,17 +42,6 @@ export default function AdminProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
   useEffect(() => { fetchData(); }, [session]);
 
   const fetchData = async () => {
@@ -207,15 +57,16 @@ export default function AdminProductsPage() {
     finally { setLoading(false); }
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = products.findIndex((p) => p.id === active.id);
-    const newIndex = products.findIndex((p) => p.id === over.id);
+  // Sıra tüm listede değişir (filtreliyken de); dnd-kit'in arrayMove'u ile aynı
+  const handleMove = async (activeId: string, overId: string) => {
+    const oldIndex = products.findIndex((p) => p.id === activeId);
+    const newIndex = products.findIndex((p) => p.id === overId);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const newProducts = arrayMove(products, oldIndex, newIndex).map((p, idx) => ({
+    const moved = [...products];
+    const [item] = moved.splice(oldIndex, 1);
+    moved.splice(newIndex, 0, item);
+    const newProducts = moved.map((p, idx) => ({
       ...p,
       sortOrder: idx,
     }));
@@ -313,8 +164,6 @@ export default function AdminProductsPage() {
   const filtered = products
     .filter(p => filterCat === "all" || p.category?.id === filterCat)
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()));
-
-  const stockInfo = (s: Product["stockStatus"]) => STOCK_OPTIONS.find(o => o.value === s) || STOCK_OPTIONS[0];
 
   return (
     <div>
@@ -433,9 +282,7 @@ export default function AdminProductsPage() {
 
       {/* Product List */}
       {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 64, borderRadius: 12 }} />)}
-        </div>
+        <ListSkeleton />
       ) : filtered.length === 0 ? (
         <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
           <Package size={48} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 12px" }} />
@@ -445,23 +292,13 @@ export default function AdminProductsPage() {
           {!search && <button onClick={() => setShowForm(true)} className="btn btn-primary" style={{ marginTop: 16, gap: 6 }}><Plus size={14} /> İlk Ürünü Ekle</button>}
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={filtered.map(p => p.id)} strategy={verticalListSortingStrategy}>
-            <div className="card" style={{ overflow: "hidden" }}>
-              {filtered.map((p, idx) => (
-                <SortableProductItem
-                  key={p.id}
-                  p={p}
-                  isLast={idx === filtered.length - 1}
-                  stockInfo={stockInfo}
-                  onToggleStock={toggleStock}
-                  onEdit={startEdit}
-                  onDelete={setDeleteTarget}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <SortableProductList
+          items={filtered}
+          onMove={handleMove}
+          onToggleStock={toggleStock}
+          onEdit={startEdit}
+          onDelete={setDeleteTarget}
+        />
       )}
     </div>
   );

@@ -32,38 +32,12 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
       sessionStorage.setItem("qr_table", JSON.stringify(data.table));
       sessionStorage.setItem("qr_token", qrToken);
 
-      // ✅ CustomerSession oluştur — qrToken ile (QR tarama kanıtı)
-      // Masa bazlı localStorage anahtarı kullan
-      const storageKey = `qr_session_${bId}_${tId}`;
-      const existingToken = localStorage.getItem(storageKey);
-
-      try {
-        const sessionRes = await fetch("/api/customer/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            businessId: bId,
-            tableId: tId,
-            qrToken,
-            existingToken: existingToken || undefined,
-          }),
-        });
-        const sessionData = await sessionRes.json();
-        if (sessionRes.ok && sessionData.sessionToken) {
-          localStorage.setItem(storageKey, sessionData.sessionToken);
-          // Eski global anahtarı temizle
-          localStorage.removeItem("qr_session_token");
-          sessionStorage.removeItem("qr_session_token");
-          sessionStorage.removeItem("qr_order_blocked_msg");
-        } else if (sessionData.viewOnly && sessionData.message) {
-          sessionStorage.setItem("qr_order_blocked_msg", sessionData.message);
-        }
-      } catch (e) {
-        console.log("Session oluşturma hatası:", e);
-      }
+      // ✅ CustomerSession burada beklenmez: menü sayfası bu işareti görünce oturumu qrToken
+      // (QR tarama kanıtı) ile kurar/tazeler. Burada beklemek menüyü bir istek geciktiriyordu.
+      sessionStorage.setItem("qr_fresh_scan", tId);
 
       // Menü sayfasına yönlendir
-      router.replace(`/menu/${bId}/${tNum}`);
+      router.replace(`/menu/${bId}/${encodeURIComponent(tNum)}`);
     } catch (err) {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
       setLoading(false);
