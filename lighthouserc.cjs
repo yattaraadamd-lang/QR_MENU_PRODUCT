@@ -17,11 +17,11 @@ module.exports = {
     },
     assert: {
       assertions: {
-        // Hedef 0,9; şimdilik uyarı. Landing ve girişte LCP metni framer-motion'la opaklık 0'dan
-        // başlıyor ve JS çalışana kadar görünmüyor (gerçek kısıtlamayla LCP ≈ 6 s, puan 0,67–0,70).
-        // O düzeltilince "error"a çekilecek. Not: yerel Windows + Chrome 156'da simüle ölçüm,
-        // gzip'li yanıtları açılmış boyutla okuduğu için puanı ayrıca düşük gösteriyor.
-        "categories:performance": ["warn", { minScore: 0.9, aggregationMethod: "median-run" }],
+        // Landing ve girişin ilk ekran metni artık JS'yi beklemiyor (CSS girişi, LCP = FCP).
+        // Not: yerel Windows + Chrome 156'da simüle ölçüm gzip'li yanıtları açılmış boyutla
+        // okuyup puanı düşük gösteriyor; eşiğin ölçüsü CI (Linux). Sonuçlar "Lighthouse summary"
+        // adımında notice olarak görünür.
+        "categories:performance": ["error", { minScore: 0.9, aggregationMethod: "median-run" }],
         "categories:accessibility": ["error", { minScore: 0.95, aggregationMethod: "median-run" }],
         "cumulative-layout-shift": ["error", { maxNumericValue: 0.1, aggregationMethod: "median-run" }],
       },

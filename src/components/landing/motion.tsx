@@ -13,6 +13,9 @@ import {
 
 export const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
+/** İlk ekran CSS giriş animasyonunun gecikmesi (globals.css .enter-*): sırayla gelme */
+export const enterDelay = (seconds: number) => ({ "--enter-delay": `${seconds}s` }) as React.CSSProperties;
+
 export const fadeUp: Variants = {
   hidden: { opacity: 0, y: 24 },
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE_OUT } },

@@ -775,6 +775,37 @@ html [data-sonner-toaster][data-sonner-theme="light"] {
     #FFF8F1;
 }
 
+/* ─── İlk ekran giriş animasyonları (landing, giriş sayfası) ─────────────────
+   CSS'te oynar: sunucu HTML'iyle ilk karede başlar, JS'yi beklemez. Eskiden
+   framer-motion opaklık 0'dan başlatıyordu: içerik hidrasyona kadar görünmüyor,
+   LCP yavaş telefonda ≈6 sn'ye kayıyordu. LCP adayı metinler (.enter-rise) yalnız
+   kayar, opaklıkları hep 1'dir; diğerleri kayarak belirir. Gecikme --enter-delay
+   ile (landing/motion.tsx enterDelay). Kısa giriş geri bildirim sayıldığı için
+   "hareketi azalt"ta da oynar (2026-10-22 kararı). */
+@keyframes enter-rise  { from { transform: translateY(24px); } }
+@keyframes enter-fade  { from { opacity: 0; transform: translateY(24px); } }
+@keyframes enter-drop  { from { opacity: 0; transform: translateY(-64px); } }
+@keyframes enter-slide { from { opacity: 0; transform: translateX(-16px); } }
+@keyframes enter-pop   { from { opacity: 0; transform: translateY(24px) rotate(-12deg) scale(0.8); } }
+@keyframes enter-tilt  { from { opacity: 0; transform: perspective(1100px) translateY(40px) rotateX(16deg); } }
+@keyframes enter-from-right { from { opacity: 0; transform: translateX(24px); } }
+@keyframes enter-scale { from { opacity: 0; transform: scale(0.9); } }
+.enter-rise, .enter-fade, .enter-drop, .enter-slide, .enter-pop, .enter-tilt, .enter-from-right, .enter-scale {
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: backwards;
+  animation-delay: var(--enter-delay, 0s);
+}
+.enter-rise  { animation-name: enter-rise; }
+.enter-fade  { animation-name: enter-fade; }
+.enter-drop  { animation-name: enter-drop; }
+.enter-slide { animation-name: enter-slide; animation-duration: 0.5s; }
+/* Yaylı sıçrama (eski framer spring'ine yakın aşım) */
+.enter-pop   { animation-name: enter-pop; animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+.enter-tilt  { animation-name: enter-tilt; animation-duration: 1s; }
+.enter-from-right { animation-name: enter-from-right; animation-duration: 0.5s; }
+.enter-scale { animation-name: enter-scale; animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+
 /* ─── Waiter theme (biraz daha açık espresso) ────────────────────────────── */
 .waiter-theme {
   --bg-primary:   #17110E;

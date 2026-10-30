@@ -86,9 +86,14 @@ jobs:
       - name: Accessibility, preference emulation and 320px reflow (Playwright + axe)
         run: npx playwright test
 
-      # Performans şimdilik uyarı (lighthouserc.cjs); erişilebilirlik ≥0,95 ve CLS <0,1 kırmızı
+      # Performans ≥0,9, erişilebilirlik ≥0,95 ve CLS <0,1 kırmızı (lighthouserc.cjs)
       - name: Lighthouse (mobile, median of 3)
         run: npx --yes @lhci/cli@0.15.1 autorun
+
+      # Medyan sonuçlar notice ek açıklaması + iş özeti: log açmadan görünür
+      - name: Lighthouse summary
+        if: always()
+        run: node scripts/lighthouse-summary.cjs
 
       - name: Upload reports
         if: always()
