@@ -25,7 +25,7 @@ import {
   X,
   UtensilsCrossed,
 } from "lucide-react";
-import { EASE_OUT, Reveal, RevealGroup, Tilt, fadeUp, stagger } from "@/components/landing/motion";
+import { EASE_OUT, Reveal, RevealGroup, Tilt, enterDelay, fadeUp, stagger } from "@/components/landing/motion";
 import Dialog from "@/components/ui/Dialog";
 
 // Özellik kartlarının ikon renkleri iştah açıcı palette döner
@@ -104,12 +104,8 @@ const float = (still: boolean | null, delay: number, distance = 10) =>
 function PhoneMockup() {
   const still = useReducedMotion();
   return (
-    <m.div
-      initial={{ opacity: 0, y: 40, rotateX: 16 }}
-      animate={{ opacity: 1, y: 0, rotateX: 0 }}
-      transition={{ duration: 1, ease: EASE_OUT, delay: 0.25 }}
-      style={{ transformPerspective: 1100 }}
-    >
+    // Giriş CSS'te (.enter-tilt): JS'yi beklemeden görünür
+    <div className="enter-tilt" style={enterDelay(0.25)}>
       <Tilt max={12} className="relative mx-auto w-full max-w-[330px]">
         {/* Sıcak ışık halesi */}
         <div
@@ -177,19 +173,13 @@ function PhoneMockup() {
               ))}
             </div>
 
-            {/* Ürünler — sırayla kayarak gelir */}
-            <m.div
-              className="flex flex-col gap-2.5 px-4 pb-4"
-              initial="hidden"
-              animate="show"
-              variants={stagger(0.12, 0.7)}
-            >
-              {PREVIEW_ITEMS.map((p) => (
-                <m.div
+            {/* Ürünler — sırayla kayarak gelir (CSS, JS beklemez) */}
+            <div className="flex flex-col gap-2.5 px-4 pb-4">
+              {PREVIEW_ITEMS.map((p, i) => (
+                <div
                   key={p.name}
-                  variants={{ hidden: { opacity: 0, x: 24 }, show: { opacity: 1, x: 0, transition: { duration: 0.5, ease: EASE_OUT } } }}
-                  className="flex items-center gap-3 rounded-2xl bg-white p-2.5"
-                  style={{ border: "1px solid #F0DFD0" }}
+                  className="enter-from-right flex items-center gap-3 rounded-2xl bg-white p-2.5"
+                  style={{ border: "1px solid #F0DFD0", ...enterDelay(0.7 + i * 0.12) }}
                 >
                   <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl text-3xl" style={{ background: p.bg }}>
                     {p.emoji}
@@ -205,22 +195,19 @@ function PhoneMockup() {
                   <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-lg font-bold text-white" style={{ background: "#CF411E" }}>
                     +
                   </span>
-                </m.div>
+                </div>
               ))}
-            </m.div>
+            </div>
 
             {/* Sepet barı */}
             <div className="px-4 pb-5">
-              <m.div
-                className="flex items-center justify-center gap-2 rounded-2xl py-3 text-[13px] font-bold text-white"
-                style={{ background: "linear-gradient(135deg,#D24521,#CF411E)", boxShadow: "0 8px 18px rgba(217,68,31,0.35)" }}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 260, damping: 18, delay: 1.2 }}
+              <div
+                className="enter-scale flex items-center justify-center gap-2 rounded-2xl py-3 text-[13px] font-bold text-white"
+                style={{ background: "linear-gradient(135deg,#D24521,#CF411E)", boxShadow: "0 8px 18px rgba(217,68,31,0.35)", ...enterDelay(1.2) }}
               >
                 <span className="rounded-full px-2 text-[12px]" style={{ background: "rgba(255,255,255,0.25)" }}>3</span>
                 Sepet · 480,00 ₺
-              </m.div>
+              </div>
             </div>
           </div>
         </div>
@@ -253,7 +240,7 @@ function PhoneMockup() {
           </div>
         </m.div>
       </Tilt>
-    </m.div>
+    </div>
   );
 }
 
@@ -283,11 +270,8 @@ export default function HomePage() {
     <MotionConfig reducedMotion="never">
       <div className="landing-theme min-h-viewport overflow-x-hidden">
         {/* ── Navbar ──────────────────────────────────────────────────────────── */}
-        <m.nav
-          initial={{ y: -64, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, ease: EASE_OUT }}
-          className="fixed inset-x-0 top-0 z-50"
+        <nav
+          className="enter-drop fixed inset-x-0 top-0 z-50"
           style={{ background: "rgba(255,248,241,0.82)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderBottom: "1px solid rgba(240,223,208,0.9)" }}
         >
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -323,27 +307,26 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-        </m.nav>
+        </nav>
 
         <main id="main-content">
         {/* ── Hero ───────────────────────────────────────────────────────────── */}
         <section className="relative px-4 pb-20 pt-28 sm:px-6 lg:pt-36">
           {/* grid-cols-1 = minmax(0,1fr): telefon maketinin taşmayan çip satırı sütunu 320px'de genişletmesin */}
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
-            <m.div className="text-center lg:text-left" initial="hidden" animate="show" variants={stagger(0.1, 0.1)}>
-              <m.span
-                variants={fadeUp}
-                className="mb-6 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
-                style={{ background: "#FFE9DF", color: "#B23415", border: "1px solid #FFC8B0" }}
+            {/* Giriş CSS'te (.enter-*): başlık ve paragraf LCP adayı, yalnız kayar (opaklık hep 1) */}
+            <div className="text-center lg:text-left">
+              <span
+                className="enter-fade mb-6 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
+                style={{ background: "#FFE9DF", color: "#B23415", border: "1px solid #FFC8B0", ...enterDelay(0.1) }}
               >
                 <Sparkles size={14} />
                 Restoran ve Kafeler İçin Geliştirildi
-              </m.span>
+              </span>
 
-              <m.h1
-                variants={fadeUp}
-                className="font-display font-semibold"
-                style={{ fontSize: "clamp(36px, 5.4vw, 64px)", lineHeight: 1.06, color: "#2A1A12" }}
+              <h1
+                className="enter-rise font-display font-semibold"
+                style={{ fontSize: "clamp(36px, 5.4vw, 64px)", lineHeight: 1.06, color: "#2A1A12", ...enterDelay(0.2) }}
               >
                 Restoran ve Kafeler İçin{" "}
                 <m.span
@@ -355,26 +338,25 @@ export default function HomePage() {
                   Modern QR Menü
                 </m.span>{" "}
                 Sistemi
-              </m.h1>
+              </h1>
 
-              <m.p variants={fadeUp} className="mx-auto mt-6 max-w-xl text-[17px] leading-relaxed lg:mx-0" style={{ color: "#6E4F3F" }}>
+              <p className="enter-rise mx-auto mt-6 max-w-xl text-[17px] leading-relaxed lg:mx-0" style={{ color: "#6E4F3F", ...enterDelay(0.3) }}>
                 Müşteriler QR kod ile iştah açan, fotoğraflı menüyü görüntüler ve sipariş verir; garsonlar
                 siparişleri yönetir, admin paneliyle masa, ürün, ödeme ve ciro takibi kolayca yapılır.
-              </m.p>
+              </p>
 
-              <m.div variants={fadeUp} className="mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
+              <div className="enter-fade mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start" style={enterDelay(0.4)}>
                 <button onClick={() => setShowDemoModal(true)} className="btn btn-primary btn-lg">
                   Demoyu Deneyin <ArrowRight size={18} />
                 </button>
                 <Link href="/auth/signin" className="btn btn-ghost btn-lg">
                   Giriş Yapın
                 </Link>
-              </m.div>
+              </div>
 
-              <m.div
-                variants={fadeUp}
-                className="mt-9 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-semibold lg:justify-start"
-                style={{ color: "#6E4F3F" }}
+              <div
+                className="enter-fade mt-9 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-semibold lg:justify-start"
+                style={{ color: "#6E4F3F", ...enterDelay(0.5) }}
               >
                 {[
                   { icon: Clock, text: "5 dakikada kurulum" },
@@ -386,8 +368,8 @@ export default function HomePage() {
                     {text}
                   </span>
                 ))}
-              </m.div>
-            </m.div>
+              </div>
+            </div>
 
             <PhoneMockup />
           </div>
