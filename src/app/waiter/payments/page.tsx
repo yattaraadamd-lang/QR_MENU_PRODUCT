@@ -1,19 +1,26 @@
-"useClient";
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useBusinessSocket } from "@/hooks/useBusinessSocket";
 import { CreditCard, Banknote, Loader2, Clock, Info, Calculator, ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import QueryError from "@/components/ui/QueryError";
 import { formatTRY } from "@/lib/format";
 
 export default function WaiterPaymentsPage() {
   const { data: session } = useSession();
-  const [payments, setPayments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Sekme gizliyken polling durur; ekran ayrılınca uçuştaki istek iptal edilir
+  const paymentsQuery = useApiQuery<any[]>(
+    session?.user.businessId ? "/api/waiter/payments" : null,
+    { select: (j) => (j as { payments?: any[] } | null)?.payments ?? [], refreshInterval: 5000 },
+  );
+  const payments = paymentsQuery.data ?? [];
+  const loading = paymentsQuery.isLoading;
+  const fetchPayments = paymentsQuery.refresh;
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [paymentNote, setPaymentNote] = useState("");
@@ -24,44 +31,10 @@ export default function WaiterPaymentsPage() {
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const closeModal = () => { setSelectedPayment(null); setApprovalError(null); };
 
-  const fetchPayments = useCallback(async () => {
-    try {
-      const res = await fetch("/api/waiter/payments");
-      const data = await res.json();
-      if (res.ok) setPayments(data.payments || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchPayments();
-      const interval = setInterval(fetchPayments, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [session, fetchPayments]);
-
-  useEffect(() => {
-    if (!session?.user.businessId) return;
-    const accessToken = (session as any).accessToken;
-    if (!accessToken) return;
-    const socket = connectToBusinessRoom(accessToken, fetchPayments);
-    socket.on("payment_request", fetchPayments);
-    socket.on("payment_approval_requested", fetchPayments);
-    socket.on("payment_approved", fetchPayments);
-    socket.on("payment_rejected", fetchPayments);
-    socket.on("payment_collected", fetchPayments);
-    return () => {
-      socket.off("payment_request", fetchPayments);
-      socket.off("payment_approval_requested", fetchPayments);
-      socket.off("payment_approved", fetchPayments);
-      socket.off("payment_rejected", fetchPayments);
-      socket.off("payment_collected", fetchPayments);
-    };
-  }, [session, fetchPayments]);
+  useBusinessSocket(
+    ["payment_request", "payment_approval_requested", "payment_approved", "payment_rejected", "payment_collected"],
+    fetchPayments,
+  );
 
   const openModalForPayment = (p: any) => {
     setApprovalError(null);
@@ -156,6 +129,8 @@ export default function WaiterPaymentsPage() {
   return (
     <div>
       <h1 className="page-title page-title-sm" style={{ marginBottom: 16 }}>Ödeme Talepleri ve Garson Bildirimleri</h1>
+
+      <QueryError message={paymentsQuery.error} onRetry={fetchPayments} />
 
       {payments.length === 0 ? (
         <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>

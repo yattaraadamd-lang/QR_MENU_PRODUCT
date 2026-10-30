@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { connectToBusinessRoom } from "@/lib/socket-client";
 import { toast } from "sonner";
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useBusinessSocket } from "@/hooks/useBusinessSocket";
+import QueryError from "@/components/ui/QueryError";
 import { Check, X, ChefHat, UtensilsCrossed, Clock, AlertTriangle, Loader2, ClipboardList } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
@@ -60,8 +62,6 @@ function timeAgo(dateStr: string) {
 
 export default function WaiterOrdersPage() {
   const { data: session } = useSession();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("active");
   
   // Modal states
@@ -76,43 +76,17 @@ export default function WaiterOrdersPage() {
   // Modal içi hata (FormError): toast açık <dialog>'un arkasında kalırdı
   const [modalError, setModalError] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/waiter/orders?status=${filter}`);
-      if (res.status === 401) {
-        // Session expired — redirect to login
-        window.location.href = "/auth/signin";
-        return;
-      }
-      const data = await res.json();
-      if (res.ok) setOrders(data.orders || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [filter]);
+  // Filtre değişince eski istek iptal edilir; sekme gizliyken polling durur; 401'de girişe yönlendirir
+  const ordersQuery = useApiQuery<Order[]>(
+    session?.user.businessId ? `/api/waiter/orders?status=${filter}` : null,
+    { select: (j) => (j as { orders?: Order[] } | null)?.orders ?? [], refreshInterval: 6000 },
+  );
+  const orders = ordersQuery.data ?? [];
+  const loading = ordersQuery.isLoading;
+  const fetchOrders = ordersQuery.refresh;
 
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchOrders();
-      const iv = setInterval(fetchOrders, 6000);
-      return () => clearInterval(iv);
-    }
-  }, [session, fetchOrders]);
-
-  // ✅ P0-03 FIX: Socket connection with authentication
-  useEffect(() => {
-    if (!session?.user.businessId || !session?.accessToken) return;
-
-    // ✅ Connect with authenticated token
-    const socket = connectToBusinessRoom(session.accessToken, fetchOrders);
-    
-    socket.on("new_order", fetchOrders);
-    socket.on("order_status_update", fetchOrders);
-    
-    return () => {
-      socket.off("new_order", fetchOrders);
-      socket.off("order_status_update", fetchOrders);
-    };
-  }, [session, fetchOrders]);
+  // ✅ P0-03 FIX: Kimlikli socket; ekran ayrılınca yalnız kendi dinleyicileri kalkar
+  useBusinessSocket(["new_order", "order_status_update"], fetchOrders);
 
   const updateStatus = async (
     orderId: string,
@@ -127,6 +101,8 @@ export default function WaiterOrdersPage() {
   ): Promise<boolean> => {
     const fail = (message: string) => (onError ? onError(message) : toast.error(message));
     setActionLoading(orderId);
+    // İyimser güncelleme: kart hemen yeni durumda; hata olursa aşağıdaki refresh geri alır
+    ordersQuery.mutate((prev) => (prev ?? []).map((o) => (o.id === orderId ? { ...o, status } : o)));
     try {
       const res = await fetch(`/api/waiter/orders/${orderId}/status`, {
         method: "PUT",
@@ -149,10 +125,12 @@ export default function WaiterOrdersPage() {
         if (labels[status]) toast.success(labels[status]);
         return true;
       } else {
+        fetchOrders(); // iyimser güncellemeyi geri al
         fail(data.error || "İşlem başarısız oldu.");
         return false;
       }
     } catch {
+      fetchOrders(); // iyimser güncellemeyi geri al
       fail("Bağlantı hatası. Lütfen tekrar deneyin.");
       return false;
     } finally {
@@ -387,6 +365,8 @@ export default function WaiterOrdersPage() {
           <button onClick={() => setFilter("completed")} className={`btn btn-sm ${filter === "completed" ? "btn-primary" : "btn-ghost"}`}>Geçmiş</button>
         </div>
       </div>
+
+      <QueryError message={ordersQuery.error} onRetry={fetchOrders} />
 
       {/* Orders */}
       {loading ? (

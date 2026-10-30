@@ -1118,8 +1118,10 @@ dialog.notification-dialog {
 }
 
 /* ─── Toast notification ────────────────────────────────────────────────────── */
+/* Üst çubuğun (garson 56px, admin ≈65px) altında: kalıcı toast zili ve ses düğmesini
+   örtüyor, garson toast'ı kapatmadan bildirim panelini açamıyordu */
 .notification-toast {
-  position: fixed; top: 16px; right: 12px; left: 12px;
+  position: fixed; top: 76px; right: 12px; left: 12px;
   padding: 14px 20px;
   background: rgba(31,23,19, 0.92);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);

@@ -165,62 +165,50 @@ export function getSocket(authToken?: string): Socket {
 }
 
 /**
- * ✅ P0-03 FIX: Connect with authentication
+ * ✅ P0-03 FIX: Kimlikli bağlantı; sunucu kullanıcıyı auth'tan bildiği işletme odasına
+ * (yeniden bağlanınca da) kendiliğinden katar, "join_business" gerekmez.
  *
- * İşletme odasına bağlan (businessId server tarafından auth'dan alınır).
- * Bağlantı kesilip tekrar kurulduğunda (reconnect) `onReconnect` callback'i çağrılır.
- * WebSocket bağlantısı koparsa otomatik SWR/Polling fallback devreye girer.
- *
- * @param authToken     NextAuth access token (required for authentication)
- * @param onReconnect   Bağlantı yeniden kurulunca çağrılacak fonksiyon (opsiyonel)
- * @returns socket instance
+ * İşletme odasına abone ol: `handlers` olay → işleyici. `onReconnect` verilirse yeniden
+ * bağlanınca ve bağlantı yokken (yedek polling) çağrılır. Dönen fonksiyon yalnız bu
+ * aboneliğin dinleyicilerini kaldırır. Eski connectToBusinessRoom her çağrıda yeni
+ * connect/disconnect dinleyicisi ekleyip kaldıramadığından ekran her yeniden abone
+ * olduğunda (oturum yenilenmesi, filtre, sayfa geçişi) dinleyiciler birikiyordu.
  */
-export function connectToBusinessRoom(
+export function subscribeToBusinessRoom(
   authToken: string,
+  handlers: Record<string, (data: any) => void>,
   onReconnect?: () => void
-): Socket {
+): () => void {
   if (!authToken) {
     throw new Error("Authentication token required for socket connection");
   }
 
   const s = getSocket(authToken);
-
   if (!s.connected) {
-    // ✅ Update auth token before connecting (in case it was refreshed)
     s.auth = { token: authToken };
-    // Ensure reconnection is enabled for a fresh connect attempt
     s.io.opts.reconnection = true;
     s.connect();
   }
 
-  // ✅ P0-03 FIX: Server will automatically join user to their business room
-  // No need to emit "join_business" - server knows businessId from auth
-
-  // Reconnect sonrası otomatik veri senkronize et
-  const handleReconnect = () => {
-    // ✅ Server auto-joins on reconnect, just refresh data
-    // Stop polling since we're reconnected
+  const handleConnect = () => {
     stopPollingFallback();
-    if (typeof onReconnect === "function") {
-      onReconnect();
-    }
+    onReconnect?.();
   };
-
-  // ✅ SWR/Polling fallback: start polling when disconnected
   const handleDisconnect = () => {
-    if (typeof onReconnect === "function") {
-      startPollingFallback(onReconnect);
-    }
+    if (onReconnect) startPollingFallback(onReconnect);
   };
 
-  // Önceki listener'ı temizle (aynı event birden fazla kayıt olmasın)
-  s.off("connect", handleReconnect);
-  s.on("connect", handleReconnect);
-
-  s.off("disconnect", handleDisconnect);
+  s.on("connect", handleConnect);
   s.on("disconnect", handleDisconnect);
+  Object.entries(handlers).forEach(([ev, fn]) => s.on(ev, fn));
 
-  return s;
+  return () => {
+    s.off("connect", handleConnect);
+    s.off("disconnect", handleDisconnect);
+    Object.entries(handlers).forEach(([ev, fn]) => s.off(ev, fn));
+    // Bu aboneliğin başlattığı yedek polling ayrılmış ekran için çalışmaya devam etmesin
+    if (onReconnect && pollingCallback === onReconnect) stopPollingFallback();
+  };
 }
 
 /**
