@@ -1,0 +1,104 @@
+name: Frontend Quality
+
+# Ön yüz kalite kapıları (FE-ITEM-3.9): paket bütçesi, axe (WCAG 2.2 AA) + tercih
+# emülasyonları + 320px yeniden akış, Lighthouse. Gerçek uygulama, geçici Postgres'e
+# seed'lenmiş demo verisiyle production build olarak çalıştırılır.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ui-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # Yalnız bu işin geçici Postgres'i ve sahte gizli değerler; gerçek veritabanına
+    # bağlanılmaz. E2E_* hesapları prisma/seed.ts'in demo hesaplarıdır (bu geçici DB'de).
+    env:
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+      DATABASE_URL_UNPOOLED: "postgresql://ci:ci@localhost:5432/ci"
+      NEXTAUTH_SECRET: "ci-test-secret-do-not-use-in-production-32chars"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      CUSTOMER_DEVICE_HMAC_SECRET: "ci-only-device-hmac-key-not-for-production-use"
+      NEXT_TELEMETRY_DISABLED: "1"
+      E2E_BASE_URL: "http://localhost:3000"
+      E2E_ADMIN_EMAIL: "admin@demo.com"
+      E2E_ADMIN_PASSWORD: "admin123"
+      E2E_WAITER_EMAIL: "garson@demo.com"
+      E2E_WAITER_PASSWORD: "garson123"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Database (migrate + demo seed)
+        run: |
+          npx prisma migrate deploy
+          npx tsx prisma/seed.ts
+          node prisma/seed-plans.cjs --create-only
+
+      - name: Build
+        run: npx next build
+
+      # Rota başına ilk yük JS'si (gzip); tablo iş özetine yazılır, 200 KB'ı aşan rota kırmızı
+      - name: Bundle budget
+        run: node scripts/bundle-report.cjs --budget-kb=200
+
+      - name: Start production server
+        run: |
+          NODE_ENV=production nohup node server.js > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/api/health/live > /dev/null && exit 0
+            sleep 2
+          done
+          echo "::error::Sunucu 120 sn içinde açılmadı"
+          cat server.log
+          exit 1
+
+      # Tarayıcı indirilmez: ubuntu-latest'teki Chrome kullanılır (playwright.config.ts)
+      - name: Accessibility, preference emulation and 320px reflow (Playwright + axe)
+        run: npx playwright test
+
+      # Performans şimdilik uyarı (lighthouserc.cjs); erişilebilirlik ≥0,95 ve CLS <0,1 kırmızı
+      - name: Lighthouse (mobile, median of 3)
+        run: npx --yes @lhci/cli@0.15.1 autorun
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-quality-reports
+          path: |
+            playwright-report/
+            test-results/
+            .lighthouseci/
+            server.log
+          retention-days: 14
+          if-no-files-found: ignore
