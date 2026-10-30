@@ -1,107 +1,79 @@
 "use client";
 
-import React, { useRef } from "react";
-import {
-  m,
-  useMotionValue,
-  useReducedMotion,
-  useSpring,
-  useTransform,
-  type HTMLMotionProps,
-  type Variants,
-} from "framer-motion";
+import React, { useEffect, useRef } from "react";
 
-export const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+/**
+ * Landing hareketleri — framer-motion'sız (landing'in ilk yükünden ≈30 KB gzip JS ve
+ * hidrasyon işi kalktı). Görsel kurallar globals.css "Landing hareketleri" bölümünde.
+ */
 
 /** İlk ekran CSS giriş animasyonunun gecikmesi (globals.css .enter-*): sırayla gelme */
 export const enterDelay = (seconds: number) => ({ "--enter-delay": `${seconds}s` }) as React.CSSProperties;
 
-export const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE_OUT } },
-};
+/** RevealGroup çocuğunun sırası: gecikme = sıra × grubun gap'i */
+export const revealIndex = (i: number) => ({ "--i": i }) as React.CSSProperties;
 
-export const stagger = (gap = 0.08, delay = 0.05): Variants => ({
-  hidden: {},
-  show: { transition: { staggerChildren: gap, delayChildren: delay } },
-});
-
-// Kaydırıldığında bir kez görünür olan sarmalayıcı
-export function Reveal({ children, delay = 0, ...props }: HTMLMotionProps<"div"> & { delay?: number }) {
-  return (
-    <m.div
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={{
-        hidden: fadeUp.hidden,
-        show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE_OUT, delay } },
-      }}
-      {...props}
-    >
-      {children}
-    </m.div>
-  );
+/**
+ * Kaydırınca bir kez belirme. Sunucu HTML'inde blok görünür (JS yoksa da öyle kalır);
+ * hidrasyondan sonra ekranın altında kalıyorsa data-reveal="pending" ile gizlenir,
+ * görünür alana girince "shown" olur ve giriş animasyonu bir kez oynar. Zaten ekranda
+ * olan blok olduğu gibi kalır: görünür bir şey kaybolup yeniden belirmez.
+ */
+function useReveal<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || el.getBoundingClientRect().top < window.innerHeight) return;
+    el.dataset.reveal = "pending";
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        el.dataset.reveal = "shown";
+        observer.disconnect();
+      },
+      { rootMargin: "0px 0px -80px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
 }
 
-// Çocuklarını sırayla gösteren grup; çocuklar `variants={fadeUp}` kullanmalı
-export function RevealGroup({ children, gap = 0.08, ...props }: HTMLMotionProps<"div"> & { gap?: number }) {
-  return (
-    <m.div
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-80px" }}
-      variants={stagger(gap)}
-      {...props}
-    >
-      {children}
-    </m.div>
-  );
+type DivProps = React.HTMLAttributes<HTMLDivElement>;
+
+export function Reveal({ className = "", ...props }: DivProps) {
+  const ref = useReveal<HTMLDivElement>();
+  return <div ref={ref} className={`reveal ${className}`} {...props} />;
 }
 
-// Fare imlecini takip eden 3D eğim. Sayfalar MotionConfig ile giriş
-// animasyonlarını her zaman oynatır; bu büyük, etkileşimle tetiklenen hareket
-// ise işletim sistemindeki "hareketi azalt" tercihine uyar ve dokunmatikte kapalıdır.
-export function Tilt({
-  children,
-  max = 10,
-  style,
-  ...props
-}: HTMLMotionProps<"div"> & { max?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const reduce = useReducedMotion();
-  const px = useMotionValue(0);
-  const py = useMotionValue(0);
-  const spring = { stiffness: 180, damping: 18, mass: 0.6 };
-  const rotateX = useSpring(useTransform(py, [-0.5, 0.5], [max, -max]), spring);
-  const rotateY = useSpring(useTransform(px, [-0.5, 0.5], [-max, max]), spring);
-
-  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (reduce || e.pointerType !== "mouse" || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    px.set((e.clientX - rect.left) / rect.width - 0.5);
-    py.set((e.clientY - rect.top) / rect.height - 0.5);
-  };
-  const reset = () => {
-    px.set(0);
-    py.set(0);
-  };
-
+/** Çocukları (.reveal-item + revealIndex(i)) sırayla belirir */
+export function RevealGroup({ className = "", gap = 0.08, style, ...props }: DivProps & { gap?: number }) {
+  const ref = useReveal<HTMLDivElement>();
   return (
-    <m.div
+    <div
       ref={ref}
-      onPointerMove={handleMove}
-      onPointerLeave={reset}
-      style={{
-        rotateX: reduce ? 0 : rotateX,
-        rotateY: reduce ? 0 : rotateY,
-        transformPerspective: 1100,
-        transformStyle: "preserve-3d",
-        ...style,
-      }}
+      className={`reveal-group ${className}`}
+      style={{ "--reveal-gap": `${gap}s`, ...style } as React.CSSProperties}
       {...props}
-    >
-      {children}
-    </m.div>
+    />
   );
+}
+
+/**
+ * Fare imlecini takip eden 3D eğim: açı CSS değişkenine yazılır, yumuşatma CSS geçişiyle
+ * (globals.css .tilt). Yalnız fare; dokunmatikte ve "hareketi azalt"ta kapalı.
+ */
+export function Tilt({ max = 10, className = "", ...props }: DivProps & { max?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const set = (x: number, y: number) => {
+    ref.current?.style.setProperty("--tilt-x", `${(-y * 2 * max).toFixed(2)}deg`);
+    ref.current?.style.setProperty("--tilt-y", `${(x * 2 * max).toFixed(2)}deg`);
+  };
+  const handleMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current;
+    if (!el || e.pointerType !== "mouse" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const rect = el.getBoundingClientRect();
+    set((e.clientX - rect.left) / rect.width - 0.5, (e.clientY - rect.top) / rect.height - 0.5);
+  };
+  return <div ref={ref} onPointerMove={handleMove} onPointerLeave={() => set(0, 0)} className={`tilt ${className}`} {...props} />;
 }
