@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m, useReducedMotion } from "framer-motion";
+import { useState, type CSSProperties } from "react";
 import {
   QrCode,
   ShoppingCart,
@@ -25,7 +24,7 @@ import {
   X,
   UtensilsCrossed,
 } from "lucide-react";
-import { EASE_OUT, Reveal, RevealGroup, Tilt, enterDelay, fadeUp, stagger } from "@/components/landing/motion";
+import { Reveal, RevealGroup, Tilt, enterDelay, revealIndex } from "@/components/landing/motion";
 import Dialog from "@/components/ui/Dialog";
 
 // Özellik kartlarının ikon renkleri iştah açıcı palette döner
@@ -91,18 +90,11 @@ const INGREDIENTS = [
   { emoji: "🌿", top: "70%", left: "94%", z: 110, size: 48, delay: 2.2 },
 ];
 
-// Dekoratif döngüler tek tur (≤5 sn) oynar ve durur; "hareketi azalt"
-// açıkken hiç oynamaz. Giriş animasyonları kısa olduğu için her zaman oynar.
-const float = (still: boolean | null, delay: number, distance = 10) =>
-  still
-    ? {}
-    : {
-        animate: { y: [0, -distance, 0] },
-        transition: { duration: 4, ease: "easeInOut" as const, delay },
-      };
+// Dekoratif süzülme tek tur (4 sn) oynar ve durur; "hareketi azalt" açıkken hiç oynamaz
+// (globals.css .bob-once). Giriş animasyonları kısa olduğu için her zaman oynar.
+const bob = (delay: number, distance = 10) => ({ "--bob-delay": `${delay}s`, "--bob": `${distance}px` }) as CSSProperties;
 
 function PhoneMockup() {
-  const still = useReducedMotion();
   return (
     // Giriş CSS'te (.enter-tilt): JS'yi beklemeden görünür
     <div className="enter-tilt" style={enterDelay(0.25)}>
@@ -116,24 +108,24 @@ function PhoneMockup() {
 
         {/* Malzeme küreleri — derinlik (z) eğimle birlikte paralaks oluşturur */}
         {INGREDIENTS.map((it) => (
-          <m.div
+          <div
             key={it.emoji}
             aria-hidden
-            className="absolute hidden items-center justify-center rounded-full bg-white sm:flex"
+            className="bob-once absolute hidden items-center justify-center rounded-full bg-white sm:flex"
             style={{
               top: it.top,
               left: it.left,
               width: it.size,
               height: it.size,
               fontSize: it.size * 0.5,
-              z: it.z,
+              transform: `translateZ(${it.z}px)`,
               boxShadow: "0 16px 30px rgba(68,34,18,0.18), inset 0 -6px 12px rgba(68,34,18,0.06)",
               border: "1px solid #F8ECE1",
+              ...bob(it.delay, 12),
             }}
-            {...float(still, it.delay, 12)}
           >
             {it.emoji}
-          </m.div>
+          </div>
         ))}
 
         <div
@@ -213,10 +205,9 @@ function PhoneMockup() {
         </div>
 
         {/* Yüzen bildirim kartları — telefonun önünde (z) durur */}
-        <m.div
-          className="absolute -left-6 top-24 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
-          style={{ z: 70, boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0" }}
-          {...float(still, 0)}
+        <div
+          className="bob-once absolute -left-6 top-24 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
+          style={{ transform: "translateZ(70px)", boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0", ...bob(0) }}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "#E3F3E6", color: "#2E8B47" }}>
             <BellRing size={16} />
@@ -225,11 +216,10 @@ function PhoneMockup() {
             <p className="text-[12px] font-bold" style={{ color: "#2A1A12" }}>Yeni sipariş</p>
             <p className="text-[11px]" style={{ color: "#816B5D" }}>Masa 5 · az önce</p>
           </div>
-        </m.div>
-        <m.div
-          className="absolute -right-6 bottom-28 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
-          style={{ z: 50, boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0" }}
-          {...float(still, 1.2)}
+        </div>
+        <div
+          className="bob-once absolute -right-6 bottom-28 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
+          style={{ transform: "translateZ(50px)", boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0", ...bob(1.2) }}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "#FEF0C7", color: "#B4600C" }}>
             <TrendingUp size={16} />
@@ -238,7 +228,7 @@ function PhoneMockup() {
             <p className="text-[11px]" style={{ color: "#816B5D" }}>Bugünkü ciro</p>
             <p className="text-[13px] font-extrabold" style={{ color: "#2A1A12" }}>₺12.480</p>
           </div>
-        </m.div>
+        </div>
       </Tilt>
     </div>
   );
@@ -258,16 +248,10 @@ function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: stri
   );
 }
 
-// Framer transform'u ile çakışmaması için kartta CSS transform geçişi kapatılır
-const MOTION_CARD_STYLE = { transition: "border-color 0.2s, box-shadow 0.2s" };
-
 export default function HomePage() {
   const [showDemoModal, setShowDemoModal] = useState(false);
-  const still = useReducedMotion();
 
   return (
-    <LazyMotion features={domAnimation} strict>
-    <MotionConfig reducedMotion="never">
       <div className="landing-theme min-h-viewport overflow-x-hidden">
         {/* ── Navbar ──────────────────────────────────────────────────────────── */}
         <nav
@@ -276,13 +260,12 @@ export default function HomePage() {
         >
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
             <Link href="/" className="flex items-center gap-2.5" style={{ textDecoration: "none" }}>
-              <m.span
-                whileHover={{ rotate: -8, scale: 1.06 }}
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
+              <span
+                className="logo-mark flex h-9 w-9 items-center justify-center rounded-xl"
                 style={{ background: "var(--gradient-brand)", boxShadow: "0 6px 16px rgba(217,68,31,0.32)" }}
               >
                 <QrCode size={19} color="white" />
-              </m.span>
+              </span>
               <span className="font-display text-xl font-semibold" style={{ color: "#2A1A12" }}>
                 QR<span style={{ color: "#CF411E" }}>Menü</span>
               </span>
@@ -329,14 +312,9 @@ export default function HomePage() {
                 style={{ fontSize: "clamp(36px, 5.4vw, 64px)", lineHeight: 1.06, color: "#2A1A12", ...enterDelay(0.2) }}
               >
                 Restoran ve Kafeler İçin{" "}
-                <m.span
-                  className="text-gradient-warm"
-                  style={{ backgroundSize: "200% 100%", display: "inline" }}
-                  animate={still ? undefined : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-                  transition={{ duration: 5, ease: "easeInOut" }}
-                >
+                <span className="text-gradient-warm gradient-sweep" style={{ display: "inline" }}>
                   Modern QR Menü
-                </m.span>{" "}
+                </span>{" "}
                 Sistemi
               </h1>
 
@@ -388,25 +366,20 @@ export default function HomePage() {
                 const tone = TONES[i % TONES.length];
                 const Icon = f.icon;
                 return (
-                  <m.div
+                  <div
                     key={f.title}
-                    variants={fadeUp}
-                    whileHover={{ y: -6 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="card group p-6"
-                    style={{ borderRadius: 20, ...MOTION_CARD_STYLE }}
+                    className="reveal-item card hover-rise group p-6"
+                    style={{ borderRadius: 20, ...revealIndex(i) }}
                   >
-                    <m.div
-                      className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
+                    <div
+                      className="hover-wiggle mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
                       style={{ background: tone.bg, color: tone.fg }}
-                      whileHover={{ rotate: [0, -10, 8, 0] }}
-                      transition={{ duration: 0.5 }}
                     >
                       <Icon size={22} />
-                    </m.div>
+                    </div>
                     <h3 className="mb-1.5 text-base font-bold" style={{ color: "#2A1A12" }}>{f.title}</h3>
                     <p className="text-sm leading-relaxed" style={{ color: "#6E4F3F" }}>{f.desc}</p>
-                  </m.div>
+                  </div>
                 );
               })}
             </RevealGroup>
@@ -419,21 +392,19 @@ export default function HomePage() {
             <SectionHeading eyebrow="Nasıl Çalışır?" title="3 basit adımda hizmete başlayın" desc="Masadan mutfağa, siparişten ödemeye kesintisiz bir akış" />
             <RevealGroup className="relative grid gap-10 md:grid-cols-3" gap={0.18}>
               {/* Adımları birleştiren kesikli çizgi soldan sağa çizilir */}
-              <m.div
+              <div
                 aria-hidden
-                className="absolute left-[16%] right-[16%] top-8 hidden h-0.5 origin-left md:block"
+                className="reveal-draw absolute left-[16%] right-[16%] top-8 hidden h-0.5 origin-left md:block"
                 style={{ background: "repeating-linear-gradient(90deg,#FFC8B0 0 10px,transparent 10px 18px)" }}
-                variants={{ hidden: { scaleX: 0 }, show: { scaleX: 1, transition: { duration: 1.1, ease: EASE_OUT } } }}
               />
-              {STEPS.map((s) => {
+              {STEPS.map((s, i) => {
                 const Icon = s.icon;
                 return (
-                  <m.div key={s.num} variants={fadeUp} className="relative text-center">
-                    <m.div
-                      className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-white"
+                  // Çizgi grubun ilk öğesiydi: adımlar 1'den sayılır
+                  <div key={s.num} className="reveal-item relative text-center" style={revealIndex(i + 1)}>
+                    <div
+                      className="reveal-spin hover-pop relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-white"
                       style={{ background: "var(--gradient-warm)", boxShadow: "0 12px 28px rgba(217,68,31,0.28)" }}
-                      variants={{ hidden: { scale: 0.4, rotate: -20 }, show: { scale: 1, rotate: 0, transition: { type: "spring", stiffness: 260, damping: 16 } } }}
-                      whileHover={{ scale: 1.08, rotate: 4 }}
                     >
                       <Icon size={26} />
                       <span
@@ -442,10 +413,10 @@ export default function HomePage() {
                       >
                         {s.num}
                       </span>
-                    </m.div>
+                    </div>
                     <h3 className="mb-2 font-display text-xl font-semibold" style={{ color: "#2A1A12" }}>{s.title}</h3>
                     <p className="mx-auto max-w-xs text-sm leading-relaxed" style={{ color: "#6E4F3F" }}>{s.desc}</p>
-                  </m.div>
+                  </div>
                 );
               })}
             </RevealGroup>
@@ -457,12 +428,12 @@ export default function HomePage() {
           <div className="mx-auto max-w-5xl">
             <SectionHeading eyebrow="Canlı Demo" title="Hemen Deneyin" desc="Bir demo rolü seçerek sistemi canlı deneyimleyin" />
             <RevealGroup className="grid gap-5 md:grid-cols-3" gap={0.12}>
-              {DEMOS.map((d) => {
+              {DEMOS.map((d, i) => {
                 const Icon = d.icon;
                 return (
-                  <m.div key={d.title} variants={fadeUp} className="h-full">
+                  <div key={d.title} className="reveal-item h-full" style={revealIndex(i)}>
                     <Link href={d.href} prefetch={d.href === "/demo" ? false : undefined} className="group block h-full" style={{ textDecoration: "none" }}>
-                      <Tilt max={8} className="card flex h-full flex-col p-7" style={{ borderRadius: 24, ...MOTION_CARD_STYLE }}>
+                      <Tilt max={8} className="card flex h-full flex-col p-7" style={{ borderRadius: 24 }}>
                         <div
                           className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
                           style={{ background: d.tone.bg, color: d.tone.fg, transform: "translateZ(40px)" }}
@@ -476,7 +447,7 @@ export default function HomePage() {
                         </span>
                       </Tilt>
                     </Link>
-                  </m.div>
+                  </div>
                 );
               })}
             </RevealGroup>
@@ -490,13 +461,11 @@ export default function HomePage() {
             className="relative mx-auto max-w-6xl overflow-hidden rounded-[32px] px-6 py-16 text-center sm:px-12"
             style={{ background: "linear-gradient(140deg,#2A1A12 0%,#17110E 100%)" }}
           >
-            <m.div
+            {/* Görünür alana girince tek tur nabız (.glow-once) */}
+            <div
               aria-hidden
-              className="absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full blur-3xl"
-              style={{ background: "radial-gradient(circle, rgba(240,106,63,0.45), rgba(244,166,35,0.2) 50%, transparent 70%)" }}
-              whileInView={still ? undefined : { opacity: [0.7, 1, 0.7], scale: [1, 1.08, 1] }}
-              viewport={{ once: true }}
-              transition={{ duration: 5, ease: "easeInOut" }}
+              className="glow-once absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full blur-3xl"
+              style={{ background: "radial-gradient(circle, rgba(240,106,63,0.45), rgba(244,166,35,0.2) 50%, transparent 70%)", opacity: 0.7 }}
             />
             <div className="relative mx-auto max-w-2xl">
               <h2 className="font-display text-3xl font-semibold text-white sm:text-4xl">
@@ -525,22 +494,14 @@ export default function HomePage() {
         </footer>
 
         {/* ── Demo Modal ─────────────────────────────────────────────────────── */}
-        <AnimatePresence>
-          {showDemoModal && (
+        {showDemoModal && (
             <Dialog
-              key="demo-modal"
               onClose={() => setShowDemoModal(false)}
               contentClassName=""
               contentStyle={{ width: "100%", maxWidth: 460 }}
             >
-              <m.div
-                className="modal-content"
-                style={{ maxWidth: 460, padding: 0, borderRadius: 28, animation: "none" }}
-                initial={{ opacity: 0, scale: 0.92, y: 24 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 12 }}
-                transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              >
+              {/* Açılış .modal-content'in kendi CSS ölçek animasyonu */}
+              <div className="modal-content" style={{ maxWidth: 460, padding: 0, borderRadius: 28 }}>
                 <div className="flex items-center justify-between px-6 pb-4 pt-5" style={{ borderBottom: "1px solid #F8ECE1" }}>
                   <h2 id="demo-modal-title" className="font-display text-2xl font-semibold" style={{ color: "#2A1A12" }}>Demo Seçin</h2>
                   <button
@@ -552,14 +513,14 @@ export default function HomePage() {
                     <X size={18} />
                   </button>
                 </div>
-                <m.div className="flex flex-col gap-3 px-6 pb-6 pt-4" initial="hidden" animate="show" variants={stagger(0.07, 0.1)}>
+                <div className="flex flex-col gap-3 px-6 pb-6 pt-4">
                   <p className="mb-1 text-sm" style={{ color: "#6E4F3F" }}>
                     Aşağıdaki rollerden birini seçerek demo hesabıyla giriş yapın:
                   </p>
-                  {DEMOS.map((d) => {
+                  {DEMOS.map((d, i) => {
                     const Icon = d.icon;
                     return (
-                      <m.div key={d.title} variants={fadeUp} whileHover={{ y: -2 }}>
+                      <div key={d.title} className="enter-fade hover-nudge" style={enterDelay(0.1 + i * 0.07)}>
                         <Link
                           href={d.href}
                           // /demo veritabanından masa seçen bir yönlendirme: her landing ziyaretinde ön yüklenmesin
@@ -577,16 +538,13 @@ export default function HomePage() {
                           </span>
                           <ChevronRight size={18} color={d.tone.fg} />
                         </Link>
-                      </m.div>
+                      </div>
                     );
                   })}
-                </m.div>
-              </m.div>
+                </div>
+              </div>
             </Dialog>
           )}
-        </AnimatePresence>
       </div>
-    </MotionConfig>
-    </LazyMotion>
   );
 }
