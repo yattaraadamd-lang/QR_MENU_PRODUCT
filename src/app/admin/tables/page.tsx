@@ -338,7 +338,7 @@ export default function AdminTablesPage() {
                   aria-label={`${table.tableName || `Masa ${table.tableNumber}`}, ${sm.label}${totalBadges > 0 ? `, ${totalBadges} bekleyen işlem` : ""} — detayları aç`}
                 />
                 {totalBadges > 0 && (
-                  <span style={{
+                  <span className="animate-pulse-glow" style={{
                     position: "absolute",
                     top: -6,
                     right: -6,
@@ -355,7 +355,6 @@ export default function AdminTablesPage() {
                     padding: "0 5px",
                     boxShadow: "0 2px 8px rgba(239,68,68,0.4), 0 0 0 2px var(--bg-card)",
                     zIndex: 10,
-                    animation: "pulse-glow 2s infinite",
                   }}>
                     {totalBadges}
                   </span>
@@ -425,7 +424,7 @@ export default function AdminTablesPage() {
               <button aria-label="Kapat" className="tap-target" onClick={() => setSelectedTable(null)} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
 
-            <div style={{ padding: "16px 20px", maxHeight: "60vh", overflowY: "auto" }}>
+            <div style={{ padding: "16px 20px", maxHeight: "60dvh", overflowY: "auto" }}>
               {loadingDetail ? (
                 <Loader />
               ) : !selectedTable.activeSession ? (

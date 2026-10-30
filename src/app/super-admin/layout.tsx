@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useState } from "react";
 import Loader from "@/components/ui/Loader";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
+import { useCssHeightVar } from "@/hooks/useCssHeightVar";
 
 const sidebarLinks = [
   { href: "/super-admin/dashboard", label: "Dashboard", icon: "📊" },
@@ -29,6 +30,8 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Mobil menü yapışkan başlığın hemen altından başlar (eskiden sabit top: 60)
+  const mobileHeaderRef = useCssHeightVar("--sa-header-h");
 
   if (status === "loading") {
     return <Loader fullScreen />;
@@ -36,7 +39,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
 
   if (!session || session.user.role !== "SUPER_ADMIN") {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-viewport flex items-center justify-center">
         <div className="text-center">
           <div className="text-5xl mb-4">🔒</div>
           <h1 className="text-xl font-bold mb-2">Erişim Engellendi</h1>
@@ -48,7 +51,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-secondary)" }}>
+    <div className="min-h-viewport" data-height-vars style={{ display: "flex", background: "var(--bg-secondary)" }}>
       {/* Sidebar */}
       <aside style={{
         width: 260,
@@ -57,8 +60,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
         flexDirection: "column",
         position: "sticky",
         top: 0,
-        height: "100vh",
-      }} className="hidden md:flex">
+      }} className="hidden md:flex h-viewport">
         <div style={{ padding: "24px 20px", borderBottom: "1px solid var(--border-color)" }}>
           <p style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
             <span style={{ color: "var(--purple-text)" }}>QR</span> SaaS Admin
@@ -108,7 +110,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
       {/* Main Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {/* Mobile Header */}
-        <div className="flex md:hidden" style={{
+        <div ref={mobileHeaderRef} className="flex md:hidden" style={{
           background: "var(--bg-primary)",
           borderBottom: "1px solid var(--border-color)",
           padding: "16px 20px",
@@ -129,7 +131,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="flex md:hidden" style={{
-            position: "fixed", top: 60, left: 0, right: 0, bottom: 0,
+            position: "fixed", top: "var(--sa-header-h, 60px)", left: 0, right: 0, bottom: 0,
             background: "var(--bg-primary)", zIndex: 30, padding: 20,
             flexDirection: "column", gap: 8,
           }}>

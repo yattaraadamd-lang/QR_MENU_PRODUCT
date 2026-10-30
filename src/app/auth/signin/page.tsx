@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { QrCode, Mail, Lock, Loader2, ArrowRight, AlertCircle, ArrowLeft, BellRing, ChefHat, TrendingUp } from "lucide-react";
 import Input from "@/components/ui/Input";
 import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m, useReducedMotion } from "framer-motion";
-import { EASE_OUT, fadeUp, stagger } from "@/components/landing/motion";
-import Loader from "@/components/ui/Loader";
+import { enterDelay } from "@/components/landing/motion";
 
 const HIGHLIGHTS = [
   { icon: BellRing, text: "Siparişler ve garson çağrıları anında ekranınızda" },
@@ -16,18 +15,19 @@ const HIGHLIGHTS = [
   { icon: TrendingUp, text: "Günlük ciro ve ödemeler canlı takipte" },
 ];
 
-function SignInForm() {
+export default function SignInPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const still = useReducedMotion();
 
-  // Auto-fill based on demo query parameter
+  // Landing'deki demo kartlarından gelince alanları doldur. useSearchParams değil: o, statik
+  // sayfayı Suspense sınırına kadar istemcide çizdiriyordu (HTML'de form yerine yükleniyor
+  // göstergesi vardı, form JS'yi bekliyordu).
   useEffect(() => {
-    const demo = searchParams.get("demo");
+    const demo = new URLSearchParams(window.location.search).get("demo");
     if (demo === "admin") {
       setEmail("admin@demo.com");
       setPassword("admin123");
@@ -35,7 +35,7 @@ function SignInForm() {
       setEmail("garson@demo.com");
       setPassword("garson123");
     }
-  }, [searchParams]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +74,7 @@ function SignInForm() {
   return (
     <LazyMotion features={domAnimation} strict>
     <MotionConfig reducedMotion="never">
-    <div className="landing-theme grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
+    <div className="landing-theme grid min-h-viewport lg:grid-cols-[1fr_1.05fr]">
       {/* ── Marka paneli (desktop) ─────────────────────────────────────────── */}
       <aside
         className="relative hidden overflow-hidden p-12 text-white lg:flex lg:flex-col lg:justify-between"
@@ -100,17 +100,14 @@ function SignInForm() {
           <span className="font-display text-xl font-semibold">QR Menü</span>
         </Link>
 
-        <m.div className="relative max-w-md" initial="hidden" animate="show" variants={stagger(0.1, 0.15)}>
-          <m.div className="mb-8 flex gap-3 text-4xl" variants={stagger(0.08)}>
+        {/* Giriş CSS'te (.enter-*), JS'yi beklemez; başlık yalnız kayar (masaüstünde LCP adayı) */}
+        <div className="relative max-w-md">
+          <div className="mb-8 flex gap-3 text-4xl">
             {["🍕", "🍔", "🥗", "☕"].map((e, i) => (
               <m.span
                 key={e}
-                variants={{
-                  hidden: { opacity: 0, y: 24, rotate: -12, scale: 0.8 },
-                  show: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: "spring", stiffness: 240, damping: 16 } },
-                }}
-                className="flex h-16 w-16 items-center justify-center rounded-2xl"
-                style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(6px)" }}
+                className="enter-pop flex h-16 w-16 items-center justify-center rounded-2xl"
+                style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.2)", backdropFilter: "blur(6px)", ...enterDelay(0.15 + i * 0.08) }}
                 whileHover={{ scale: 1.12, rotate: 6 }}
               >
                 {/* İç span tek turluk süzülmeyi taşır (≤5 sn, "hareketi azalt"ta hiç); dış span giriş animasyonunu */}
@@ -122,26 +119,25 @@ function SignInForm() {
                 </m.span>
               </m.span>
             ))}
-          </m.div>
-          <m.h2 variants={fadeUp} className="font-display text-4xl font-semibold leading-tight">
+          </div>
+          <h2 className="enter-rise font-display text-4xl font-semibold leading-tight" style={enterDelay(0.25)}>
             Mutfağınızın ritmi, tek ekranda.
-          </m.h2>
-          <m.ul className="mt-8 flex flex-col gap-4" variants={stagger(0.1)}>
-            {HIGHLIGHTS.map(({ icon: Icon, text }) => (
-              <m.li
+          </h2>
+          <ul className="mt-8 flex flex-col gap-4">
+            {HIGHLIGHTS.map(({ icon: Icon, text }, i) => (
+              <li
                 key={text}
-                variants={{ hidden: { opacity: 0, x: -16 }, show: { opacity: 1, x: 0, transition: { duration: 0.5, ease: EASE_OUT } } }}
-                className="flex items-center gap-3 text-[15px] font-medium"
-                style={{ color: "rgba(255,255,255,0.92)" }}
+                className="enter-slide flex items-center gap-3 text-[15px] font-medium"
+                style={{ color: "rgba(255,255,255,0.92)", ...enterDelay(0.35 + i * 0.1) }}
               >
                 <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.16)" }}>
                   <Icon size={18} />
                 </span>
                 {text}
-              </m.li>
+              </li>
             ))}
-          </m.ul>
-        </m.div>
+          </ul>
+        </div>
 
         <p className="relative text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
           © {new Date().getFullYear()} QR Menü Platformu
@@ -150,8 +146,9 @@ function SignInForm() {
 
       {/* ── Form ───────────────────────────────────────────────────────────── */}
       <main id="main-content" className="flex items-center justify-center px-4 py-10 sm:px-8">
-        <m.div className="w-full max-w-[420px]" initial="hidden" animate="show" variants={stagger(0.08, 0.05)}>
-          <m.div variants={fadeUp} className="mb-8 text-center lg:text-left">
+        {/* Form sütunu yalnız kayar (opaklık hep 1): başlık ve kart metni mobilde LCP adayı */}
+        <div className="w-full max-w-[420px]">
+          <div className="enter-rise mb-8 text-center lg:text-left" style={enterDelay(0.05)}>
             <div
               className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl lg:hidden"
               style={{ background: "var(--gradient-brand)", boxShadow: "0 10px 24px rgba(217,68,31,0.32)" }}
@@ -164,9 +161,9 @@ function SignInForm() {
             <p className="mt-2 text-sm" style={{ color: "#6E4F3F" }}>
               Yönetim panelinize giriş yapın
             </p>
-          </m.div>
+          </div>
 
-          <m.div variants={fadeUp} className="card p-7" style={{ borderRadius: 24, boxShadow: "0 20px 50px rgba(68,34,18,0.08)", transition: "border-color 0.2s, box-shadow 0.2s" }}>
+          <div className="enter-rise card p-7" style={{ borderRadius: 24, boxShadow: "0 20px 50px rgba(68,34,18,0.08)", transition: "border-color 0.2s, box-shadow 0.2s", ...enterDelay(0.13) }}>
             <AnimatePresence initial={false}>
               {error && (
                 <m.div
@@ -243,10 +240,10 @@ function SignInForm() {
                 </Link>
               </p>
             </div>
-          </m.div>
+          </div>
 
           {/* Demo hesapları */}
-          <m.div variants={fadeUp} className="mt-4 rounded-2xl p-4" style={{ background: "#FFF1E6", border: "1px dashed #FFC8B0" }}>
+          <div className="enter-rise mt-4 rounded-2xl p-4" style={{ background: "#FFF1E6", border: "1px dashed #FFC8B0", ...enterDelay(0.21) }}>
             <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: "#B23415" }}>
               Demo Hesapları
             </p>
@@ -270,25 +267,17 @@ function SignInForm() {
                 </button>
               ))}
             </div>
-          </m.div>
+          </div>
 
-          <m.div variants={fadeUp} className="mt-6 text-center">
+          <div className="enter-rise mt-6 text-center" style={enterDelay(0.29)}>
             <Link href="/" className="inline-flex items-center gap-1.5 text-[13px] font-semibold hover:underline" style={{ color: "#816B5D" }}>
               <ArrowLeft size={14} /> Ana Sayfaya Dön
             </Link>
-          </m.div>
-        </m.div>
+          </div>
+        </div>
       </main>
     </div>
     </MotionConfig>
     </LazyMotion>
-  );
-}
-
-export default function SignInPage() {
-  return (
-    <Suspense fallback={<div className="landing-theme"><Loader fullScreen /></div>}>
-      <SignInForm />
-    </Suspense>
   );
 }

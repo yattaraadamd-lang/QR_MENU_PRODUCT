@@ -19,9 +19,10 @@ const ListSkeleton = () => (
 // dnd-kit (≈18 KB gzip) yalnız liste çizilirken iner; veri yüklenirken paralel gelir
 const SortableProductList = dynamic(() => import("./SortableProductList"), { ssr: false, loading: ListSkeleton });
 
+// Fiyat metin olarak tutulur: alan temizlenebilsin, "0" kendiliğinden yazılmasın; gönderirken sayıya çevrilir
 const emptyForm = {
   name: "", description: "", ingredients: "", allergens: "",
-  price: 0, categoryId: "", isAvailable: true,
+  price: "", categoryId: "", isAvailable: true,
   stockStatus: "IN_STOCK" as Product["stockStatus"],
   isPopular: false, sortOrder: 0,
 };
@@ -92,8 +93,11 @@ export default function AdminProductsPage() {
     }
   };
 
+  const priceValue = Number(form.price);
+  const canSubmit = !!form.name.trim() && form.price.trim() !== "" && priceValue > 0;
+
   const handleSubmit = async () => {
-    if (!form.name.trim() || !form.price) return;
+    if (!canSubmit) return;
     setFormError(null);
     setSaving(true);
     try {
@@ -101,7 +105,7 @@ export default function AdminProductsPage() {
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, categoryId: form.categoryId || null, description: form.description || null, ingredients: form.ingredients || null, allergens: form.allergens || null }),
+        body: JSON.stringify({ ...form, price: priceValue, categoryId: form.categoryId || null, description: form.description || null, ingredients: form.ingredients || null, allergens: form.allergens || null }),
       });
       if (res.ok) {
         fetchData();
@@ -155,7 +159,7 @@ export default function AdminProductsPage() {
 
   const startEdit = (p: Product) => {
     setEditingId(p.id);
-    setForm({ name: p.name, description: p.description || "", ingredients: p.ingredients || "", allergens: p.allergens || "", price: Number(p.price), categoryId: p.category?.id || "", isAvailable: p.isAvailable, stockStatus: p.stockStatus || "IN_STOCK", isPopular: p.isPopular, sortOrder: p.sortOrder });
+    setForm({ name: p.name, description: p.description || "", ingredients: p.ingredients || "", allergens: p.allergens || "", price: String(Number(p.price)), categoryId: p.category?.id || "", isAvailable: p.isAvailable, stockStatus: p.stockStatus || "IN_STOCK", isPopular: p.isPopular, sortOrder: p.sortOrder });
     setShowForm(true);
   };
 
@@ -223,7 +227,7 @@ export default function AdminProductsPage() {
                 <X size={20} />
               </button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "65vh", overflowY: "auto", paddingRight: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: "65dvh", overflowY: "auto", paddingRight: 4 }}>
               <div>
                 <label htmlFor="f-urun-adi" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ürün Adı *</label>
                 <input id="f-urun-adi" className="input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Örn: Türk Kahvesi" />
@@ -235,7 +239,7 @@ export default function AdminProductsPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
                   <label htmlFor="f-fiyat" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Fiyat (₺) *</label>
-                  <input id="f-fiyat" className="input" type="number" step="0.01" min="0" value={form.price} onChange={e => setForm({ ...form, price: parseFloat(e.target.value) || 0 })} />
+                  <input id="f-fiyat" className="input" type="number" step="0.01" min="0" inputMode="decimal" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
                 </div>
                 <div>
                   <label htmlFor="f-kategori" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>Kategori</label>
@@ -272,7 +276,7 @@ export default function AdminProductsPage() {
             </div>
             <FormError message={formError} style={{ marginTop: 14 }} />
             <div style={{ display: "flex", gap: 10, marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
-              <button onClick={handleSubmit} disabled={saving || !form.name.trim() || !form.price} className="btn btn-primary" style={{ flex: 1, gap: 6 }}>
+              <button onClick={handleSubmit} disabled={saving || !canSubmit} className="btn btn-primary" style={{ flex: 1, gap: 6 }}>
                 {saving ? <><Loader2 size={14} className="animate-spin" /> Kaydediliyor...</> : editingId ? "Güncelle" : "Ürün Ekle"}
               </button>
               <button onClick={resetForm} className="btn btn-ghost">İptal</button>

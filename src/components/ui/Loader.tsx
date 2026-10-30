@@ -14,8 +14,8 @@ export default function Loader({ label = "Yükleniyor", emoji, fullScreen = fals
     <div
       role="status"
       aria-live="polite"
-      className={`loader ${className}`.trim()}
-      style={{ ...(fullScreen ? { minHeight: "100vh" } : {}), ...style }}
+      className={`loader ${fullScreen ? "min-h-viewport" : ""} ${className}`.replace(/\s+/g, " ").trim()}
+      style={style}
     >
       <div className="loader-ring">{emoji && <span className="loader-emoji">{emoji}</span>}</div>
       <span className="loader-label">

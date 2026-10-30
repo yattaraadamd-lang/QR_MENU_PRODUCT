@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m, useReducedMotion } from "framer-motion";
+import { useState, type CSSProperties } from "react";
 import {
   QrCode,
   ShoppingCart,
@@ -25,7 +24,7 @@ import {
   X,
   UtensilsCrossed,
 } from "lucide-react";
-import { EASE_OUT, Reveal, RevealGroup, Tilt, fadeUp, stagger } from "@/components/landing/motion";
+import { Reveal, RevealGroup, Tilt, enterDelay, revealIndex } from "@/components/landing/motion";
 import Dialog from "@/components/ui/Dialog";
 
 // Özellik kartlarının ikon renkleri iştah açıcı palette döner
@@ -53,7 +52,7 @@ const DEMOS = [
     title: "Müşteri Demo",
     desc: "QR menüyü görüntüleyin, ürünleri sepete ekleyin ve sipariş akışını test edin.",
     tone: TONES[0],
-    href: "/menu/demo-business-id/1",
+    href: "/demo",
   },
   {
     icon: ConciergeBell,
@@ -91,25 +90,14 @@ const INGREDIENTS = [
   { emoji: "🌿", top: "70%", left: "94%", z: 110, size: 48, delay: 2.2 },
 ];
 
-// Dekoratif döngüler tek tur (≤5 sn) oynar ve durur; "hareketi azalt"
-// açıkken hiç oynamaz. Giriş animasyonları kısa olduğu için her zaman oynar.
-const float = (still: boolean | null, delay: number, distance = 10) =>
-  still
-    ? {}
-    : {
-        animate: { y: [0, -distance, 0] },
-        transition: { duration: 4, ease: "easeInOut" as const, delay },
-      };
+// Dekoratif süzülme tek tur (4 sn) oynar ve durur; "hareketi azalt" açıkken hiç oynamaz
+// (globals.css .bob-once). Giriş animasyonları kısa olduğu için her zaman oynar.
+const bob = (delay: number, distance = 10) => ({ "--bob-delay": `${delay}s`, "--bob": `${distance}px` }) as CSSProperties;
 
 function PhoneMockup() {
-  const still = useReducedMotion();
   return (
-    <m.div
-      initial={{ opacity: 0, y: 40, rotateX: 16 }}
-      animate={{ opacity: 1, y: 0, rotateX: 0 }}
-      transition={{ duration: 1, ease: EASE_OUT, delay: 0.25 }}
-      style={{ transformPerspective: 1100 }}
-    >
+    // Giriş CSS'te (.enter-tilt): JS'yi beklemeden görünür
+    <div className="enter-tilt" style={enterDelay(0.25)}>
       <Tilt max={12} className="relative mx-auto w-full max-w-[330px]">
         {/* Sıcak ışık halesi */}
         <div
@@ -120,24 +108,24 @@ function PhoneMockup() {
 
         {/* Malzeme küreleri — derinlik (z) eğimle birlikte paralaks oluşturur */}
         {INGREDIENTS.map((it) => (
-          <m.div
+          <div
             key={it.emoji}
             aria-hidden
-            className="absolute hidden items-center justify-center rounded-full bg-white sm:flex"
+            className="bob-once absolute hidden items-center justify-center rounded-full bg-white sm:flex"
             style={{
               top: it.top,
               left: it.left,
               width: it.size,
               height: it.size,
               fontSize: it.size * 0.5,
-              z: it.z,
+              transform: `translateZ(${it.z}px)`,
               boxShadow: "0 16px 30px rgba(68,34,18,0.18), inset 0 -6px 12px rgba(68,34,18,0.06)",
               border: "1px solid #F8ECE1",
+              ...bob(it.delay, 12),
             }}
-            {...float(still, it.delay, 12)}
           >
             {it.emoji}
-          </m.div>
+          </div>
         ))}
 
         <div
@@ -177,19 +165,13 @@ function PhoneMockup() {
               ))}
             </div>
 
-            {/* Ürünler — sırayla kayarak gelir */}
-            <m.div
-              className="flex flex-col gap-2.5 px-4 pb-4"
-              initial="hidden"
-              animate="show"
-              variants={stagger(0.12, 0.7)}
-            >
-              {PREVIEW_ITEMS.map((p) => (
-                <m.div
+            {/* Ürünler — sırayla kayarak gelir (CSS, JS beklemez) */}
+            <div className="flex flex-col gap-2.5 px-4 pb-4">
+              {PREVIEW_ITEMS.map((p, i) => (
+                <div
                   key={p.name}
-                  variants={{ hidden: { opacity: 0, x: 24 }, show: { opacity: 1, x: 0, transition: { duration: 0.5, ease: EASE_OUT } } }}
-                  className="flex items-center gap-3 rounded-2xl bg-white p-2.5"
-                  style={{ border: "1px solid #F0DFD0" }}
+                  className="enter-from-right flex items-center gap-3 rounded-2xl bg-white p-2.5"
+                  style={{ border: "1px solid #F0DFD0", ...enterDelay(0.7 + i * 0.12) }}
                 >
                   <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl text-3xl" style={{ background: p.bg }}>
                     {p.emoji}
@@ -205,31 +187,27 @@ function PhoneMockup() {
                   <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-lg font-bold text-white" style={{ background: "#CF411E" }}>
                     +
                   </span>
-                </m.div>
+                </div>
               ))}
-            </m.div>
+            </div>
 
             {/* Sepet barı */}
             <div className="px-4 pb-5">
-              <m.div
-                className="flex items-center justify-center gap-2 rounded-2xl py-3 text-[13px] font-bold text-white"
-                style={{ background: "linear-gradient(135deg,#D24521,#CF411E)", boxShadow: "0 8px 18px rgba(217,68,31,0.35)" }}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 260, damping: 18, delay: 1.2 }}
+              <div
+                className="enter-scale flex items-center justify-center gap-2 rounded-2xl py-3 text-[13px] font-bold text-white"
+                style={{ background: "linear-gradient(135deg,#D24521,#CF411E)", boxShadow: "0 8px 18px rgba(217,68,31,0.35)", ...enterDelay(1.2) }}
               >
                 <span className="rounded-full px-2 text-[12px]" style={{ background: "rgba(255,255,255,0.25)" }}>3</span>
                 Sepet · 480,00 ₺
-              </m.div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Yüzen bildirim kartları — telefonun önünde (z) durur */}
-        <m.div
-          className="absolute -left-6 top-24 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
-          style={{ z: 70, boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0" }}
-          {...float(still, 0)}
+        <div
+          className="bob-once absolute -left-6 top-24 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
+          style={{ transform: "translateZ(70px)", boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0", ...bob(0) }}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "#E3F3E6", color: "#2E8B47" }}>
             <BellRing size={16} />
@@ -238,11 +216,10 @@ function PhoneMockup() {
             <p className="text-[12px] font-bold" style={{ color: "#2A1A12" }}>Yeni sipariş</p>
             <p className="text-[11px]" style={{ color: "#816B5D" }}>Masa 5 · az önce</p>
           </div>
-        </m.div>
-        <m.div
-          className="absolute -right-6 bottom-28 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
-          style={{ z: 50, boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0" }}
-          {...float(still, 1.2)}
+        </div>
+        <div
+          className="bob-once absolute -right-6 bottom-28 hidden items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 sm:flex"
+          style={{ transform: "translateZ(50px)", boxShadow: "0 14px 34px rgba(68,34,18,0.16)", border: "1px solid #F0DFD0", ...bob(1.2) }}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "#FEF0C7", color: "#B4600C" }}>
             <TrendingUp size={16} />
@@ -251,9 +228,9 @@ function PhoneMockup() {
             <p className="text-[11px]" style={{ color: "#816B5D" }}>Bugünkü ciro</p>
             <p className="text-[13px] font-extrabold" style={{ color: "#2A1A12" }}>₺12.480</p>
           </div>
-        </m.div>
+        </div>
       </Tilt>
-    </m.div>
+    </div>
   );
 }
 
@@ -271,34 +248,24 @@ function SectionHeading({ eyebrow, title, desc }: { eyebrow: string; title: stri
   );
 }
 
-// Framer transform'u ile çakışmaması için kartta CSS transform geçişi kapatılır
-const MOTION_CARD_STYLE = { transition: "border-color 0.2s, box-shadow 0.2s" };
-
 export default function HomePage() {
   const [showDemoModal, setShowDemoModal] = useState(false);
-  const still = useReducedMotion();
 
   return (
-    <LazyMotion features={domAnimation} strict>
-    <MotionConfig reducedMotion="never">
-      <div className="landing-theme min-h-screen overflow-x-hidden">
+      <div className="landing-theme min-h-viewport overflow-x-hidden">
         {/* ── Navbar ──────────────────────────────────────────────────────────── */}
-        <m.nav
-          initial={{ y: -64, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, ease: EASE_OUT }}
-          className="fixed inset-x-0 top-0 z-50"
+        <nav
+          className="enter-drop fixed inset-x-0 top-0 z-50"
           style={{ background: "rgba(255,248,241,0.82)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderBottom: "1px solid rgba(240,223,208,0.9)" }}
         >
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
             <Link href="/" className="flex items-center gap-2.5" style={{ textDecoration: "none" }}>
-              <m.span
-                whileHover={{ rotate: -8, scale: 1.06 }}
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
+              <span
+                className="logo-mark flex h-9 w-9 items-center justify-center rounded-xl"
                 style={{ background: "var(--gradient-brand)", boxShadow: "0 6px 16px rgba(217,68,31,0.32)" }}
               >
                 <QrCode size={19} color="white" />
-              </m.span>
+              </span>
               <span className="font-display text-xl font-semibold" style={{ color: "#2A1A12" }}>
                 QR<span style={{ color: "#CF411E" }}>Menü</span>
               </span>
@@ -311,65 +278,63 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowDemoModal(true)} className="btn btn-ghost hidden sm:inline-flex">
-                Demoyu Deneyin
-              </button>
+              {/* Gizleme sarmalayıcıda: .btn'nin display'i Tailwind'in "hidden"ını ezer ve
+                  320px'de düğme başlığı taşırıp "Giriş Yapın"ı kesiyordu */}
+              <span className="hidden sm:inline-flex">
+                <button onClick={() => setShowDemoModal(true)} className="btn btn-ghost">
+                  Demoyu Deneyin
+                </button>
+              </span>
               <Link href="/auth/signin" className="btn btn-primary">
                 Giriş Yapın
               </Link>
             </div>
           </div>
-        </m.nav>
+        </nav>
 
         <main id="main-content">
         {/* ── Hero ───────────────────────────────────────────────────────────── */}
         <section className="relative px-4 pb-20 pt-28 sm:px-6 lg:pt-36">
-          <div className="mx-auto grid max-w-6xl items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
-            <m.div className="text-center lg:text-left" initial="hidden" animate="show" variants={stagger(0.1, 0.1)}>
-              <m.span
-                variants={fadeUp}
-                className="mb-6 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
-                style={{ background: "#FFE9DF", color: "#B23415", border: "1px solid #FFC8B0" }}
+          {/* grid-cols-1 = minmax(0,1fr): telefon maketinin taşmayan çip satırı sütunu 320px'de genişletmesin */}
+          <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
+            {/* Giriş CSS'te (.enter-*): başlık ve paragraf LCP adayı, yalnız kayar (opaklık hep 1) */}
+            <div className="text-center lg:text-left">
+              <span
+                className="enter-fade mb-6 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
+                style={{ background: "#FFE9DF", color: "#B23415", border: "1px solid #FFC8B0", ...enterDelay(0.1) }}
               >
                 <Sparkles size={14} />
                 Restoran ve Kafeler İçin Geliştirildi
-              </m.span>
+              </span>
 
-              <m.h1
-                variants={fadeUp}
-                className="font-display font-semibold"
-                style={{ fontSize: "clamp(36px, 5.4vw, 64px)", lineHeight: 1.06, color: "#2A1A12" }}
+              <h1
+                className="enter-rise font-display font-semibold"
+                style={{ fontSize: "clamp(36px, 5.4vw, 64px)", lineHeight: 1.06, color: "#2A1A12", ...enterDelay(0.2) }}
               >
                 Restoran ve Kafeler İçin{" "}
-                <m.span
-                  className="text-gradient-warm"
-                  style={{ backgroundSize: "200% 100%", display: "inline" }}
-                  animate={still ? undefined : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }}
-                  transition={{ duration: 5, ease: "easeInOut" }}
-                >
+                <span className="text-gradient-warm gradient-sweep" style={{ display: "inline" }}>
                   Modern QR Menü
-                </m.span>{" "}
+                </span>{" "}
                 Sistemi
-              </m.h1>
+              </h1>
 
-              <m.p variants={fadeUp} className="mx-auto mt-6 max-w-xl text-[17px] leading-relaxed lg:mx-0" style={{ color: "#6E4F3F" }}>
+              <p className="enter-rise mx-auto mt-6 max-w-xl text-[17px] leading-relaxed lg:mx-0" style={{ color: "#6E4F3F", ...enterDelay(0.3) }}>
                 Müşteriler QR kod ile iştah açan, fotoğraflı menüyü görüntüler ve sipariş verir; garsonlar
                 siparişleri yönetir, admin paneliyle masa, ürün, ödeme ve ciro takibi kolayca yapılır.
-              </m.p>
+              </p>
 
-              <m.div variants={fadeUp} className="mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
+              <div className="enter-fade mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start" style={enterDelay(0.4)}>
                 <button onClick={() => setShowDemoModal(true)} className="btn btn-primary btn-lg">
                   Demoyu Deneyin <ArrowRight size={18} />
                 </button>
                 <Link href="/auth/signin" className="btn btn-ghost btn-lg">
                   Giriş Yapın
                 </Link>
-              </m.div>
+              </div>
 
-              <m.div
-                variants={fadeUp}
-                className="mt-9 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-semibold lg:justify-start"
-                style={{ color: "#6E4F3F" }}
+              <div
+                className="enter-fade mt-9 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-semibold lg:justify-start"
+                style={{ color: "#6E4F3F", ...enterDelay(0.5) }}
               >
                 {[
                   { icon: Clock, text: "5 dakikada kurulum" },
@@ -381,8 +346,8 @@ export default function HomePage() {
                     {text}
                   </span>
                 ))}
-              </m.div>
-            </m.div>
+              </div>
+            </div>
 
             <PhoneMockup />
           </div>
@@ -401,25 +366,20 @@ export default function HomePage() {
                 const tone = TONES[i % TONES.length];
                 const Icon = f.icon;
                 return (
-                  <m.div
+                  <div
                     key={f.title}
-                    variants={fadeUp}
-                    whileHover={{ y: -6 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="card group p-6"
-                    style={{ borderRadius: 20, ...MOTION_CARD_STYLE }}
+                    className="reveal-item card hover-rise group p-6"
+                    style={{ borderRadius: 20, ...revealIndex(i) }}
                   >
-                    <m.div
-                      className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
+                    <div
+                      className="hover-wiggle mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
                       style={{ background: tone.bg, color: tone.fg }}
-                      whileHover={{ rotate: [0, -10, 8, 0] }}
-                      transition={{ duration: 0.5 }}
                     >
                       <Icon size={22} />
-                    </m.div>
+                    </div>
                     <h3 className="mb-1.5 text-base font-bold" style={{ color: "#2A1A12" }}>{f.title}</h3>
                     <p className="text-sm leading-relaxed" style={{ color: "#6E4F3F" }}>{f.desc}</p>
-                  </m.div>
+                  </div>
                 );
               })}
             </RevealGroup>
@@ -432,21 +392,19 @@ export default function HomePage() {
             <SectionHeading eyebrow="Nasıl Çalışır?" title="3 basit adımda hizmete başlayın" desc="Masadan mutfağa, siparişten ödemeye kesintisiz bir akış" />
             <RevealGroup className="relative grid gap-10 md:grid-cols-3" gap={0.18}>
               {/* Adımları birleştiren kesikli çizgi soldan sağa çizilir */}
-              <m.div
+              <div
                 aria-hidden
-                className="absolute left-[16%] right-[16%] top-8 hidden h-0.5 origin-left md:block"
+                className="reveal-draw absolute left-[16%] right-[16%] top-8 hidden h-0.5 origin-left md:block"
                 style={{ background: "repeating-linear-gradient(90deg,#FFC8B0 0 10px,transparent 10px 18px)" }}
-                variants={{ hidden: { scaleX: 0 }, show: { scaleX: 1, transition: { duration: 1.1, ease: EASE_OUT } } }}
               />
-              {STEPS.map((s) => {
+              {STEPS.map((s, i) => {
                 const Icon = s.icon;
                 return (
-                  <m.div key={s.num} variants={fadeUp} className="relative text-center">
-                    <m.div
-                      className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-white"
+                  // Çizgi grubun ilk öğesiydi: adımlar 1'den sayılır
+                  <div key={s.num} className="reveal-item relative text-center" style={revealIndex(i + 1)}>
+                    <div
+                      className="reveal-spin hover-pop relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl text-white"
                       style={{ background: "var(--gradient-warm)", boxShadow: "0 12px 28px rgba(217,68,31,0.28)" }}
-                      variants={{ hidden: { scale: 0.4, rotate: -20 }, show: { scale: 1, rotate: 0, transition: { type: "spring", stiffness: 260, damping: 16 } } }}
-                      whileHover={{ scale: 1.08, rotate: 4 }}
                     >
                       <Icon size={26} />
                       <span
@@ -455,10 +413,10 @@ export default function HomePage() {
                       >
                         {s.num}
                       </span>
-                    </m.div>
+                    </div>
                     <h3 className="mb-2 font-display text-xl font-semibold" style={{ color: "#2A1A12" }}>{s.title}</h3>
                     <p className="mx-auto max-w-xs text-sm leading-relaxed" style={{ color: "#6E4F3F" }}>{s.desc}</p>
-                  </m.div>
+                  </div>
                 );
               })}
             </RevealGroup>
@@ -470,12 +428,12 @@ export default function HomePage() {
           <div className="mx-auto max-w-5xl">
             <SectionHeading eyebrow="Canlı Demo" title="Hemen Deneyin" desc="Bir demo rolü seçerek sistemi canlı deneyimleyin" />
             <RevealGroup className="grid gap-5 md:grid-cols-3" gap={0.12}>
-              {DEMOS.map((d) => {
+              {DEMOS.map((d, i) => {
                 const Icon = d.icon;
                 return (
-                  <m.div key={d.title} variants={fadeUp} className="h-full">
-                    <Link href={d.href} className="group block h-full" style={{ textDecoration: "none" }}>
-                      <Tilt max={8} className="card flex h-full flex-col p-7" style={{ borderRadius: 24, ...MOTION_CARD_STYLE }}>
+                  <div key={d.title} className="reveal-item h-full" style={revealIndex(i)}>
+                    <Link href={d.href} prefetch={d.href === "/demo" ? false : undefined} className="group block h-full" style={{ textDecoration: "none" }}>
+                      <Tilt max={8} className="card flex h-full flex-col p-7" style={{ borderRadius: 24 }}>
                         <div
                           className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
                           style={{ background: d.tone.bg, color: d.tone.fg, transform: "translateZ(40px)" }}
@@ -489,7 +447,7 @@ export default function HomePage() {
                         </span>
                       </Tilt>
                     </Link>
-                  </m.div>
+                  </div>
                 );
               })}
             </RevealGroup>
@@ -503,13 +461,11 @@ export default function HomePage() {
             className="relative mx-auto max-w-6xl overflow-hidden rounded-[32px] px-6 py-16 text-center sm:px-12"
             style={{ background: "linear-gradient(140deg,#2A1A12 0%,#17110E 100%)" }}
           >
-            <m.div
+            {/* Görünür alana girince tek tur nabız (.glow-once) */}
+            <div
               aria-hidden
-              className="absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full blur-3xl"
-              style={{ background: "radial-gradient(circle, rgba(240,106,63,0.45), rgba(244,166,35,0.2) 50%, transparent 70%)" }}
-              whileInView={still ? undefined : { opacity: [0.7, 1, 0.7], scale: [1, 1.08, 1] }}
-              viewport={{ once: true }}
-              transition={{ duration: 5, ease: "easeInOut" }}
+              className="glow-once absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full blur-3xl"
+              style={{ background: "radial-gradient(circle, rgba(240,106,63,0.45), rgba(244,166,35,0.2) 50%, transparent 70%)", opacity: 0.7 }}
             />
             <div className="relative mx-auto max-w-2xl">
               <h2 className="font-display text-3xl font-semibold text-white sm:text-4xl">
@@ -538,22 +494,14 @@ export default function HomePage() {
         </footer>
 
         {/* ── Demo Modal ─────────────────────────────────────────────────────── */}
-        <AnimatePresence>
-          {showDemoModal && (
+        {showDemoModal && (
             <Dialog
-              key="demo-modal"
               onClose={() => setShowDemoModal(false)}
               contentClassName=""
               contentStyle={{ width: "100%", maxWidth: 460 }}
             >
-              <m.div
-                className="modal-content"
-                style={{ maxWidth: 460, padding: 0, borderRadius: 28, animation: "none" }}
-                initial={{ opacity: 0, scale: 0.92, y: 24 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 12 }}
-                transition={{ type: "spring", stiffness: 320, damping: 26 }}
-              >
+              {/* Açılış .modal-content'in kendi CSS ölçek animasyonu */}
+              <div className="modal-content" style={{ maxWidth: 460, padding: 0, borderRadius: 28 }}>
                 <div className="flex items-center justify-between px-6 pb-4 pt-5" style={{ borderBottom: "1px solid #F8ECE1" }}>
                   <h2 id="demo-modal-title" className="font-display text-2xl font-semibold" style={{ color: "#2A1A12" }}>Demo Seçin</h2>
                   <button
@@ -565,16 +513,18 @@ export default function HomePage() {
                     <X size={18} />
                   </button>
                 </div>
-                <m.div className="flex flex-col gap-3 px-6 pb-6 pt-4" initial="hidden" animate="show" variants={stagger(0.07, 0.1)}>
+                <div className="flex flex-col gap-3 px-6 pb-6 pt-4">
                   <p className="mb-1 text-sm" style={{ color: "#6E4F3F" }}>
                     Aşağıdaki rollerden birini seçerek demo hesabıyla giriş yapın:
                   </p>
-                  {DEMOS.map((d) => {
+                  {DEMOS.map((d, i) => {
                     const Icon = d.icon;
                     return (
-                      <m.div key={d.title} variants={fadeUp} whileHover={{ y: -2 }}>
+                      <div key={d.title} className="enter-fade hover-nudge" style={enterDelay(0.1 + i * 0.07)}>
                         <Link
                           href={d.href}
+                          // /demo veritabanından masa seçen bir yönlendirme: her landing ziyaretinde ön yüklenmesin
+                          prefetch={d.href === "/demo" ? false : undefined}
                           onClick={() => setShowDemoModal(false)}
                           className="flex items-center gap-3.5 rounded-2xl p-4"
                           style={{ border: `1.5px solid ${d.tone.bg}`, background: `${d.tone.bg}80`, textDecoration: "none" }}
@@ -588,16 +538,13 @@ export default function HomePage() {
                           </span>
                           <ChevronRight size={18} color={d.tone.fg} />
                         </Link>
-                      </m.div>
+                      </div>
                     );
                   })}
-                </m.div>
-              </m.div>
+                </div>
+              </div>
             </Dialog>
           )}
-        </AnimatePresence>
       </div>
-    </MotionConfig>
-    </LazyMotion>
   );
 }

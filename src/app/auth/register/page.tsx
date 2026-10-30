@@ -51,8 +51,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
+    <div className="min-h-viewport" style={{
       background: "radial-gradient(700px 400px at 85% -10%, rgba(217,68,31,0.28), transparent 70%), linear-gradient(135deg, #17110E 0%, #2A1A12 50%, #17110E 100%)",
       display: "flex",
       alignItems: "center",

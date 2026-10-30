@@ -19,6 +19,7 @@ import { useMenuData } from "@/components/customer-menu/useMenuData";
 import { useOrderActions } from "@/components/customer-menu/useOrderActions";
 import { useTableActivity } from "@/components/customer-menu/useTableActivity";
 import Dialog from "@/components/ui/Dialog";
+import { useCssHeightVar } from "@/hooks/useCssHeightVar";
 
 // İlk ekranda görünen kart sayısı kadar görsel hemen iner, gerisi kaydırınca
 const PRIORITY_IMAGES = 2;
@@ -40,6 +41,8 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
   const [showServiceMenu, setShowServiceMenu] = useState(false);
   const [showWaiterModal, setShowWaiterModal] = useState(false);
   const [orderNote, setOrderNote] = useState("");
+  // Kapatılan uyarı metni: aynı uyarı geri gelmez, yeni bir uyarı yine gösterilir
+  const [dismissedNotice, setDismissedNotice] = useState<string | null>(null);
 
   const { prune, add: addItem } = cart;
   const { hydrate } = session;
@@ -85,6 +88,12 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
     toast.success(`${p.name} sepete eklendi`);
   }, [addItem]);
 
+  // Yapışkan başlık, mobil kategori şeridi ve alt bar ölçülür; ofsetler (sticky top,
+  // scroll-margin, alt boşluk) sabit sayı yerine bu değişkenleri kullanır (.menu-shell)
+  const headerRef = useCssHeightVar("--header-h");
+  const catBarRef = useCssHeightVar("--catnav-h");
+  const bottomBarRef = useCssHeightVar("--bottombar-h");
+
   // ── Kaydırırken aktif kategori ──
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const stripRef = useRef<HTMLDivElement>(null);
@@ -113,11 +122,9 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
     return () => observer.disconnect();
   }, [menu.categories]);
 
+  // Bölümün scroll-margin-top'u yapışkan başlık + şerit kadar: başlığın altında durur
   const scrollToCategory = (catId: string) => {
-    const el = sectionRefs.current[catId];
-    if (!el) return;
-    const y = el.getBoundingClientRect().top + window.scrollY - 140;
-    window.scrollTo({ top: y, behavior: scrollBehavior() });
+    sectionRefs.current[catId]?.scrollIntoView({ block: "start", behavior: scrollBehavior() });
   };
 
   if (menu.loading) return <MenuLoading />;
@@ -142,33 +149,35 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
   let imageIndex = 0;
 
   return (
-    <div className="customer-theme" style={{ minHeight: "100dvh" }}>
-      {session.blockedMsg && !session.token && (
-        <div role="alert" style={{ maxWidth: 1280, margin: "0 auto", padding: "12px 16px 0" }}>
-          <div style={{
-            padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600,
-            background: "rgba(217,68,31,0.12)", color: "#8C2A14", border: "1px solid rgba(217,68,31,0.35)",
-          }}>
-            ⚠️ {session.blockedMsg}
-          </div>
+    <div className="customer-theme menu-shell min-h-viewport" data-height-vars>
+      {/* Akış dışında (globals.css .menu-notice): oturum yanıtı sonradan geldiği için en üste
+          eklenen uyarı tüm menüyü aşağı itiyordu (320px'de CLS 0,107). Menü okunurken araya
+          girmesin diye alert değil status. */}
+      {session.blockedMsg && !session.token && session.blockedMsg !== dismissedNotice && (
+        <div role="status" className="menu-notice animate-slide-up">
+          <p style={{ flex: 1 }}>⚠️ {session.blockedMsg}</p>
+          <button type="button" aria-label="Uyarıyı kapat" className="tap-target" onClick={() => setDismissedNotice(session.blockedMsg)}>
+            ✕
+          </button>
         </div>
       )}
 
-      <MenuHeader business={menu.business} table={menu.table} status={session.status} onOpenService={() => setShowServiceMenu(true)} />
+      <MenuHeader ref={headerRef} business={menu.business} table={menu.table} status={session.status} onOpenService={() => setShowServiceMenu(true)} />
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 16px" }}>
         <div className="flex flex-col lg:flex-row gap-6" style={{ paddingTop: 16 }}>
-          <CategoryNav categories={menu.categories} activeId={activeCategory} onSelect={scrollToCategory} stripRef={stripRef} />
+          <CategoryNav categories={menu.categories} activeId={activeCategory} onSelect={scrollToCategory} stripRef={stripRef} barRef={catBarRef} />
 
-          {/* Kolon 2: Ürünler */}
-          <main id="main-content" className="flex-1 pb-24 lg:pb-8 pt-0">
+          {/* Kolon 2: Ürünler — alt boşluk alt bar kadar (canlı adisyon satırıyla uzar) */}
+          <main id="main-content" className="flex-1 pt-0" style={{ paddingBottom: "calc(var(--bottombar-h) + 24px)" }}>
             {menu.categories.map(cat => (
               <section
                 key={cat.id}
                 ref={el => { sectionRefs.current[cat.id] = el; }}
                 data-category-id={cat.id}
                 aria-labelledby={`cat-${cat.id}`}
-                style={{ marginBottom: 40, scrollMarginTop: 160 }}
+                className="menu-section"
+                style={{ marginBottom: 40 }}
               >
                 <h2 id={`cat-${cat.id}`} style={{ fontSize: 22, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
                   {cat.icon && (
@@ -195,9 +204,9 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
 
           {/* Kolon 3: Sepet (masaüstü) */}
           <aside aria-label="Sepet" className="hidden lg:block lg:w-80 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-md border p-5 sticky" style={{
-              background: "var(--bg-card)", borderColor: "var(--border-color)", top: 96,
-              maxHeight: "calc(100dvh - 120px)", display: "flex", flexDirection: "column",
+            <div className="bg-white rounded-2xl shadow-md border p-5 sticky menu-side-panel" style={{
+              background: "var(--bg-card)", borderColor: "var(--border-color)",
+              maxHeight: "calc(100dvh - var(--header-h) - 32px)", display: "flex", flexDirection: "column",
             }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "2px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
                 🛒 Sepetim
@@ -247,6 +256,7 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
       )}
 
       <BottomBar
+        ref={bottomBarRef}
         status={session.status}
         liveBill={activity.liveBill}
         activeCount={activity.activeCount}

@@ -167,7 +167,7 @@ export default function SuperAdminBusinessesPage() {
           contentClassName="card"
           contentStyle={{
             width: "100%", maxWidth: 520,
-            maxHeight: "90vh", overflowY: "auto",
+            maxHeight: "90dvh", overflowY: "auto",
             padding: 28,
           }}
         >

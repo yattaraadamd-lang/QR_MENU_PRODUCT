@@ -68,7 +68,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
   if (session?.user.role !== "ADMIN") {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div className="min-h-viewport" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", padding: 32 }}>
           <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Erişim Engellendi</h1>
@@ -137,7 +137,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   const grouped = Object.entries(groups);
 
   return (
-    <div style={{ display: "flex", minHeight: "100dvh" }}>
+    <div className="min-h-viewport" style={{ display: "flex" }}>
       {sidebarOpen && (
         <div
           aria-hidden="true"
@@ -152,25 +152,8 @@ function AdminContent({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      <aside
-        id="admin-sidebar"
-        style={{
-          width: 248,
-          background: "var(--bg-secondary)",
-          borderRight: "1px solid var(--border-color)",
-          display: "flex",
-          flexDirection: "column",
-          position: "fixed",
-          top: 0,
-          bottom: 0,
-          left: sidebarOpen ? 0 : -248,
-          // Mobilde kapalıyken linkler klavye odağı almasın (kayma bitince gizlenir)
-          visibility: sidebarOpen ? "visible" : "hidden",
-          zIndex: 50,
-          transition: `left 0.25s cubic-bezier(0.4,0,0.2,1), visibility ${sidebarOpen ? "0s" : "0.25s"}`,
-        }}
-        className="lg-left-0"
-      >
+      {/* Konum, gizlenme ve masaüstü davranışı globals.css .admin-sidebar'da */}
+      <aside id="admin-sidebar" className="admin-sidebar" data-open={sidebarOpen}>
         <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -354,7 +337,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobil menü açıkken içerik etkisiz: Tab kenar çubuğundan arkaya kaçmasın */}
-      <div style={{ flex: 1, minWidth: 0 }} className="lg-ml-sidebar" inert={sidebarOpen}>
+      <div style={{ flex: 1, minWidth: 0 }} className="admin-main" inert={sidebarOpen}>
         {/* Üst çubuk main dışında: banner landmark'ı */}
         <header
           style={{
@@ -382,15 +365,13 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                 color: "var(--text-primary)",
                 cursor: "pointer",
                 padding: 4,
-                display: "flex",
-                alignItems: "center",
               }}
-              className="lg-hidden"
+              className="admin-mobile-only"
             >
               <Menu size={22} aria-hidden="true" />
             </button>
 
-            <span className="lg-hidden" style={{ fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="admin-mobile-only" style={{ fontSize: 15, fontWeight: 700, gap: 6 }}>
               <QrCode size={18} color="var(--primary)" />
               QR Menü
             </span>
