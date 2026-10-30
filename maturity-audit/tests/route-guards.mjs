@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = {
   "/api/health": "hazırlık kontrolü (DB dahil; harici uptime izleme)",
   "/api/health/live": "Render canlılık kontrolü (DB'siz, gövdesinde yalnız status)",
   "/api/csp-report": "tarayıcı CSP ihlal raporları (yalnız log, 16 KB + IP başına rate limit)",
+  "/api/vitals": "gerçek kullanıcı Web Vitals ölçümleri (yalnız log, 2 KB + IP başına rate limit, rota deseni)",
   "/api/auth/[...nextauth]": "next-auth giriş akışı (kendi CSRF token'ı var)",
   "/api/auth/me": "oturum yoksa 401 döner",
   "/api/auth/register": "garson daveti ile kayıt (rate limit + davet kodu)",

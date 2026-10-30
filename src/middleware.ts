@@ -39,6 +39,7 @@ const AUTH_EXEMPT_API_PREFIXES = [
   "/api/qr/",
   "/api/health",
   "/api/csp-report",
+  "/api/vitals",
   "/api/auth/",
   "/api/business/",
 ];

@@ -41,6 +41,8 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
   const [showServiceMenu, setShowServiceMenu] = useState(false);
   const [showWaiterModal, setShowWaiterModal] = useState(false);
   const [orderNote, setOrderNote] = useState("");
+  // Kapatılan uyarı metni: aynı uyarı geri gelmez, yeni bir uyarı yine gösterilir
+  const [dismissedNotice, setDismissedNotice] = useState<string | null>(null);
 
   const { prune, add: addItem } = cart;
   const { hydrate } = session;
@@ -148,14 +150,15 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
 
   return (
     <div className="customer-theme menu-shell min-h-viewport" data-height-vars>
-      {session.blockedMsg && !session.token && (
-        <div role="alert" style={{ maxWidth: 1280, margin: "0 auto", padding: "12px 16px 0" }}>
-          <div style={{
-            padding: "12px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600,
-            background: "rgba(217,68,31,0.12)", color: "#8C2A14", border: "1px solid rgba(217,68,31,0.35)",
-          }}>
-            ⚠️ {session.blockedMsg}
-          </div>
+      {/* Akış dışında (globals.css .menu-notice): oturum yanıtı sonradan geldiği için en üste
+          eklenen uyarı tüm menüyü aşağı itiyordu (320px'de CLS 0,107). Menü okunurken araya
+          girmesin diye alert değil status. */}
+      {session.blockedMsg && !session.token && session.blockedMsg !== dismissedNotice && (
+        <div role="status" className="menu-notice animate-slide-up">
+          <p style={{ flex: 1 }}>⚠️ {session.blockedMsg}</p>
+          <button type="button" aria-label="Uyarıyı kapat" className="tap-target" onClick={() => setDismissedNotice(session.blockedMsg)}>
+            ✕
+          </button>
         </div>
       )}
 

@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import SkipLink from "@/components/SkipLink";
+import WebVitalsLoader from "@/components/WebVitalsLoader";
 import { SITE_URL } from "@/lib/site-url";
 
 const sans = Plus_Jakarta_Sans({
@@ -46,6 +47,7 @@ export default function RootLayout({
     <html lang="tr" className={`${sans.variable} ${display.variable}`}>
       <body>
         <SkipLink />
+        <WebVitalsLoader />
         <Providers>{children}</Providers>
       </body>
     </html>
