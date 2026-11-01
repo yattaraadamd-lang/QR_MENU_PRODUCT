@@ -1,37 +1,20 @@
-"use client";
-
-import React from "react";
-
-type BadgeVariant = "primary" | "accent" | "success" | "danger" | "warning" | "info" | "purple" | "neutral";
+import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
+import type { Tone } from "./tone";
 
 interface BadgeProps {
-  variant?: BadgeVariant;
+  tone?: Tone;
+  /** Metnin önünde renk noktası */
   dot?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
-  style?: React.CSSProperties;
 }
 
-export default function Badge({
-  variant = "primary",
-  dot = false,
-  children,
-  className = "",
-  style,
-}: BadgeProps) {
+/** Hap rozet. Zemin/yazı çifti temada `.badge-<tone>` olarak tanımlı (kontrastı orada ölçülür). */
+export default function Badge({ tone = "primary", dot = false, children, className }: BadgeProps) {
   return (
-    <span className={`badge badge-${variant} ${className}`.trim()} style={style}>
-      {dot && (
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: "currentColor",
-            flexShrink: 0,
-          }}
-        />
-      )}
+    <span className={cn("badge", `badge-${tone}`, className)}>
+      {dot && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />}
       {children}
     </span>
   );

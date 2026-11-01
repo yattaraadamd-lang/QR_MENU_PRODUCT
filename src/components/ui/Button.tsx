@@ -1,51 +1,50 @@
-"use client";
-
-import React from "react";
-import { Loader2 } from "lucide-react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 type ButtonVariant = "primary" | "accent" | "success" | "danger" | "warning" | "ghost" | "subtle";
 type ButtonSize = "sm" | "md" | "lg" | "xl" | "icon";
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /** İstek sürerken: döner ikon + tıklanamaz */
   loading?: boolean;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
 }
 
+/** Tema düğmesi (`.btn-*`). Varsayılan type="button": form içinde yanlışlıkla gönderim yapmaz. */
 export default function Button({
   variant = "primary",
   size = "md",
   loading = false,
   leftIcon,
   rightIcon,
+  type = "button",
   disabled,
+  className,
   children,
-  className = "",
   ...props
 }: ButtonProps) {
-  const variantClass = `btn-${variant}`;
-  const sizeClass = size === "md" ? "" : `btn-${size}`;
-
   return (
     <button
-      className={`btn ${variantClass} ${sizeClass} ${className}`.trim()}
+      type={type}
+      className={cn("btn", `btn-${variant}`, size !== "md" && `btn-${size}`, className)}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
     >
       {loading ? (
-        <>
-          <Loader2 size={size === "sm" ? 14 : 16} className="animate-spin" />
-          {children}
-        </>
+        // Saf CSS halka: ikon kütüphanesini her sayfanın ilk yük paketine sokmaz
+        <span
+          aria-hidden="true"
+          className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+        />
       ) : (
-        <>
-          {leftIcon && <span className="btn-icon-left">{leftIcon}</span>}
-          {children}
-          {rightIcon && <span className="btn-icon-right">{rightIcon}</span>}
-        </>
+        leftIcon && <span aria-hidden="true" className="inline-flex shrink-0">{leftIcon}</span>
       )}
+      {children}
+      {!loading && rightIcon && <span aria-hidden="true" className="inline-flex shrink-0">{rightIcon}</span>}
     </button>
   );
 }
