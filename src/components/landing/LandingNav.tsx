@@ -13,7 +13,7 @@ export default function LandingNav() {
   return (
     <nav aria-label="Ana menü" className={`enter-drop ${styles.nav}`}>
       <div className={styles.navInner}>
-        <Link href="/" aria-label="QR Menü ana sayfa" className={styles.navLogo}>
+        <Link href="/" aria-label="QRMenü ana sayfa" className={styles.navLogo}>
           <BrandLogo />
         </Link>
 

@@ -20,7 +20,7 @@ export default function AuthShell({ aside, children }: AuthShellProps) {
   return (
     <div className={`landing-theme min-h-viewport ${styles.shell}`}>
       <aside className={`board ${styles.aside}`} aria-label="QR Menü">
-        <Link href="/" aria-label="QR Menü ana sayfa" className={styles.asideLogo}>
+        <Link href="/" aria-label="QRMenü ana sayfa" className={styles.asideLogo}>
           <BrandLogo />
         </Link>
 
@@ -47,7 +47,7 @@ export default function AuthShell({ aside, children }: AuthShellProps) {
 
       <main id="main-content" className={styles.main}>
         <div className={styles.column}>
-          <Link href="/" aria-label="QR Menü ana sayfa" className={styles.mobileLogo}>
+          <Link href="/" aria-label="QRMenü ana sayfa" className={styles.mobileLogo}>
             <BrandLogo />
           </Link>
           {children}
