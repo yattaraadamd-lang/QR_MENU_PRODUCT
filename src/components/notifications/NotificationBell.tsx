@@ -23,8 +23,8 @@ export default function NotificationBell({ onClick }: { onClick: () => void }) {
           : "1px solid var(--border-color)",
         background: hasUnread
           ? "rgba(239, 68, 68, 0.08)"
-          : "rgba(29,25,21, 0.6)",
-        color: hasUnread ? "#EF4444" : "var(--text-secondary)",
+          : "var(--bg-card)",
+        color: hasUnread ? "#B42318" : "var(--text-secondary)",
         cursor: "pointer",
         display: "flex",
         alignItems: "center",

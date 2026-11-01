@@ -195,7 +195,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                 {groupLabel && (
                   <p
                     style={{
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: 700,
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
@@ -282,11 +282,11 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                 height: 34,
                 borderRadius: 10,
                 flexShrink: 0,
-                background: "var(--ember)",
+                background: "var(--brand)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--on-ember)",
+                color: "var(--on-brand)",
                 fontWeight: 700,
                 fontSize: 13,
               }}

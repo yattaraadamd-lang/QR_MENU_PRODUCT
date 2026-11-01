@@ -88,13 +88,13 @@ export default function AdminPaymentsPage() {
       <h1 className="page-title" style={{ marginBottom: 24 }}>Ödemeler</h1>
 
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #F2B33D" }}>
+        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #7A4A05" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Onay Bekleyen Ödeme Talepleri</p>
-          <p style={{ fontSize: 24, fontWeight: 700, color: "#F2B33D" }}>{pendingCount}</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: "#7A4A05" }}>{pendingCount}</p>
         </div>
-        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #3BA55C" }}>
+        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #276044" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Bugün Alınan Ciro</p>
-          <p style={{ fontSize: 24, fontWeight: 700, color: "#3BA55C" }}>{formatTRY(todayTotal)}</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: "#276044" }}>{formatTRY(todayTotal)}</p>
         </div>
       </div>
 
@@ -154,7 +154,7 @@ export default function AdminPaymentsPage() {
                   {p.method === "CASH" && p.receivedAmount ? (
                     <span>
                       Alınan: {formatTRY(p.receivedAmount)}
-                      {p.changeAmount ? <small style={{ display: "block", color: "#3BA55C" }}>Üstü: {formatTRY(p.changeAmount)}</small> : null}
+                      {p.changeAmount ? <small style={{ display: "block", color: "#276044" }}>Üstü: {formatTRY(p.changeAmount)}</small> : null}
                     </span>
                   ) : "-"}
                 </td>
@@ -178,7 +178,7 @@ export default function AdminPaymentsPage() {
                 </td>
                 <td style={{ fontSize: 13 }}>
                   {p.approvedByName ? (
-                    <span style={{ color: "#3BA55C", fontWeight: 600 }}>
+                    <span style={{ color: "#276044", fontWeight: 600 }}>
                       🛡️ {p.approvedByName}
                     </span>
                   ) : "-"}

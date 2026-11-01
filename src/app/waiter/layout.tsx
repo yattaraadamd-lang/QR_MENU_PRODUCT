@@ -10,7 +10,7 @@ import Loader from "@/components/ui/Loader";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
 import { useCssHeightVar } from "@/hooks/useCssHeightVar";
 import { ClipboardList, Bell, CreditCard, Table2, LogOut, Lock } from "lucide-react";
-import PixelMark from "@/components/brand/PixelMark";
+import BrandMark from "@/components/brand/BrandMark";
 
 const NAV = [
   { href: "/waiter",          label: "Siparişler", icon: <ClipboardList size={22} /> },
@@ -80,7 +80,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
         position: "sticky", top: 0, zIndex: 30,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <PixelMark size={26} />
+          <BrandMark size={26} />
           <div>
             <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>
               {session?.user.name || "Garson"}

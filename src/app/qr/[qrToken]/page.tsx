@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/ui/Loader";
-import PixelMark from "@/components/brand/PixelMark";
+import BrandMark from "@/components/brand/BrandMark";
 
 export default function QRTokenPage({ params }: { params: Promise<{ qrToken: string }> }) {
   const resolvedParams = use(params);
@@ -53,7 +53,7 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
     return (
       <div className="customer-theme min-h-viewport flex items-center justify-center p-4">
         <div className="text-center max-w-sm">
-          <PixelMark size={48} className="mx-auto mb-5" />
+          <BrandMark size={48} className="mx-auto mb-5" />
           <p className="eyebrow">QR kod</p>
           <h1 className="font-display mb-2 mt-2 text-4xl">Kod geçersiz</h1>
           <p className="mb-6" style={{ color: "var(--text-secondary)" }}>{error}</p>

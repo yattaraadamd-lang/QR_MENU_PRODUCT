@@ -1,4 +1,4 @@
-import { ConciergeBell, Monitor, Smartphone, type LucideIcon } from "lucide-react";
+import { BellRing, ConciergeBell, Monitor, QrCode, ShoppingBag, Smartphone, TrendingUp, type LucideIcon } from "lucide-react";
 
 /** Landing metinleri ve sabit örnek verisi: bileşenler yalnız düzeni taşır */
 
@@ -51,15 +51,14 @@ export interface TransformStep {
   readonly from: string;
   readonly to: string;
   readonly desc: string;
-  /** Piksel glifinde dolu kare sayısı (0–16): dönüşüm ilerledikçe artar */
-  readonly progress: number;
+  readonly icon: LucideIcon;
 }
 
 export const TRANSFORM_STEPS: readonly TransformStep[] = [
-  { code: "01", from: "Kare", to: "Menü", progress: 2, desc: "Misafir masadaki QR'ı okutur; uygulama indirmeden fotoğraflı menü açılır." },
-  { code: "02", from: "Dokunuş", to: "Sipariş", progress: 6, desc: "Sepetini kendisi kurar ve gönderir. Sipariş garsonun ekranına saniyesinde düşer." },
-  { code: "03", from: "Sinyal", to: "Servis", progress: 11, desc: "Garson çağrısı, hesap isteği, mutfak durumu: hepsi tek ve canlı bir akışta." },
-  { code: "04", from: "Veri", to: "Vizyon", progress: 16, desc: "Ciro, masa ve ürün performansı tek panelde. Karar vermek için gün sonunu beklemezsiniz." },
+  { code: "1", from: "QR", to: "Menü", icon: QrCode, desc: "Misafir masadaki QR'ı okutur; uygulama indirmeden fotoğraflı menü açılır." },
+  { code: "2", from: "Sepet", to: "Sipariş", icon: ShoppingBag, desc: "Sepetini kendisi kurar ve gönderir. Sipariş garsonun ekranına saniyesinde düşer." },
+  { code: "3", from: "Çağrı", to: "Servis", icon: BellRing, desc: "Garson çağrısı, hesap isteği, mutfak durumu: hepsi tek ve canlı bir akışta." },
+  { code: "4", from: "Hesap", to: "Ciro", icon: TrendingUp, desc: "Ciro, masa ve ürün performansı tek panelde. Gün sonunu beklemeden görürsünüz." },
 ];
 
 export interface Feature {

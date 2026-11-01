@@ -10,14 +10,14 @@ import QueryError from "@/components/ui/QueryError";
 import { formatTRY } from "@/lib/format";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  EMPTY:             { label: "Boş",              color: "#BCAFA2", bg: "rgba(188,175,162,0.12)" },
-  OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)" },
-  HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(242,179,61,0.12)" },
-  PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)" },
-  SERVED:            { label: "Servis Edildi",     color: "#8EDBA2", bg: "rgba(59,165,92,0.12)" },
-  WAITING_WAITER:    { label: "Garson Bekleniyor", color: "#fca5a5", bg: "rgba(239,68,68,0.12)" },
-  PAYMENT_REQUESTED: { label: "Ödeme İsteniyor",  color: "#EBAFD0", bg: "rgba(163,71,122,0.12)" },
-  CLEANING_NEEDED:   { label: "Temizlik",          color: "#67e8f9", bg: "rgba(6,182,212,0.12)" },
+  EMPTY:             { label: "Boş",              color: "#6B5E55", bg: "rgba(188,175,162,0.12)" },
+  OCCUPIED:          { label: "Dolu",              color: "#24578A", bg: "rgba(59,130,246,0.12)" },
+  HAS_ORDER:         { label: "Sipariş Var",       color: "#7A4A05", bg: "rgba(242,179,61,0.12)" },
+  PREPARING:         { label: "Hazırlanıyor",      color: "#276044", bg: "rgba(34,197,94,0.12)" },
+  SERVED:            { label: "Servis Edildi",     color: "#276044", bg: "rgba(59,165,92,0.12)" },
+  WAITING_WAITER:    { label: "Garson Bekleniyor", color: "#B42318", bg: "rgba(239,68,68,0.12)" },
+  PAYMENT_REQUESTED: { label: "Ödeme İsteniyor",  color: "#7E2F5B", bg: "rgba(163,71,122,0.12)" },
+  CLEANING_NEEDED:   { label: "Temizlik",          color: "#0E6C80", bg: "rgba(6,182,212,0.12)" },
 };
 
 const PAYMENT_METHODS = [
@@ -225,7 +225,7 @@ export default function AdminTablesPage() {
           <h1 className="page-title">Masa & QR Yönetimi</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>
             {tables.length} masa · {occupied} dolu · {tables.length - occupied} boş
-            {pendingPayment > 0 && <span style={{ color: "#EBAFD0", marginLeft: 8 }}>· {pendingPayment} bekleyen ödeme</span>}
+            {pendingPayment > 0 && <span style={{ color: "#7E2F5B", marginLeft: 8 }}>· {pendingPayment} bekleyen ödeme</span>}
           </p>
         </div>
         <button onClick={() => setShowCreate(true)} className="btn btn-primary">+ Yeni Masa</button>
@@ -233,7 +233,7 @@ export default function AdminTablesPage() {
 
       {/* Bekleyen ödeme uyarısı */}
       {pendingPayment > 0 && (
-        <div style={{ padding: "12px 16px", background: "rgba(163,71,122,0.08)", border: "1px solid rgba(163,71,122,0.2)", borderRadius: 10, marginBottom: 16, fontSize: 13, color: "#EBAFD0", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(163,71,122,0.08)", border: "1px solid rgba(163,71,122,0.2)", borderRadius: 10, marginBottom: 16, fontSize: 13, color: "#7E2F5B", display: "flex", alignItems: "center", gap: 8 }}>
           💳 <strong>{pendingPayment} masada</strong> bekleyen ödeme var. Ödeme almak için masa kartına tıklayın.
         </div>
       )}
@@ -289,7 +289,7 @@ export default function AdminTablesPage() {
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Masayı Sil</h2>
               <p style={{ color: "var(--text-secondary)", fontSize: 14 }}><strong style={{ color: "var(--text-primary)" }}>"{deleteModal.name}"</strong> adlı masayı silmek üzeresiniz.</p>
             </div>
-            <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, marginBottom: 20, fontSize: 13, color: "#fca5a5" }}>
+            <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, marginBottom: 20, fontSize: 13, color: "#B42318" }}>
               ⚠️ Aktif sipariş, talep veya ödeme varsa silme engellenecektir.
             </div>
             <FormError message={deleteError} style={{ marginBottom: 16 }} />
@@ -377,7 +377,7 @@ export default function AdminTablesPage() {
                     {Number(bill.paidAmount) > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                         <span>Ödenen:</span>
-                        <span style={{ fontWeight: 600, color: "#3BA55C" }}>{formatTRY(bill.paidAmount)}</span>
+                        <span style={{ fontWeight: 600, color: "#276044" }}>{formatTRY(bill.paidAmount)}</span>
                       </div>
                     )}
                     {hasUnpaid && (
@@ -391,8 +391,8 @@ export default function AdminTablesPage() {
 
                 {(table.orders?.length > 0 || table.serviceRequests?.length > 0) && (
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    {table.orders?.length > 0 && <span style={{ fontSize: 10, color: "#FCD27A" }}>🧾 {table.orders.length}</span>}
-                    {table.serviceRequests?.length > 0 && <span style={{ fontSize: 10, color: "#fca5a5" }}>🔔 {table.serviceRequests.length}</span>}
+                    {table.orders?.length > 0 && <span style={{ fontSize: 10, color: "#7A4A05" }}>🧾 {table.orders.length}</span>}
+                    {table.serviceRequests?.length > 0 && <span style={{ fontSize: 10, color: "#B42318" }}>🔔 {table.serviceRequests.length}</span>}
                   </div>
                 )}
 
@@ -415,7 +415,7 @@ export default function AdminTablesPage() {
                 <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
                   {STATUS_META[selectedTable.status]?.label}
                   {selectedTable.activeSession && (
-                    <span style={{ marginLeft: 8, color: "#3BA55C" }}>
+                    <span style={{ marginLeft: 8, color: "#276044" }}>
                       · Oturum: {new Date(selectedTable.activeSession.startedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })} den beri
                     </span>
                   )}
@@ -439,8 +439,8 @@ export default function AdminTablesPage() {
                       <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Adisyon</p>
                       {[
                         { label: "Toplam Hesap", value: formatTRY(sessionDetail.totalAmount), color: "var(--text-primary)" },
-                        { label: "Ödenen", value: formatTRY(sessionDetail.paidAmount), color: "#3BA55C" },
-                        { label: "Kalan", value: formatTRY(sessionDetail.remainingAmount), color: Number(sessionDetail.remainingAmount) > 0 ? "var(--danger-text)" : "#3BA55C" },
+                        { label: "Ödenen", value: formatTRY(sessionDetail.paidAmount), color: "#276044" },
+                        { label: "Kalan", value: formatTRY(sessionDetail.remainingAmount), color: Number(sessionDetail.remainingAmount) > 0 ? "var(--danger-text)" : "#276044" },
                       ].map(r => (
                         <div key={r.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 6 }}>
                           <span style={{ color: "var(--text-secondary)" }}>{r.label}</span>
@@ -449,7 +449,7 @@ export default function AdminTablesPage() {
                       ))}
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
                         <span style={{ color: "var(--text-secondary)" }}>Ödeme Durumu</span>
-                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F2B33D" : "var(--danger-text)" }}>
+                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#276044" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#7A4A05" : "var(--danger-text)" }}>
                           {sessionDetail.paymentStatus === "PAID" ? "✅ Ödendi" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "⚡ Kısmi" : "❌ Ödenmedi"}
                         </span>
                       </div>
@@ -485,7 +485,7 @@ export default function AdminTablesPage() {
                             {PAYMENT_METHODS.find(m => m.value === p.method)?.label || p.method}
                             {p.handledByWaiterName && ` · ${p.handledByWaiterName}`}
                           </span>
-                          <span style={{ fontWeight: 700, color: "#3BA55C" }}>+{formatTRY(p.amount)}</span>
+                          <span style={{ fontWeight: 700, color: "#276044" }}>+{formatTRY(p.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -573,10 +573,10 @@ export default function AdminTablesPage() {
               {selectedTable?.tableName || `Masa ${selectedTable?.tableNumber}`}
             </p>
             {closeError && (
-              <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
+              <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#B42318", fontSize: 13, marginBottom: 16 }}>
                 ⚠️ {closeError}
                 {!forceClose && (
-                  <button onClick={() => setForceClose(true)} style={{ display: "block", marginTop: 8, color: "#F2B33D", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                  <button onClick={() => setForceClose(true)} style={{ display: "block", marginTop: 8, color: "#7A4A05", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                     Admin olarak zorla kapat →
                   </button>
                 )}

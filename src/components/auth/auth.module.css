@@ -1,5 +1,5 @@
 /* ─── Hesap sayfaları kabuğu (giriş, kayıt, davet) ──────────────────────────
-   Mobil-önce; marka paneli yalnız 1024px ve üstünde. Koyu tema (.landing-theme). */
+   Mobil-önce; marka paneli (yeşil tahta, .board) yalnız 1024px ve üstünde. */
 
 .shell {
   display: grid;
@@ -9,7 +9,7 @@
   .shell { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); }
 }
 
-/* Marka paneli */
+/* Marka paneli: üst kenarı kareli örtü şeridi */
 .aside { display: none; }
 @media (min-width: 1024px) {
   .aside {
@@ -17,49 +17,66 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 48px;
+    padding: 56px 48px 40px;
     overflow: hidden;
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border-subtle);
+    border-right: 2px solid var(--ink);
+  }
+  .aside::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 16px;
+    background-color: var(--cream);
+    background-image:
+      linear-gradient(90deg, rgba(209, 60, 39, 0.65) 50%, transparent 50%),
+      linear-gradient(rgba(209, 60, 39, 0.65) 50%, transparent 50%);
+    background-size: 16px 16px;
+    border-bottom: 2px solid var(--ink);
   }
 }
-/* Sağ üst köşede, metinle örtüşmez. Genişlik max-width ile: motifin kendi
-   width:100%'ü (brand.module.css) ile modül yükleme sırasına bağlı kalmasın. */
-.asidePixels {
-  position: absolute;
-  top: 40px;
-  right: 40px;
-  max-width: 152px;
-  pointer-events: none;
-}
-.asideLogo { position: relative; align-self: flex-start; text-decoration: none; border-radius: 6px; }
+/* Logo tahtada: kelime işareti açık tona döner (token), işaret krem kare olarak kalır */
+.asideLogo { position: relative; align-self: flex-start; text-decoration: none; border-radius: 8px; }
 .asideBody { position: relative; max-width: 26rem; }
-.asideTitle { margin-top: 16px; font-size: 52px; line-height: 1; }
-.asideTitle em { font-style: italic; color: var(--primary); }
-.asidePoints { list-style: none; margin-top: 32px; }
+.asideTitle { margin-top: 14px; font-size: 46px; line-height: 1.04; }
+.asideTitle em { color: var(--primary); }
+.asidePoints { list-style: none; margin-top: 30px; }
 .asidePoints li {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
   padding: 14px 0;
-  border-top: 1px solid var(--border-color);
-  font-size: 15px;
+  border-top: 1px dashed var(--border-color);
+  font-size: 17px;
   line-height: 1.5;
   color: var(--text-secondary);
 }
 .asidePoints li span:first-child {
-  padding-top: 3px;
-  font-family: var(--font-data);
-  font-size: 11px;
-  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--butter);
+  color: var(--ink);
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 800;
 }
-.asideFoot {
-  position: relative;
-  font-family: var(--font-data);
-  font-size: 12px;
-  color: var(--text-muted);
+.asideQr {
+  position: absolute;
+  right: 40px;
+  bottom: 64px;
+  width: 132px;
+  padding: 12px;
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  background: #FFFFFF;
+  color: var(--ink);
+  rotate: 4deg;
 }
-
+.asideFoot { position: relative; font-size: 14px; color: var(--text-muted); }
 /* Form sütunu */
 .main {
   display: flex;
@@ -86,23 +103,24 @@
 @media (min-width: 1024px) {
   .header { text-align: left; }
 }
-.title { margin-top: 10px; font-size: 42px; line-height: 1.02; overflow-wrap: anywhere; }
-.title em { font-style: italic; color: var(--primary); }
-.desc { margin-top: 10px; font-size: 14px; line-height: 1.55; color: var(--text-secondary); }
+.title { margin-top: 10px; font-size: 38px; line-height: 1.05; overflow-wrap: anywhere; }
+.title em { color: var(--brand); }
+.desc { margin-top: 10px; font-size: 16px; line-height: 1.55; color: var(--text-secondary); }
 
 .card {
   padding: 26px 22px;
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
+  border: 2px solid var(--border-strong);
+  border-radius: 18px;
   background: var(--bg-card);
+  box-shadow: 4px 4px 0 var(--border-strong);
 }
 @media (min-width: 640px) {
   .card { padding: 30px 28px; }
 }
 
 .form { display: flex; flex-direction: column; gap: 16px; }
-.label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-.hint { margin-top: 6px; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+.label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.hint { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
 .submit { width: 100%; margin-top: 4px; }
 
 .links {
@@ -171,9 +189,9 @@
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.demoButton:hover { border-color: var(--ember); background: var(--bg-hover); }
+.demoButton:hover { border-color: var(--brand); background: var(--bg-hover); }
 .demoButton strong { display: block; color: var(--text-primary); }
-.demoButton span span { display: block; font-family: var(--font-data); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demoButton span span { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .demoButton > svg { flex-shrink: 0; color: var(--primary); }
 
 .back { margin-top: 24px; text-align: center; }

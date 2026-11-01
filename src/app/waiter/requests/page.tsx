@@ -10,13 +10,13 @@ import { toast } from "sonner";
 import { formatTRY } from "@/lib/format";
 
 const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
-  CALL_WAITER:         { label: "Garson Çağrısı",  icon: "🙋", color: "#ef4444" },
-  PAYMENT_REQUEST:     { label: "Ödeme Talebi",    icon: "💳", color: "#A3477A" },
-  HELP_REQUEST:        { label: "Yardım Talebi",   icon: "ℹ️", color: "#3b82f6" },
-  CLEANING_REQUEST:    { label: "Temizlik",         icon: "🧹", color: "#06b6d4" },
-  ORDER_REQUEST:       { label: "Sipariş Talebi",  icon: "📋", color: "#F2B33D" },
-  PRODUCT_INFO:        { label: "Ürün Bilgisi",    icon: "❓", color: "#3BA55C" },
-  COMPLAINT_SUGGESTION:{ label: "Şikayet/Öneri",   icon: "💬", color: "#A3477A" },
+  CALL_WAITER:         { label: "Garson Çağrısı",  icon: "🙋", color: "#B42318" },
+  PAYMENT_REQUEST:     { label: "Ödeme Talebi",    icon: "💳", color: "#7E2F5B" },
+  HELP_REQUEST:        { label: "Yardım Talebi",   icon: "ℹ️", color: "#24578A" },
+  CLEANING_REQUEST:    { label: "Temizlik",         icon: "🧹", color: "#0E6C80" },
+  ORDER_REQUEST:       { label: "Sipariş Talebi",  icon: "📋", color: "#7A4A05" },
+  PRODUCT_INFO:        { label: "Ürün Bilgisi",    icon: "❓", color: "#276044" },
+  COMPLAINT_SUGGESTION:{ label: "Şikayet/Öneri",   icon: "💬", color: "#7E2F5B" },
 };
 
 const STATUS_META: Record<string, { label: string; badge: string }> = {
@@ -163,7 +163,7 @@ export default function WaiterRequestsPage() {
             Aktif
             {pendingCount > 0 && (
               <span style={{
-                background: filter === "active" ? "var(--on-ember)" : "var(--danger)",
+                background: filter === "active" ? "rgba(0,0,0,0.22)" : "var(--danger)",
                 color: "white",
                 borderRadius: 99,
                 fontSize: 10,
@@ -197,7 +197,7 @@ export default function WaiterRequestsPage() {
       ) : (
         <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {requests.map(req => {
-            const tm = TYPE_META[req.requestType] || { label: req.requestType, icon: "📌", color: "#A3477A" };
+            const tm = TYPE_META[req.requestType] || { label: req.requestType, icon: "📌", color: "#7E2F5B" };
             const sm = STATUS_META[req.status] || STATUS_META.PENDING;
             const isPending = req.status === "PENDING";
             const isOrder = req.requestType === "ORDER_REQUEST";
@@ -271,7 +271,7 @@ export default function WaiterRequestsPage() {
                   )}
 
                   {req.note && !isOrder && (
-                    <div style={{ padding: "6px 10px", background: "rgba(242,179,61,0.08)", borderRadius: 8, fontSize: 12, color: "#FCD27A", marginTop: 6 }}>
+                    <div style={{ padding: "6px 10px", background: "rgba(242,179,61,0.08)", borderRadius: 8, fontSize: 12, color: "#7A4A05", marginTop: 6 }}>
                       📝 {req.note}
                     </div>
                   )}

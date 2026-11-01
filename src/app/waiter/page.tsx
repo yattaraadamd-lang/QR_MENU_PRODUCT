@@ -45,12 +45,12 @@ const REASON_OPTIONS = [
 type ReasonCode = typeof REASON_OPTIONS[number]["code"];
 
 const STATUS_META: Record<string, { label: string; badge: string; color: string; icon: React.ReactNode }> = {
-  PENDING:   { label: "Bekliyor",      badge: "badge-warning", color: "#F2B33D", icon: <Clock size={14} /> },
-  ACCEPTED:  { label: "Kabul Edildi",  badge: "badge-info",    color: "#3b82f6", icon: <Check size={14} /> },
+  PENDING:   { label: "Bekliyor",      badge: "badge-warning", color: "#7A4A05", icon: <Clock size={14} /> },
+  ACCEPTED:  { label: "Kabul Edildi",  badge: "badge-info",    color: "#24578A", icon: <Check size={14} /> },
   PREPARING: { label: "Hazırlanıyor",  badge: "badge-primary", color: "var(--primary)", icon: <ChefHat size={14} /> },
-  SERVED:    { label: "Servis Edildi", badge: "badge-success", color: "#3BA55C", icon: <UtensilsCrossed size={14} /> },
-  CANCELLED: { label: "İptal",         badge: "badge-danger",  color: "#ef4444", icon: <X size={14} /> },
-  REJECTED:  { label: "Reddedildi",    badge: "badge-danger",  color: "#ef4444", icon: <AlertTriangle size={14} /> },
+  SERVED:    { label: "Servis Edildi", badge: "badge-success", color: "#276044", icon: <UtensilsCrossed size={14} /> },
+  CANCELLED: { label: "İptal",         badge: "badge-danger",  color: "#B42318", icon: <X size={14} /> },
+  REJECTED:  { label: "Reddedildi",    badge: "badge-danger",  color: "#B42318", icon: <AlertTriangle size={14} /> },
 };
 
 function timeAgo(dateStr: string) {
@@ -229,7 +229,7 @@ export default function WaiterOrdersPage() {
     return (
       <Dialog onClose={() => !isSubmitting && resetModalState()} contentStyle={{ padding: 24, maxWidth: 420, width: "90vw" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <AlertTriangle size={20} color="#ef4444" />
+            <AlertTriangle size={20} color="#B42318" />
             <h2 style={{ fontSize: 18, fontWeight: 700 }}>
               {isReject ? "Siparişi Reddet" : "Siparişi İptal Et"}
             </h2>
@@ -249,7 +249,7 @@ export default function WaiterOrdersPage() {
                   onClick={() => handleSelectReasonCode(order, opt.code)}
                   style={{
                     padding: "10px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
-                    border: `1.5px solid ${isSelected ? "#ef4444" : "var(--border-color)"}`,
+                    border: `1.5px solid ${isSelected ? "#B42318" : "var(--border-color)"}`,
                     background: isSelected ? "rgba(239,68,68,0.08)" : "transparent",
                     color: isSelected ? "var(--danger-text)" : "var(--text-secondary)",
                     cursor: "pointer", fontWeight: isSelected ? 600 : 400,
@@ -274,7 +274,7 @@ export default function WaiterOrdersPage() {
                       type="checkbox"
                       checked={selectedOutOfStockPids.includes(p.id)}
                       onChange={() => toggleOutOfStockPid(p.id)}
-                      style={{ width: 16, height: 16, accentColor: "#ef4444" }}
+                      style={{ width: 16, height: 16, accentColor: "#B42318" }}
                     />
                     <span>{p.name}</span>
                   </label>
@@ -356,7 +356,7 @@ export default function WaiterOrdersPage() {
             Aktif
             {pendingCount > 0 && (
               <span style={{
-                background: filter === "active" ? "var(--on-ember)" : "var(--danger)",
+                background: filter === "active" ? "rgba(0,0,0,0.22)" : "var(--danger)",
                 color: "white", borderRadius: 99, fontSize: 10, fontWeight: 800,
                 padding: "1px 6px",
               }}>{pendingCount}</span>
@@ -425,7 +425,7 @@ export default function WaiterOrdersPage() {
                         <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{item.quantity}×</span>{" "}
                         {item.productName || item.product?.name}
                         {item.customerNote && (
-                          <span style={{ color: "#F2B33D", fontSize: 11, marginLeft: 6 }}>📝 {item.customerNote}</span>
+                          <span style={{ color: "#7A4A05", fontSize: 11, marginLeft: 6 }}>📝 {item.customerNote}</span>
                         )}
                       </span>
                       <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
@@ -434,12 +434,12 @@ export default function WaiterOrdersPage() {
                     </div>
                   ))}
                   {order.note && (
-                    <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(242,179,61,0.08)", borderRadius: 8, fontSize: 12, color: "#FCD27A" }}>
+                    <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(242,179,61,0.08)", borderRadius: 8, fontSize: 12, color: "#7A4A05" }}>
                       📝 {order.note}
                     </div>
                   )}
                   {order.cancelReason && (
-                    <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(239,68,68,0.08)", borderRadius: 8, fontSize: 12, color: "#fca5a5" }}>
+                    <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(239,68,68,0.08)", borderRadius: 8, fontSize: 12, color: "#B42318" }}>
                       ❌ {order.cancelReason}
                     </div>
                   )}

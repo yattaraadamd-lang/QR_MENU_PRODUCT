@@ -2,7 +2,7 @@
 
 import type { Ref } from "react";
 import { BellRing } from "lucide-react";
-import PixelMark from "@/components/brand/PixelMark";
+import BrandMark from "@/components/brand/BrandMark";
 import type { AuthStatus, Business, TableInfo } from "./types";
 import styles from "./customer-menu.module.css";
 
@@ -32,7 +32,7 @@ export default function MenuHeader({ business, table, status, onOpenService, ref
             {business.logo ? (
               <img src={business.logo} alt="" width={48} height={48} decoding="async" />
             ) : (
-              <PixelMark size={24} />
+              <BrandMark size={24} />
             )}
           </div>
           <div className={styles.identityText}>

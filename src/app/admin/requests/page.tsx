@@ -212,7 +212,7 @@ export default function AdminRequestsPage() {
                     </p>
                   )}
                   {req.completedAt && (
-                    <p style={{ fontSize: 11, color: "#3BA55C", marginTop: 4 }}>
+                    <p style={{ fontSize: 11, color: "#276044", marginTop: 4 }}>
                       ✅ Tamamlandı: {new Date(req.completedAt).toLocaleString("tr-TR")}
                     </p>
                   )}
@@ -229,7 +229,7 @@ export default function AdminRequestsPage() {
                     <>
                       {req.verificationCode && (
                         <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(242,179,61,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#FCD27A" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#7A4A05" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
                           <span style={{ fontSize: 20, fontWeight: 900, color: "var(--primary-light)", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
                         </div>
                       )}
