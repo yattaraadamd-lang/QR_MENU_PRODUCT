@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, DM_Sans } from "next/font/google";
+import { Bricolage_Grotesque, DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import SkipLink from "@/components/SkipLink";
@@ -18,6 +18,16 @@ const display = Bricolage_Grotesque({
   subsets: ["latin", "latin-ext"],
   variable: "--font-display",
   display: "swap",
+});
+
+// Yalnız logo kelime işareti (ilk tasarımın logosu): tek ağırlık, "QRMenü" latin
+// alt kümesinde. LCP metni değil; ön yüklenmez, ilk boyamayla yarışmaz.
+const logo = Fraunces({
+  weight: "600",
+  subsets: ["latin"],
+  variable: "--font-logo",
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -46,7 +56,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className={`${sans.variable} ${display.variable}`}>
+    <html lang="tr" className={`${sans.variable} ${display.variable} ${logo.variable}`}>
       <body>
         <SkipLink />
         <WebVitalsLoader />

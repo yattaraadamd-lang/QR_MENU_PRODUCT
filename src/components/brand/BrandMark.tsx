@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+import { QrCode } from "lucide-react";
 import styles from "./brand.module.css";
 
 interface BrandMarkProps {
@@ -5,31 +7,16 @@ interface BrandMarkProps {
   readonly className?: string;
 }
 
-/** Dama düzeninde domates kareler: hem kareli masa örtüsü hem QR kodun kareleri */
-const CHECKS: readonly (readonly [number, number])[] = [
-  [0, 0], [2, 0],
-  [1, 1],
-  [0, 2], [2, 2],
-];
-const CELL = 8;
-const PAD = 3;
-const SIZE = PAD * 2 + CELL * 3;
+/** Orijinal tasarımdaki oranlar: 36px karede 12px köşe, 19px ikon */
+const RADIUS_RATIO = 1 / 3;
+const ICON_RATIO = 19 / 36;
 
-/** Logo işareti: koyu çerçeveli krem kare içinde 3×3 kareli örtü */
-export default function BrandMark({ size = 28, className = "" }: BrandMarkProps) {
+/** Logo işareti: kırmızı-turuncu degrade kare içinde beyaz QR ikonu (ilk tasarımın logosu) */
+export default function BrandMark({ size = 36, className = "" }: BrandMarkProps) {
+  const style: CSSProperties = { width: size, height: size, borderRadius: Math.round(size * RADIUS_RATIO) };
   return (
-    <svg
-      viewBox={`0 0 ${SIZE} ${SIZE}`}
-      width={size}
-      height={size}
-      className={`${styles.mark} ${className}`.trim()}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect x={1} y={1} width={SIZE - 2} height={SIZE - 2} rx={7} className={styles.markBase} />
-      {CHECKS.map(([x, y]) => (
-        <rect key={`${x}-${y}`} x={PAD + x * CELL} y={PAD + y * CELL} width={CELL} height={CELL} rx={1.5} className={styles.markCheck} />
-      ))}
-    </svg>
+    <span className={`${styles.mark} ${className}`.trim()} style={style} aria-hidden="true">
+      <QrCode size={Math.round(size * ICON_RATIO)} />
+    </span>
   );
 }

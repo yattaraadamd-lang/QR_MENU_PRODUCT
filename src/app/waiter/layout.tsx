@@ -80,7 +80,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
         position: "sticky", top: 0, zIndex: 30,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BrandMark size={26} />
+          <BrandMark size={34} />
           <div>
             <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>
               {session?.user.name || "Garson"}

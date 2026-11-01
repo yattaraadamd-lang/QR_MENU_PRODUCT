@@ -1,8 +1,20 @@
-/* ─── Marka: kareli örtü işareti, logo, QR çizimi ─────────────────────────── */
+/* ─── Marka: ilk tasarımın logosu, QR çizimi ──────────────────────────────── */
 
-.mark { display: block; flex-shrink: 0; }
-.markBase { fill: var(--cream); stroke: var(--ink); stroke-width: 2; }
-.markCheck { fill: var(--brand); }
+/* Logo işareti: orijinal degrade kare + beyaz QR ikonu (beyaz/degrade ≥4.6:1) */
+.mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #D24521 0%, #C53D1B 55%, #B23415 100%);
+  color: #FFFFFF;
+  box-shadow: 0 6px 16px rgba(217, 68, 31, 0.32);
+  transition: scale 0.2s ease-out, rotate 0.2s ease-out;
+}
+a:hover .mark { scale: 1.06; rotate: -8deg; }
+@media (prefers-reduced-motion: reduce) {
+  a:hover .mark { rotate: none; }
+}
 
 .logo {
   display: inline-flex;
@@ -12,15 +24,18 @@
   text-decoration: none;
   line-height: 1;
 }
+/* Kelime işareti orijinaldeki gibi Fraunces yarı kalın; "Menü" kırmızı.
+   Yeşil tahtada (.board) kırmızı okunmadığı için vurgu tahtanın açık tonuna döner. */
 .wordmark {
-  font-family: var(--font-heading);
-  font-weight: 800;
+  font-family: var(--font-logo), Georgia, serif;
+  font-weight: 600;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
-.wordmark em { font-style: normal; color: var(--primary); }
-.logoMd .wordmark { font-size: 22px; }
-.logoSm .wordmark { font-size: 19px; }
+.wordmark em { font-style: normal; color: #CF411E; }
+:global(.board) .wordmark em { color: var(--primary); }
+.logoMd .wordmark { font-size: 20px; }
+.logoSm .wordmark { font-size: 18px; }
 
-/* QR çizimi: rengi çağıran verir (currentColor) */
-.qr { display: block; width: 100%; height: auto; fill: currentColor; }
+/* QR çizimi (statik SVG görseli) */
+.qr { display: block; width: 100%; height: auto; }

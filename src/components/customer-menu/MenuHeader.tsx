@@ -32,7 +32,7 @@ export default function MenuHeader({ business, table, status, onOpenService, ref
             {business.logo ? (
               <img src={business.logo} alt="" width={48} height={48} decoding="async" />
             ) : (
-              <BrandMark size={24} />
+              <BrandMark size={36} />
             )}
           </div>
           <div className={styles.identityText}>
