@@ -34,7 +34,7 @@ export default function SoundToggle() {
           ...baseStyle,
           width: 40,
           border: "1px solid var(--border-color)",
-          background: "rgba(40,30,25, 0.6)",
+          background: "rgba(29,25,21, 0.6)",
           color: "var(--success)",
         }}
         title={
@@ -59,8 +59,8 @@ export default function SoundToggle() {
         style={{
           ...baseStyle,
           padding: "0 12px",
-          border: "1px solid rgba(217,68,31, 0.5)",
-          background: "rgba(217,68,31, 0.12)",
+          border: "1px solid rgba(255,90,31, 0.5)",
+          background: "rgba(255,90,31, 0.12)",
           color: "var(--primary-light)",
         }}
         title="Tarayıcı sesi kilitledi — ekranın herhangi bir yerine dokunmanız yeterli"
@@ -81,15 +81,15 @@ export default function SoundToggle() {
           ? {
               ...baseStyle,
               padding: "0 12px",
-              border: "1px solid rgba(217,68,31, 0.3)",
-              background: "rgba(217,68,31, 0.12)",
+              border: "1px solid rgba(255,90,31, 0.3)",
+              background: "rgba(255,90,31, 0.12)",
               color: "var(--primary-light)",
             }
           : {
               ...baseStyle,
               width: 40,
               border: "1px solid var(--border-color)",
-              background: "rgba(40,30,25, 0.6)",
+              background: "rgba(29,25,21, 0.6)",
               color: "var(--text-muted)",
             }
       }

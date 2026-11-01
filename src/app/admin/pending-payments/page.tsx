@@ -244,7 +244,7 @@ export default function PendingPaymentsPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: "var(--text-primary)" }}>Admin Ödeme Onayları & Bekleyen Adisyonlar</h1>
+        <h1 className="page-title" style={{ marginBottom: 8 }}>Admin Ödeme Onayları & Bekleyen Adisyonlar</h1>
         <p style={{ color: "var(--text-secondary)" }}>Garsonlardan gelen ödeme bildirimlerini onaylayın veya açık adisyonlardan tahsilat yapın.</p>
       </div>
 
@@ -275,7 +275,7 @@ export default function PendingPaymentsPage() {
       {/* SECTION 1: ADMIN ONAYI BEKLEYEN ÖDEME TALEPLERİ */}
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-          <Clock size={20} color="#F4A623" /> Garson / Müşteri Ödeme Onay Talepleri ({approvalRequests.length})
+          <Clock size={20} color="#F2B33D" /> Garson / Müşteri Ödeme Onay Talepleri ({approvalRequests.length})
         </h2>
 
         {approvalRequests.length === 0 ? (
@@ -285,7 +285,7 @@ export default function PendingPaymentsPage() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
             {approvalRequests.map((req) => (
-              <div key={req.id} className="card p-5" style={{ borderLeft: "4px solid #F4A623", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div key={req.id} className="card p-5" style={{ borderLeft: "4px solid #F2B33D", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 12 }}>
                     <h3 style={{ fontSize: 18, fontWeight: 700 }}>

@@ -51,8 +51,8 @@ export default function NotificationToast() {
                 padding: "4px 10px",
                 minHeight: 28,
                 borderRadius: 8,
-                border: "1px solid rgba(217,68,31,0.4)",
-                background: "rgba(217,68,31,0.12)",
+                border: "1px solid rgba(255,90,31,0.4)",
+                background: "rgba(255,90,31,0.12)",
                 cursor: "pointer",
               }}
             >

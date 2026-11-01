@@ -3,7 +3,9 @@
 import { useId, useState } from "react";
 import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import SheetHeader from "./SheetHeader";
 import { WAITER_REASONS } from "./constants";
+import styles from "./customer-menu.module.css";
 
 type Props = {
   /** Çağrı gönderilemediyse pencerenin içinde gösterilir (toast modalın arkasında kalırdı) */
@@ -14,35 +16,27 @@ type Props = {
   sending: boolean;
 };
 
+const OTHER_REASON = "Diğer";
+
 /** Garson çağırma: nedenler gerçek bir radyo grubu (ok tuşlarıyla gezilir, seçim okunur) */
 export default function WaiterSheet({ error, onClose, onSubmit, sending }: Props) {
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const noteId = useId();
-  const isOther = reason === "Diğer";
+  const isOther = reason === OTHER_REASON;
   const canSubmit = !!reason && (!isOther || !!note.trim()) && !sending;
 
+  const handleSubmit = () => onSubmit(isOther ? note.trim() : reason);
+
   return (
-    <Dialog onClose={onClose} overlayStyle={{ alignItems: "flex-end" }} contentClassName="modal-content modal-sheet" contentStyle={{ borderRadius: "20px 20px 0 0", padding: "0 0 24px", margin: 0, maxWidth: 600 }}>
-      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>🙋 Garson Çağır</h2>
-        <button type="button" aria-label="Kapat" className="tap-target" onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
-      </div>
-      <div style={{ padding: "16px 20px" }}>
+    <Dialog onClose={onClose} overlayStyle={{ alignItems: "flex-end" }} contentClassName={`modal-content modal-sheet ${styles.sheet}`}>
+      <SheetHeader title="Garson çağır" onClose={onClose} />
+      <div className={styles.sheetBody}>
         <fieldset className="reason-group">
-          <legend style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 14 }}>
-            Garsonun size daha hızlı yardımcı olabilmesi için nedeninizi seçin:
-          </legend>
-          {WAITER_REASONS.map(r => (
+          <legend className={styles.legend}>Garsonun size daha hızlı yardımcı olabilmesi için nedeninizi seçin:</legend>
+          {WAITER_REASONS.map((r) => (
             <label key={r} className="reason-option">
-              <input
-                type="radio"
-                name="waiter-reason"
-                value={r}
-                checked={reason === r}
-                onChange={() => setReason(r)}
-                className="sr-only"
-              />
+              <input type="radio" name="waiter-reason" value={r} checked={reason === r} onChange={() => setReason(r)} className="sr-only" />
               {r}
             </label>
           ))}
@@ -50,18 +44,20 @@ export default function WaiterSheet({ error, onClose, onSubmit, sending }: Props
         {isOther && (
           <>
             <label htmlFor={noteId} className="sr-only">Açıklama</label>
-            <textarea id={noteId} value={note} onChange={e => setNote(e.target.value)} placeholder="Açıklama yazın..." maxLength={200} className="input" style={{ resize: "none", height: 60, marginBottom: 14 }} />
+            <textarea
+              id={noteId}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Açıklama yazın"
+              maxLength={200}
+              className={`input ${styles.note}`}
+              style={{ marginBottom: 14 }}
+            />
           </>
         )}
         <FormError message={error} style={{ marginBottom: 14 }} />
-        <button
-          type="button"
-          onClick={() => onSubmit(isOther ? note.trim() : reason)}
-          disabled={!canSubmit}
-          className="btn btn-primary"
-          style={{ width: "100%", padding: "14px 0", borderRadius: 14, fontSize: 16 }}
-        >
-          {sending ? "Gönderiliyor..." : "Garson Çağır"}
+        <button type="button" onClick={handleSubmit} disabled={!canSubmit} className={`btn btn-primary ${styles.submit}`}>
+          {sending ? "Gönderiliyor…" : "Garson çağır"}
         </button>
       </div>
     </Dialog>

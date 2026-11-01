@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/ui/Loader";
+import PixelMark from "@/components/brand/PixelMark";
 
 export default function QRTokenPage({ params }: { params: Promise<{ qrToken: string }> }) {
   const resolvedParams = use(params);
@@ -50,18 +51,17 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
 
   if (error) {
     return (
-      <div className="min-h-viewport flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
+      <div className="customer-theme min-h-viewport flex items-center justify-center p-4">
         <div className="text-center max-w-sm">
-          <div className="text-6xl mb-4">❌</div>
-          <h1 className="text-xl font-bold mb-2" style={{ color: "#2A1A12" }}>
-            QR Kod Geçersiz
-          </h1>
-          <p className="text-gray-500 mb-6">{error}</p>
+          <PixelMark size={48} className="mx-auto mb-5" />
+          <p className="eyebrow">QR kod</p>
+          <h1 className="font-display mb-2 mt-2 text-4xl">Kod geçersiz</h1>
+          <p className="mb-6" style={{ color: "var(--text-secondary)" }}>{error}</p>
           <button
             onClick={() => { setLoading(true); setError(null); resolveQRToken(); }}
             className="btn btn-primary"
           >
-            Tekrar Dene
+            Tekrar dene
           </button>
         </div>
       </div>
@@ -69,10 +69,9 @@ export default function QRTokenPage({ params }: { params: Promise<{ qrToken: str
   }
 
   return (
-    <div className="min-h-viewport flex items-center justify-center p-4" style={{ background: "#FFF8F1" }}>
+    <div className="customer-theme min-h-viewport flex items-center justify-center p-4">
       <div className="text-center">
-        
-        <Loader label="Menü hazırlanıyor" emoji="🍽️" />
+        <Loader label="Menü hazırlanıyor" />
       </div>
     </div>
   );

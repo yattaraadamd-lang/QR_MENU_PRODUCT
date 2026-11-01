@@ -12,7 +12,7 @@ export type Category = { id: string; name: string };
 export const STOCK_OPTIONS = [
   { value: "IN_STOCK",               label: "Stokta Var",    color: "var(--success-text)", bg: "rgba(59,165,92,0.12)" },
   { value: "OUT_OF_STOCK",           label: "Stokta Yok",    color: "var(--danger-text)", bg: "rgba(239,68,68,0.12)" },
-  { value: "TEMPORARILY_UNAVAILABLE",label: "Geçici Yok",    color: "#F4A623",            bg: "rgba(244,166,35,0.12)" },
+  { value: "TEMPORARILY_UNAVAILABLE",label: "Geçici Yok",    color: "#F2B33D",            bg: "rgba(242,179,61,0.12)" },
 ];
 export type StockOption = typeof STOCK_OPTIONS[number];
 

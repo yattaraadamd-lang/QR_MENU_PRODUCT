@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Fraunces } from "next/font/google";
+import { Plus_Jakarta_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import SkipLink from "@/components/SkipLink";
@@ -12,10 +12,21 @@ const sans = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-const display = Fraunces({
+// Editoryal başlık: tek ağırlık (400) + italik vurgu
+const display = Instrument_Serif({
+  weight: "400",
+  style: ["normal", "italic"],
   subsets: ["latin", "latin-ext"],
   variable: "--font-display",
   display: "swap",
+});
+
+// Veri dili (fiyat, saat, masa no, etiket); ilk ekranın LCP'si değil, ön yüklenmez
+const mono = JetBrains_Mono({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-mono",
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -35,7 +46,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#CF411E",
+  themeColor: "#0F0D0B",
 };
 
 export default function RootLayout({
@@ -44,7 +55,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" className={`${sans.variable} ${display.variable}`}>
+    <html lang="tr" className={`${sans.variable} ${display.variable} ${mono.variable}`}>
       <body>
         <SkipLink />
         <WebVitalsLoader />

@@ -1,7 +1,3 @@
-export const BRAND = "#CF411E"; // Paprika — iştah açıcı kırmızı-turuncu
-export const BRAND_DARK = "#B23415";
-export const BRAND_RGB = "217,68,31";
-
 export const WAITER_REASONS = [
   "Sipariş vermek istiyorum",
   "Masa kirli",
@@ -12,14 +8,8 @@ export const WAITER_REASONS = [
   "Diğer",
 ];
 
-// Görseli olmayan ürünler için sıcak, iştah açıcı kutucuk degradeleri
-const FOOD_TILES = [
-  "linear-gradient(135deg,#FDBA74,#CF411E)",
-  "linear-gradient(135deg,#FCD27A,#D9820B)",
-  "linear-gradient(135deg,#F6A19A,#B3261E)",
-  "linear-gradient(135deg,#BBE2C1,#2E8B47)",
-  "linear-gradient(135deg,#E7C9A9,#8C5A3C)",
-];
+// Görseli olmayan ürünler için düz, sıcak kâğıt tonları (köz, safran, domates, fesleğen, kemik)
+const FOOD_TILES = ["#FFE6D9", "#FBEFCF", "#FBE3E1", "#E1F2E6", "#EFE6DA"];
 export const foodTile = (id: string) =>
   FOOD_TILES[Array.from(id).reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % FOOD_TILES.length];
 

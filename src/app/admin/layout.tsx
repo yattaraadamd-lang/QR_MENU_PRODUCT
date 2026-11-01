@@ -9,6 +9,7 @@ import { NotificationPanel } from "@/components/NotificationPanel";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import Loader from "@/components/ui/Loader";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
+import BrandLogo from "@/components/brand/BrandLogo";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -22,7 +23,7 @@ import {
   Ban,
   Settings,
   LogOut,
-  QrCode,
+  Lock,
   Menu,
   Store,
   Gem,
@@ -70,8 +71,8 @@ function AdminGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-viewport" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", padding: 32 }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Erişim Engellendi</h1>
+          <Lock size={44} aria-hidden="true" className="mx-auto mb-4" style={{ color: "var(--primary)" }} />
+          <h1 className="page-title" style={{ marginBottom: 8 }}>Erişim engellendi</h1>
           <p style={{ color: "var(--text-secondary)", marginBottom: 24 }}>
             Bu sayfaya erişim için admin yetkisi gerekli.
           </p>
@@ -156,26 +157,9 @@ function AdminContent({ children }: { children: React.ReactNode }) {
       <aside id="admin-sidebar" className="admin-sidebar" data-open={sidebarOpen}>
         <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  boxShadow: "0 4px 12px var(--primary-glow)",
-                }}
-              >
-                <QrCode size={18} color="white" />
-              </div>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.01em" }}>QR Menü</p>
-                <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 1 }}>Admin Paneli</p>
-              </div>
+            <div className="panel-brand">
+              <BrandLogo size="sm" />
+              <p className="panel-brand-sub">Yönetim paneli</p>
             </div>
           </div>
 
@@ -298,11 +282,11 @@ function AdminContent({ children }: { children: React.ReactNode }) {
                 height: 34,
                 borderRadius: 10,
                 flexShrink: 0,
-                background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+                background: "var(--ember)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "white",
+                color: "var(--on-ember)",
                 fontWeight: 700,
                 fontSize: 13,
               }}
@@ -371,9 +355,8 @@ function AdminContent({ children }: { children: React.ReactNode }) {
               <Menu size={22} aria-hidden="true" />
             </button>
 
-            <span className="admin-mobile-only" style={{ fontSize: 15, fontWeight: 700, gap: 6 }}>
-              <QrCode size={18} color="var(--primary)" />
-              QR Menü
+            <span className="admin-mobile-only">
+              <BrandLogo size="sm" />
             </span>
           </div>
 

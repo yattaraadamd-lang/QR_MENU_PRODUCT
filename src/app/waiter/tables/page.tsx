@@ -11,9 +11,9 @@ import FormError from "@/components/ui/FormError";
 import { formatTRY } from "@/lib/format";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  EMPTY:             { label: "Boş",              color: "#A89585", bg: "rgba(166,138,120,0.12)", icon: "⚪" },
+  EMPTY:             { label: "Boş",              color: "#BCAFA2", bg: "rgba(188,175,162,0.12)", icon: "⚪" },
   OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)",  icon: "🔵" },
-  HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(244,166,35,0.12)",  icon: "🟡" },
+  HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(242,179,61,0.12)",  icon: "🟡" },
   PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)",   icon: "🟢" },
   SERVED:            { label: "Servis Edildi",     color: "#8EDBA2", bg: "rgba(59,165,92,0.12)",  icon: "✅" },
   WAITING_WAITER:    { label: "Garson Bekleniyor", color: "#fca5a5", bg: "rgba(239,68,68,0.12)",   icon: "🔴" },
@@ -357,7 +357,7 @@ export default function WaiterTablesPage() {
                         ))}
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, paddingTop: 6, borderTop: "1px solid var(--border-subtle)" }}>
                           <span style={{ color: "var(--text-secondary)" }}>Ödeme Durumu</span>
-                          <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F4A623" : "var(--danger-text)" }}>
+                          <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F2B33D" : "var(--danger-text)" }}>
                             {sessionDetail.paymentStatus === "PAID" ? "✅ Ödendi" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "⚡ Kısmi Ödendi" : "❌ Ödenmedi"}
                           </span>
                         </div>

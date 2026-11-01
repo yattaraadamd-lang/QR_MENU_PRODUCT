@@ -1,0 +1,81 @@
+/* ─── Marka: piksel işareti, logo, QR→menü motifi ─────────────────────────── */
+
+.mark {
+  display: block;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+.markEmber { fill: var(--ember); }
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  text-decoration: none;
+  line-height: 1;
+}
+.wordmark {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.wordmark em { font-style: italic; color: var(--primary); }
+.logoMd .wordmark { font-size: 24px; }
+.logoSm .wordmark { font-size: 20px; }
+
+/* ─── QR→menü dönüşümü (PixelMorph) ──────────────────────────────────────────
+   Soldaki sütunlar QR olarak kalır; sağdakiler sırayla köze döner ve söner. Son
+   durum statik özniteliklerde (sütun opaklığı): animasyon yalnız "from" karesini
+   verir, bu yüzden "hareketi azalt"ta doğrudan son durum çizilir. Tek tur, ≈2 sn. */
+.morph {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: var(--text-primary);
+}
+.emberCol { fill: var(--ember); }
+.emberCol,
+.emberCol path {
+  animation-duration: 0.8s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: backwards;
+  animation-delay: calc(0.6s + var(--step, 0) * 90ms);
+}
+.emberCol { animation-name: column-fade; }
+.emberCol path { animation-name: pixel-ignite; }
+/* Soluk kareler biraz geç söner: sütun tek blok gibi değil, dağılarak döner */
+.emberCol .faint { opacity: 0.4; animation-delay: calc(0.75s + var(--step, 0) * 90ms); }
+
+@keyframes column-fade { from { opacity: 1; } }
+@keyframes pixel-ignite { from { fill: var(--text-primary); opacity: 1; } }
+
+.still .emberCol,
+.still .emberCol path { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .emberCol,
+  .emberCol path { animation: none; }
+}
+
+/* ─── Piksel glifi: 4×4 ızgarada dolu kare sayısı = ilerleme ─────────────── */
+.glyph {
+  display: grid;
+  grid-template-columns: repeat(4, 8px);
+  gap: 3px;
+}
+.glyph span {
+  width: 8px;
+  height: 8px;
+  border-radius: 1.5px;
+  background: var(--border-color);
+}
+.glyph span[data-on="true"] { background: var(--ember); }
+
+/* ─── Piksel çizgisi: bölüm ayıracı ──────────────────────────────────────── */
+.rule {
+  height: 6px;
+  background: repeating-linear-gradient(90deg, var(--border-color) 0 6px, transparent 6px 10px);
+  border: 0;
+}

@@ -9,7 +9,8 @@ import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import Loader from "@/components/ui/Loader";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
 import { useCssHeightVar } from "@/hooks/useCssHeightVar";
-import { ClipboardList, Bell, CreditCard, Table2, LogOut, QrCode } from "lucide-react";
+import { ClipboardList, Bell, CreditCard, Table2, LogOut, Lock } from "lucide-react";
+import PixelMark from "@/components/brand/PixelMark";
 
 const NAV = [
   { href: "/waiter",          label: "Siparişler", icon: <ClipboardList size={22} /> },
@@ -37,8 +38,8 @@ function WaiterGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-viewport" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", padding: 32 }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>🔒</div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Erişim Engellendi</h1>
+          <Lock size={44} aria-hidden="true" className="mx-auto mb-4" style={{ color: "var(--primary)" }} />
+          <h1 className="page-title" style={{ marginBottom: 8 }}>Erişim engellendi</h1>
           <p style={{ color: "var(--text-secondary)", marginBottom: 24 }}>Garson veya admin yetkisi gerekli.</p>
           <button onClick={() => router.push("/auth/signin")} className="btn btn-primary">Giriş Yap</button>
         </div>
@@ -79,14 +80,7 @@ function WaiterContent({ children }: { children: React.ReactNode }) {
         position: "sticky", top: 0, zIndex: 30,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10,
-            background: "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 4px 12px var(--primary-glow)",
-          }}>
-            <QrCode size={18} color="white" />
-          </div>
+          <PixelMark size={26} />
           <div>
             <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>
               {session?.user.name || "Garson"}

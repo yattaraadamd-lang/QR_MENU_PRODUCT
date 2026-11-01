@@ -2,14 +2,16 @@ import React from "react";
 
 interface LoaderProps {
   label?: string;
-  emoji?: string;
   fullScreen?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
 
-// Dönen çift halka + zıplayan noktalı etiket. Saf CSS, sunucu bileşenlerinde de çalışır.
-export default function Loader({ label = "Yükleniyor", emoji, fullScreen = false, className = "", style }: LoaderProps) {
+const PIXELS = 9;
+
+// 3×3 piksel ızgarası sırayla köze döner (marka motifi) + zıplayan noktalı etiket.
+// Saf CSS, sunucu bileşenlerinde de çalışır.
+export default function Loader({ label = "Yükleniyor", fullScreen = false, className = "", style }: LoaderProps) {
   return (
     <div
       role="status"
@@ -17,7 +19,11 @@ export default function Loader({ label = "Yükleniyor", emoji, fullScreen = fals
       className={`loader ${fullScreen ? "min-h-viewport" : ""} ${className}`.replace(/\s+/g, " ").trim()}
       style={style}
     >
-      <div className="loader-ring">{emoji && <span className="loader-emoji">{emoji}</span>}</div>
+      <div className="loader-pixels" aria-hidden="true">
+        {Array.from({ length: PIXELS }, (_, i) => (
+          <span key={i} />
+        ))}
+      </div>
       <span className="loader-label">
         {label}
         <span className="loader-dots" aria-hidden>

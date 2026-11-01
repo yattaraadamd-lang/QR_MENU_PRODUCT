@@ -7,6 +7,8 @@ import { ReactNode, useState } from "react";
 import Loader from "@/components/ui/Loader";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
 import { useCssHeightVar } from "@/hooks/useCssHeightVar";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { Lock, LogOut, Menu, X } from "lucide-react";
 
 const sidebarLinks = [
   { href: "/super-admin/dashboard", label: "Dashboard", icon: "📊" },
@@ -41,8 +43,8 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-viewport flex items-center justify-center">
         <div className="text-center">
-          <div className="text-5xl mb-4">🔒</div>
-          <h1 className="text-xl font-bold mb-2">Erişim Engellendi</h1>
+          <Lock size={44} aria-hidden="true" className="mx-auto mb-4" style={{ color: "var(--primary)" }} />
+          <h1 className="page-title mb-2">Erişim engellendi</h1>
           <p style={{ color: "var(--text-secondary)" }} className="mb-4">Bu alana sadece Super Admin erişebilir.</p>
           <button onClick={() => router.push("/auth/signin")} className="btn btn-primary">Giriş Yap</button>
         </div>
@@ -62,10 +64,10 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
         top: 0,
       }} className="hidden md:flex h-viewport">
         <div style={{ padding: "24px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <p style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
-            <span style={{ color: "var(--purple-text)" }}>QR</span> SaaS Admin
-          </p>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>Super Admin Modu</p>
+          <div className="panel-brand">
+            <BrandLogo size="sm" />
+            <p className="panel-brand-sub">Platform yönetimi</p>
+          </div>
         </div>
 
         <nav aria-label="Platform menüsü" style={{ flex: 1, padding: "20px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
@@ -84,8 +86,8 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
                   borderRadius: 12,
                   textDecoration: "none",
                   fontWeight: isActive ? 600 : 500,
-                  color: isActive ? "var(--purple-text)" : "var(--text-secondary)",
-                  background: isActive ? "rgba(163,71,122,0.1)" : "transparent",
+                  color: isActive ? "var(--primary)" : "var(--text-secondary)",
+                  background: isActive ? "rgba(var(--ember-rgb),0.12)" : "transparent",
                   transition: "all 0.2s",
                 }}
               >
@@ -102,7 +104,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
             className="btn btn-ghost"
             style={{ width: "100%", justifyContent: "flex-start", color: "var(--danger-text)" }}
           >
-            🚪 Çıkış Yap
+            <LogOut size={16} aria-hidden="true" /> Çıkış yap
           </button>
         </div>
       </aside>
@@ -120,11 +122,9 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
           top: 0,
           zIndex: 40,
         }}>
-          <p style={{ fontSize: 18, fontWeight: 800 }}>
-            <span style={{ color: "var(--purple-text)" }}>QR</span> SaaS
-          </p>
+          <BrandLogo size="sm" />
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} aria-label={isMobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={isMobileMenuOpen} style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--text-primary)" }}>
-            {isMobileMenuOpen ? "✕" : "☰"}
+            {isMobileMenuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}
           </button>
         </div>
 
@@ -152,7 +152,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
               className="btn btn-ghost"
               style={{ justifyContent: "flex-start", padding: "16px", fontSize: 16, color: "var(--danger-text)", marginTop: "auto" }}
             >
-              🚪 Çıkış Yap
+              <LogOut size={16} aria-hidden="true" /> Çıkış yap
             </button>
           </div>
         )}

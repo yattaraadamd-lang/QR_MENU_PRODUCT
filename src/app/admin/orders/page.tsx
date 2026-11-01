@@ -18,7 +18,7 @@ const paymentLabels: Record<string, string> = {
 };
 // color: metin (≥4.5:1), bg: aynı tonun saydam zemini
 const paymentColors: Record<string, { color: string; bg: string }> = {
-  UNPAID:            { color: "#F4A623",            bg: "rgba(244,166,35,0.09)" },
+  UNPAID:            { color: "#F2B33D",            bg: "rgba(242,179,61,0.09)" },
   PAYMENT_REQUESTED: { color: "var(--purple-text)", bg: "rgba(163,71,122,0.09)" },
   PAID:              { color: "#3BA55C",            bg: "rgba(59,165,92,0.09)" },
   CANCELLED:         { color: "var(--danger-text)", bg: "rgba(239,68,68,0.09)" },
@@ -28,7 +28,7 @@ const paymentFallback = { color: "var(--text-secondary)", bg: "var(--bg-hover)" 
 // Sekme tanımları — badgeColor: metin (≥4.5:1), badgeBg: saydam zemin
 const TABS = [
   { key: "all",      label: "Tümü",           badgeColor: null,                  badgeBg: null },
-  { key: "active",   label: "Aktif",           badgeColor: "#F4A623",            badgeBg: "rgba(244,166,35,0.13)" },
+  { key: "active",   label: "Aktif",           badgeColor: "#F2B33D",            badgeBg: "rgba(242,179,61,0.13)" },
   { key: "pending_payment", label: "Bekleyen Ödeme", badgeColor: "var(--purple-text)", badgeBg: "rgba(163,71,122,0.13)" },
   { key: "completed",label: "Tamamlanan",      badgeColor: "#3BA55C",            badgeBg: "rgba(59,165,92,0.13)" },
   { key: "cancelled",label: "İptal Edilen",    badgeColor: "var(--danger-text)", badgeBg: "rgba(239,68,68,0.13)" },
@@ -209,7 +209,7 @@ export default function AdminOrdersPage() {
                 padding: "7px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
                 border: isActive ? "none" : "1px solid var(--border-color)",
                 background: isActive ? "var(--primary)" : "transparent",
-                color: isActive ? "white" : "var(--text-secondary)",
+                color: isActive ? "var(--on-primary)" : "var(--text-secondary)",
                 cursor: "pointer", transition: "all 0.15s",
               }}
             >
@@ -298,7 +298,7 @@ export default function AdminOrdersPage() {
 
               {/* OUT_OF_STOCK Ürün Seçimi */}
               {selectedReasonCode === "OUT_OF_STOCK" && (
-                <div style={{ marginBottom: 16, padding: 12, background: "rgba(244,166,35,0.08)", borderRadius: 10, border: "1px solid rgba(244,166,35,0.25)" }}>
+                <div style={{ marginBottom: 16, padding: 12, background: "rgba(242,179,61,0.08)", borderRadius: 10, border: "1px solid rgba(242,179,61,0.25)" }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary-light)", marginBottom: 8 }}>
                     Stokta olmayan ürünü/ürünleri seçin:
                   </p>
@@ -405,7 +405,7 @@ export default function AdminOrdersPage() {
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "1px solid var(--border-subtle)" }}>
                     <div style={{ flex: 1 }}>
                       <span>{item.quantity}× {item.productName || item.product?.name}</span>
-                      {item.customerNote && <div style={{ fontSize: 11, color: "#F4A623", marginTop: 2 }}>📝 {item.customerNote}</div>}
+                      {item.customerNote && <div style={{ fontSize: 11, color: "#F2B33D", marginTop: 2 }}>📝 {item.customerNote}</div>}
                     </div>
                     <span style={{ fontWeight: 600 }}>{formatTRY(item.totalPrice)}</span>
                   </div>
@@ -413,7 +413,7 @@ export default function AdminOrdersPage() {
               </div>
 
               {order.note && (
-                <div style={{ padding: "8px 12px", background: "rgba(244,166,35,0.08)", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ padding: "8px 12px", background: "rgba(242,179,61,0.08)", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
                   <strong>Sipariş Notu:</strong> {order.note}
                 </div>
               )}

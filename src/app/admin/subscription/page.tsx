@@ -35,7 +35,7 @@ type Data = {
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   TRIAL: { label: "Deneme", color: "#60a5fa" },
   ACTIVE: { label: "Aktif", color: "#3BA55C" },
-  PAST_DUE: { label: "Ödeme Bekleniyor", color: "#F4A623" },
+  PAST_DUE: { label: "Ödeme Bekleniyor", color: "#F2B33D" },
   CANCELLED: { label: "İptal Edildi", color: "var(--danger-text)" },
   EXPIRED: { label: "Süresi Doldu", color: "var(--danger-text)" },
 };
@@ -45,7 +45,7 @@ const labelStyle = { fontSize: 13, fontWeight: 600, color: "var(--text-secondary
 
 function UsageBar({ label, usage }: { label: string; usage: Usage }) {
   const pct = usage.limit ? Math.min(100, (usage.current / usage.limit) * 100) : 0;
-  const color = pct >= 100 ? "#ef4444" : pct >= 80 ? "#F4A623" : "var(--primary)";
+  const color = pct >= 100 ? "#ef4444" : pct >= 80 ? "#F2B33D" : "var(--primary)";
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>

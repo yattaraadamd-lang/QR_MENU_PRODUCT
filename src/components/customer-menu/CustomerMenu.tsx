@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 import BottomBar from "@/components/customer-menu/BottomBar";
 import CartPanel from "@/components/customer-menu/CartPanel";
 import CategoryNav from "@/components/customer-menu/CategoryNav";
@@ -10,7 +11,9 @@ import { MenuAccessError, MenuLoading } from "@/components/customer-menu/MenuSta
 import ProductCard from "@/components/customer-menu/ProductCard";
 import ProductSheet from "@/components/customer-menu/ProductSheet";
 import ServiceSheet from "@/components/customer-menu/ServiceSheet";
+import SheetHeader from "@/components/customer-menu/SheetHeader";
 import WaiterSheet from "@/components/customer-menu/WaiterSheet";
+import styles from "@/components/customer-menu/customer-menu.module.css";
 import { scrollBehavior } from "@/components/customer-menu/constants";
 import { orderable, type MenuResponse, type Product } from "@/components/customer-menu/types";
 import { useCart } from "@/components/customer-menu/useCart";
@@ -155,9 +158,9 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
           girmesin diye alert değil status. */}
       {session.blockedMsg && !session.token && session.blockedMsg !== dismissedNotice && (
         <div role="status" className="menu-notice animate-slide-up">
-          <p style={{ flex: 1 }}>⚠️ {session.blockedMsg}</p>
+          <p style={{ flex: 1 }}>{session.blockedMsg}</p>
           <button type="button" aria-label="Uyarıyı kapat" className="tap-target" onClick={() => setDismissedNotice(session.blockedMsg)}>
-            ✕
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -176,15 +179,12 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
                 ref={el => { sectionRefs.current[cat.id] = el; }}
                 data-category-id={cat.id}
                 aria-labelledby={`cat-${cat.id}`}
-                className="menu-section"
-                style={{ marginBottom: 40 }}
+                className={`menu-section ${styles.section}`}
               >
-                <h2 id={`cat-${cat.id}`} style={{ fontSize: 22, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-                  {cat.icon && (
-                    <span aria-hidden="true" style={{ fontSize: 20, width: 40, height: 40, borderRadius: 12, background: "#FFE9DF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{cat.icon}</span>
-                  )}
-                  <span className="font-display" style={{ flex: 1 }}>{cat.name}</span>
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 700, background: "var(--bg-hover)", padding: "4px 10px", borderRadius: 99 }}>{cat.products.length} ürün</span>
+                <h2 id={`cat-${cat.id}`} className={styles.sectionTitle}>
+                  {cat.icon && <span aria-hidden="true" className={styles.sectionIcon}>{cat.icon}</span>}
+                  <span className={`font-display ${styles.sectionName}`}>{cat.name}</span>
+                  <span className={styles.sectionCount}>{cat.products.length} ürün</span>
                 </h2>
                 <div className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
                   {cat.products.map(p => (
@@ -204,17 +204,14 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
 
           {/* Kolon 3: Sepet (masaüstü) */}
           <aside aria-label="Sepet" className="hidden lg:block lg:w-80 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-md border p-5 sticky menu-side-panel" style={{
-              background: "var(--bg-card)", borderColor: "var(--border-color)",
-              maxHeight: "calc(100dvh - var(--header-h) - 32px)", display: "flex", flexDirection: "column",
-            }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "2px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
-                🛒 Sepetim
+            <div className={`sticky menu-side-panel ${styles.cartAside}`}>
+              <h2 className={`font-display ${styles.cartTitle}`}>
+                Sepetim
                 {cart.count > 0 && (
-                  <span key={cart.count} className="animate-bump" style={{ background: "var(--primary)", color: "white", borderRadius: 99, fontSize: 12, fontWeight: 700, padding: "2px 8px", minWidth: 24, textAlign: "center", display: "inline-block" }}>{cart.count}</span>
+                  <span key={cart.count} className={`animate-bump ${styles.cartCount}`}>{cart.count}</span>
                 )}
               </h2>
-              <div style={{ flex: 1, overflowY: "auto", marginBottom: 12 }}>{renderCart()}</div>
+              <div className={styles.cartScroll}>{renderCart()}</div>
             </div>
           </aside>
         </div>
@@ -225,12 +222,9 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
       )}
 
       {showCartMobile && (
-        <Dialog onClose={() => setShowCartMobile(false)} overlayClassName="lg:hidden" overlayStyle={{ alignItems: "flex-end" }} contentClassName="modal-content modal-sheet" contentStyle={{ borderRadius: "20px 20px 0 0", margin: 0, maxWidth: 600, padding: 0 }}>
-          <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1, borderRadius: "20px 20px 0 0" }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>🛒 Sepetim</h2>
-            <button type="button" aria-label="Kapat" className="tap-target" onClick={() => setShowCartMobile(false)} style={{ width: 32, height: 32, borderRadius: 8, background: "var(--bg-hover)", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
-          </div>
-          <div style={{ padding: "12px 20px 20px", maxHeight: "70dvh", overflowY: "auto" }}>{renderCart(actions.actionError)}</div>
+        <Dialog onClose={() => setShowCartMobile(false)} overlayClassName="lg:hidden" overlayStyle={{ alignItems: "flex-end" }} contentClassName={`modal-content modal-sheet ${styles.sheet}`} contentStyle={{ paddingBottom: 0 }}>
+          <SheetHeader title="Sepetim" onClose={() => setShowCartMobile(false)} />
+          <div className={styles.sheetScroll}>{renderCart(actions.actionError)}</div>
         </Dialog>
       )}
 
