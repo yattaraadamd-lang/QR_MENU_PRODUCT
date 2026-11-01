@@ -207,7 +207,7 @@ export default function AdminRequestsPage() {
                   </p>
                   {/* ✅ Garson çağırma nedeni göster */}
                   {req.note && (
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, padding: "4px 8px", background: "rgba(244,166,35,0.1)", borderRadius: 6 }}>
+                    <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, padding: "4px 8px", background: "rgba(242,179,61,0.1)", borderRadius: 6 }}>
                       📝 {req.note}
                     </p>
                   )}
@@ -228,7 +228,7 @@ export default function AdminRequestsPage() {
                   {req.requestType === "ORDER_REQUEST" && req.status === "PENDING" && (
                     <>
                       {req.verificationCode && (
-                        <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(244,166,35,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(242,179,61,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: "#FCD27A" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
                           <span style={{ fontSize: 20, fontWeight: 900, color: "var(--primary-light)", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
                         </div>

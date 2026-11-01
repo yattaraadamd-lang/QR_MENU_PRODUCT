@@ -101,7 +101,7 @@ export default function BlockedDevicesPage() {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: "var(--text-primary)" }}>
+        <h1 className="page-title" style={{ marginBottom: 8 }}>
           Engelli Cihazlar
         </h1>
         <p style={{ color: "var(--text-secondary)" }}>
@@ -292,8 +292,8 @@ export default function BlockedDevicesPage() {
             </div>
 
             <div style={{
-              padding: "10px 14px", background: "rgba(244,166,35, 0.1)",
-              color: "#F4A623", borderRadius: 8, marginBottom: 16,
+              padding: "10px 14px", background: "rgba(242,179,61, 0.1)",
+              color: "#F2B33D", borderRadius: 8, marginBottom: 16,
               fontSize: 12, fontWeight: 500, lineHeight: 1.5,
             }}>
               ⚠️ Bu işlem cihaz engelini kaldırır. Cihaz sahibi QR kodunu yeniden okuttuğunda yeni bir oturum açabilir.

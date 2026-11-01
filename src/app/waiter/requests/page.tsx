@@ -14,7 +14,7 @@ const TYPE_META: Record<string, { label: string; icon: string; color: string }> 
   PAYMENT_REQUEST:     { label: "Ödeme Talebi",    icon: "💳", color: "#A3477A" },
   HELP_REQUEST:        { label: "Yardım Talebi",   icon: "ℹ️", color: "#3b82f6" },
   CLEANING_REQUEST:    { label: "Temizlik",         icon: "🧹", color: "#06b6d4" },
-  ORDER_REQUEST:       { label: "Sipariş Talebi",  icon: "📋", color: "#F4A623" },
+  ORDER_REQUEST:       { label: "Sipariş Talebi",  icon: "📋", color: "#F2B33D" },
   PRODUCT_INFO:        { label: "Ürün Bilgisi",    icon: "❓", color: "#3BA55C" },
   COMPLAINT_SUGGESTION:{ label: "Şikayet/Öneri",   icon: "💬", color: "#A3477A" },
 };
@@ -163,7 +163,7 @@ export default function WaiterRequestsPage() {
             Aktif
             {pendingCount > 0 && (
               <span style={{
-                background: filter === "active" ? "rgba(255,255,255,0.25)" : "#ef4444",
+                background: filter === "active" ? "var(--on-ember)" : "var(--danger)",
                 color: "white",
                 borderRadius: 99,
                 fontSize: 10,
@@ -236,8 +236,8 @@ export default function WaiterRequestsPage() {
                   {isOrder && req.orderPreview && (
                     <div style={{
                       padding: "10px 12px", marginTop: 8,
-                      background: "rgba(244,166,35,0.06)", borderRadius: 10,
-                      border: "1px solid rgba(244,166,35,0.2)", fontSize: 13,
+                      background: "rgba(242,179,61,0.06)", borderRadius: 10,
+                      border: "1px solid rgba(242,179,61,0.2)", fontSize: 13,
                     }}>
                       <p style={{ fontWeight: 700, marginBottom: 6, color: "var(--text-primary)", fontSize: 12 }}>
                         📋 Ürün Özeti:
@@ -257,7 +257,7 @@ export default function WaiterRequestsPage() {
                       </div>
                       <div style={{
                         display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 6,
-                        borderTop: "1px dashed rgba(244,166,35,0.3)", fontWeight: 800, fontSize: 13
+                        borderTop: "1px dashed rgba(242,179,61,0.3)", fontWeight: 800, fontSize: 13
                       }}>
                         <span>Tahmini Toplam:</span>
                         <span style={{ color: "var(--primary-light)" }}>{formatTRY(req.orderPreview.total || 0)}</span>
@@ -271,7 +271,7 @@ export default function WaiterRequestsPage() {
                   )}
 
                   {req.note && !isOrder && (
-                    <div style={{ padding: "6px 10px", background: "rgba(244,166,35,0.08)", borderRadius: 8, fontSize: 12, color: "#FCD27A", marginTop: 6 }}>
+                    <div style={{ padding: "6px 10px", background: "rgba(242,179,61,0.08)", borderRadius: 8, fontSize: 12, color: "#FCD27A", marginTop: 6 }}>
                       📝 {req.note}
                     </div>
                   )}

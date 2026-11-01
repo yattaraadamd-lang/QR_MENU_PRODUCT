@@ -82,7 +82,7 @@ export default function AdminDashboardPage() {
     { label: "Bugünkü Ciro",    value: fmt(stats.todayRevenue),    icon: <TrendingUp size={20} />, color: "#3BA55C", bg: "rgba(59,165,92,0.08)" },
     { label: "Aylık Ciro",      value: fmt(stats.monthlyRevenue),  icon: <BarChart3 size={20} />,  color: "var(--purple-text)", bg: "rgba(163,71,122,0.08)" },
     { label: "Bugün Sipariş",   value: stats.todayOrderCount,      icon: <ClipboardList size={20} />, color: "#3b82f6", bg: "rgba(59,130,246,0.08)" },
-    { label: "Bekleyen",        value: stats.pendingOrderCount,    icon: <Clock size={20} />,      color: "#F4A623", bg: "rgba(244,166,35,0.08)" },
+    { label: "Bekleyen",        value: stats.pendingOrderCount,    icon: <Clock size={20} />,      color: "#F2B33D", bg: "rgba(242,179,61,0.08)" },
     { label: "Aktif Talep",     value: stats.activeRequestCount,   icon: <Bell size={20} />,       color: "var(--danger-text)", bg: "rgba(239,68,68,0.08)" },
     { label: "Ödeme Talebi",    value: stats.paymentRequestCount,  icon: <CreditCard size={20} />, color: "var(--purple-text)", bg: "rgba(163,71,122,0.08)" },
     { label: "Dolu Masa",       value: `${stats.occupiedTableCount}/${stats.totalTableCount}`, icon: <Table2 size={20} />, color: "#06b6d4", bg: "rgba(6,182,212,0.08)" },
@@ -92,7 +92,7 @@ export default function AdminDashboardPage() {
     { href: "/admin/orders",   icon: <ClipboardList size={24} />,  label: "Siparişler",   color: "#3b82f6" },
     { href: "/admin/products", icon: <Package size={24} />,        label: "Ürünler",      color: "var(--purple-text)" },
     { href: "/admin/tables",   icon: <Table2 size={24} />,         label: "Masalar",      color: "#3BA55C" },
-    { href: "/admin/requests", icon: <Bell size={24} />,           label: "Talepler",     color: "#F4A623" },
+    { href: "/admin/requests", icon: <Bell size={24} />,           label: "Talepler",     color: "#F2B33D" },
     { href: "/admin/payments", icon: <CreditCard size={24} />,     label: "Ödemeler",     color: "var(--purple-text)" },
     { href: "/admin/staff",    icon: <Users size={24} />,          label: "Personel",     color: "var(--danger-text)" },
   ];
@@ -109,20 +109,13 @@ export default function AdminDashboardPage() {
         gap: 14,
       }}>
         <div>
-          <h1 style={{
-            fontSize: 24,
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            lineHeight: 1.2,
-          }}>
-            Dashboard
-          </h1>
+          <h1 className="page-title">Dashboard</h1>
           <p style={{
             color: "var(--text-secondary)",
             fontSize: 14,
             marginTop: 4,
           }}>
-            Hoş geldiniz, {session?.user.name} 👋
+            Hoş geldiniz, {session?.user.name}
           </p>
         </div>
         <button onClick={toggleRevenue} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
@@ -147,24 +140,14 @@ export default function AdminDashboardPage() {
             overflow: "hidden",
             transition: "all 0.2s",
           }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: k.color, borderRadius: "14px 14px 0 0" }} />
+
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: k.bg,
               display: "flex", alignItems: "center", justifyContent: "center",
               color: k.color, marginBottom: 10,
             }}>{k.icon}</div>
-            <p style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-              {k.label}
-            </p>
-            <p style={{
-              fontSize: 24,
-              fontWeight: 800,
-              color: k.color,
-              letterSpacing: "-0.02em",
-              lineHeight: 1,
-            }}>
-              {k.value}
-            </p>
+            <p className="stat-label">{k.label}</p>
+            <p className="stat-value">{k.value}</p>
           </div>
         ))}
       </div>

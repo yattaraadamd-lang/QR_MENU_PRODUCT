@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import AuthShell from "@/components/auth/AuthShell";
+import { AuthCard, AuthHeader, AuthLinks, BackHomeLink, FormAlert, authStyles as styles } from "@/components/auth/AuthParts";
+import { STAFF_ASIDE } from "@/components/auth/asides";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -44,161 +47,74 @@ export default function RegisterPage() {
       }
 
       router.push("/auth/signin?registered=true");
-    } catch (err) {
+    } catch {
       setError("Kayıt yapılırken bir hata oluştu");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-viewport" style={{
-      background: "radial-gradient(700px 400px at 85% -10%, rgba(217,68,31,0.28), transparent 70%), linear-gradient(135deg, #17110E 0%, #2A1A12 50%, #17110E 100%)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 16,
-    }}>
-      <div style={{
-        maxWidth: 420,
-        width: "100%",
-        background: "var(--bg-secondary)",
-        border: "1px solid var(--border-color)",
-        borderRadius: 20,
-        padding: "28px 24px",
-        overflow: "hidden",
-      }}>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>👨‍🍳</div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, wordBreak: "break-word" }}>
-            <span style={{ color: "var(--primary)" }}>Garson</span> Kayıt
-          </h1>
-          <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 4, lineHeight: 1.4 }}>
-            Davet kodunuz veya linkinizle garson hesabı oluşturun
-          </p>
-        </div>
+    <AuthShell aside={STAFF_ASIDE}>
+      <AuthHeader
+        eyebrow="Garson kaydı"
+        title={
+          <>
+            Ekibe <em>katılın.</em>
+          </>
+        }
+        desc="Davet kodunuz veya linkinizle garson hesabınızı oluşturun."
+      />
+      <AuthCard>
+        {error && <FormAlert>{error}</FormAlert>}
 
-        {error && (
-          <div style={{
-            padding: "10px 14px",
-            background: "rgba(239,68,68,0.1)",
-            border: "1px solid rgba(239,68,68,0.2)",
-            borderRadius: 10,
-            color: "#f87171",
-            fontSize: 13,
-            marginBottom: 16,
-            wordBreak: "break-word",
-          }}>
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <form onSubmit={handleSubmit} className={styles.form}>
           <div>
-            <label htmlFor="f-ad-soyad" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Ad Soyad *
-            </label>
-            <input id="f-ad-soyad"
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="input"
-              placeholder="Ahmet Yılmaz"
-              required
-            />
+            <label htmlFor="f-ad-soyad" className={styles.label}>Ad soyad *</label>
+            <input id="f-ad-soyad" type="text" name="name" value={formData.name} onChange={handleChange}
+              className="input" placeholder="Ahmet Yılmaz" required autoComplete="name" />
           </div>
 
           <div>
-            <label htmlFor="f-e-posta" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              E-posta *
-            </label>
-            <input id="f-e-posta"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="input"
-              placeholder="ornek@email.com"
-              required
-            />
+            <label htmlFor="f-e-posta" className={styles.label}>E-posta *</label>
+            <input id="f-e-posta" type="email" name="email" value={formData.email} onChange={handleChange}
+              className="input" placeholder="ornek@email.com" required autoComplete="email" />
           </div>
 
           <div>
-            <label htmlFor="f-sifre" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Şifre *
-            </label>
-            <input id="f-sifre"
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              className="input"
-              placeholder="En az 12 karakter, harf ve rakam"
-              required
-              minLength={12}
-              maxLength={72}
-            />
+            <label htmlFor="f-sifre" className={styles.label}>Şifre *</label>
+            <input id="f-sifre" type="password" name="password" value={formData.password} onChange={handleChange}
+              className="input" placeholder="En az 12 karakter, harf ve rakam" required minLength={12} maxLength={72}
+              autoComplete="new-password" />
           </div>
 
           <div>
-            <label htmlFor="f-telefon" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Telefon
-            </label>
-            <input id="f-telefon"
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              className="input"
-              placeholder="+90 555 000 0000"
-            />
+            <label htmlFor="f-telefon" className={styles.label}>Telefon</label>
+            <input id="f-telefon" type="tel" name="phone" value={formData.phone} onChange={handleChange}
+              className="input" placeholder="+90 555 000 0000" autoComplete="tel" />
           </div>
 
           <div>
-            <label htmlFor="f-davet-kodu-veya-linki" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-              Davet Kodu veya Linki *
-            </label>
-            <input id="f-davet-kodu-veya-linki"
-              type="text"
-              name="inviteCode"
-              value={formData.inviteCode}
-              onChange={handleChange}
-              className="input"
-              placeholder="inv_… ya da davet linkinin tamamı"
-              required
-              autoComplete="off"
-            />
-            <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>
+            <label htmlFor="f-davet-kodu-veya-linki" className={styles.label}>Davet kodu veya linki *</label>
+            <input id="f-davet-kodu-veya-linki" type="text" name="inviteCode" value={formData.inviteCode}
+              onChange={handleChange} className="input" placeholder="inv_… ya da davet linkinin tamamı" required
+              autoComplete="off" aria-describedby="f-davet-ipucu" />
+            <p id="f-davet-ipucu" className={styles.hint}>
               Yöneticinizden gelen davet linkini açarsanız bu adıma gerek kalmaz. Linki buraya da yapıştırabilirsiniz.
             </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary btn-lg"
-            style={{ width: "100%", marginTop: 4, opacity: loading ? 0.7 : 1 }}
-          >
-            {loading ? "Kayıt yapılıyor..." : "Kayıt Ol"}
+          <button type="submit" disabled={loading} className={`btn btn-primary btn-lg ${styles.submit}`}>
+            {loading ? "Kayıt yapılıyor…" : "Kayıt ol"}
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: 20 }}>
-          <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-            Zaten hesabınız var mı?{" "}
-            <Link href="/auth/signin" style={{ color: "var(--primary-light)", fontWeight: 600, textDecoration: "none" }}>
-              Giriş Yap
-            </Link>
+        <AuthLinks>
+          <p>
+            Zaten hesabınız var mı? <Link href="/auth/signin">Giriş yapın</Link>
           </p>
-        </div>
-
-        <div style={{ textAlign: "center", marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border-color)" }}>
-          <Link href="/" style={{ fontSize: 13, color: "var(--text-secondary)", textDecoration: "none" }}>
-            ← Ana Sayfaya Dön
-          </Link>
-        </div>
-
-      </div>
-    </div>
+        </AuthLinks>
+      </AuthCard>
+      <BackHomeLink />
+    </AuthShell>
   );
 }

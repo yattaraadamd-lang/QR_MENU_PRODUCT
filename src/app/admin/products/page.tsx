@@ -187,7 +187,7 @@ export default function AdminProductsPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Ürün Yönetimi</h1>
+          <h1 className="page-title">Ürün Yönetimi</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>
             {products.length} ürün • Sürükle-bırak ile sıralayabilir, hızlı butonla stok durumunu yönetebilirsiniz
           </p>
@@ -269,8 +269,8 @@ export default function AdminProductsPage() {
                   Menüde Görünsün
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
-                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#F4A623" }} />
-                  <Star size={14} color="#F4A623" /> Popüler
+                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#F2B33D" }} />
+                  <Star size={14} color="#F2B33D" /> Popüler
                 </label>
               </div>
             </div>

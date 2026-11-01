@@ -44,7 +44,7 @@ export default function SuperAdminDashboardPage() {
     { label: "Toplam İşletme", value: stats.totalBusinesses, icon: "🏢", color: "#A3477A" },
     { label: "Aktif İşletme", value: stats.activeBusinesses, icon: "🟢", color: "#3BA55C" },
     { label: "Aylık Platform Geliri", value: formatTRY(stats.monthlyPlatformRevenue), icon: "💎", color: "#A3477A" },
-    { label: "Toplam Admin", value: stats.totalAdmins, icon: "👑", color: "#F4A623" },
+    { label: "Toplam Admin", value: stats.totalAdmins, icon: "👑", color: "#F2B33D" },
     { label: "Toplam Garson", value: stats.totalWaiters, icon: "👔", color: "#ef4444" },
     { label: "Toplam Sipariş", value: stats.totalOrders, icon: "📋", color: "#3b82f6" },
   ];

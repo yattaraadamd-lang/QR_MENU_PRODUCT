@@ -154,7 +154,7 @@ export default function WaiterPaymentsPage() {
                     ? "4px solid #3b82f6"
                     : isRejected
                     ? "4px solid #ef4444"
-                    : "4px solid #F4A623",
+                    : "4px solid #F2B33D",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 10 }}>
@@ -247,8 +247,8 @@ export default function WaiterPaymentsPage() {
             {/* Bill amount */}
             <div style={{
               marginBottom: 16, padding: "16px", borderRadius: 14,
-              background: "linear-gradient(135deg, var(--primary-glow), rgba(217,68,31,0.05))",
-              border: "1px solid rgba(217,68,31,0.15)",
+              background: "linear-gradient(135deg, var(--primary-glow), rgba(255,90,31,0.05))",
+              border: "1px solid rgba(255,90,31,0.15)",
             }}>
               <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4, fontWeight: 600 }}>
                 Adisyon / Kalan Borç

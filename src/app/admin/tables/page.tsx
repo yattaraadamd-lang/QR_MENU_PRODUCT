@@ -10,9 +10,9 @@ import QueryError from "@/components/ui/QueryError";
 import { formatTRY } from "@/lib/format";
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  EMPTY:             { label: "Boş",              color: "#A89585", bg: "rgba(166,138,120,0.12)" },
+  EMPTY:             { label: "Boş",              color: "#BCAFA2", bg: "rgba(188,175,162,0.12)" },
   OCCUPIED:          { label: "Dolu",              color: "#60a5fa", bg: "rgba(59,130,246,0.12)" },
-  HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(244,166,35,0.12)" },
+  HAS_ORDER:         { label: "Sipariş Var",       color: "#FCD27A", bg: "rgba(242,179,61,0.12)" },
   PREPARING:         { label: "Hazırlanıyor",      color: "#8EDBA2", bg: "rgba(34,197,94,0.12)" },
   SERVED:            { label: "Servis Edildi",     color: "#8EDBA2", bg: "rgba(59,165,92,0.12)" },
   WAITING_WAITER:    { label: "Garson Bekleniyor", color: "#fca5a5", bg: "rgba(239,68,68,0.12)" },
@@ -222,7 +222,7 @@ export default function AdminTablesPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em" }}>Masa & QR Yönetimi</h1>
+          <h1 className="page-title">Masa & QR Yönetimi</h1>
           <p style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 3 }}>
             {tables.length} masa · {occupied} dolu · {tables.length - occupied} boş
             {pendingPayment > 0 && <span style={{ color: "#EBAFD0", marginLeft: 8 }}>· {pendingPayment} bekleyen ödeme</span>}
@@ -449,7 +449,7 @@ export default function AdminTablesPage() {
                       ))}
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
                         <span style={{ color: "var(--text-secondary)" }}>Ödeme Durumu</span>
-                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F4A623" : "var(--danger-text)" }}>
+                        <span style={{ fontWeight: 700, color: sessionDetail.paymentStatus === "PAID" ? "#3BA55C" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "#F2B33D" : "var(--danger-text)" }}>
                           {sessionDetail.paymentStatus === "PAID" ? "✅ Ödendi" : sessionDetail.paymentStatus === "PARTIALLY_PAID" ? "⚡ Kısmi" : "❌ Ödenmedi"}
                         </span>
                       </div>
@@ -576,7 +576,7 @@ export default function AdminTablesPage() {
               <div style={{ padding: "12px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#fca5a5", fontSize: 13, marginBottom: 16 }}>
                 ⚠️ {closeError}
                 {!forceClose && (
-                  <button onClick={() => setForceClose(true)} style={{ display: "block", marginTop: 8, color: "#F4A623", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                  <button onClick={() => setForceClose(true)} style={{ display: "block", marginTop: 8, color: "#F2B33D", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                     Admin olarak zorla kapat →
                   </button>
                 )}

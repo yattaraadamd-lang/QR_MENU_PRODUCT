@@ -88,9 +88,9 @@ export default function AdminPaymentsPage() {
       <h1 className="page-title" style={{ marginBottom: 24 }}>Ödemeler</h1>
 
       <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #F4A623" }}>
+        <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #F2B33D" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Onay Bekleyen Ödeme Talepleri</p>
-          <p style={{ fontSize: 24, fontWeight: 700, color: "#F4A623" }}>{pendingCount}</p>
+          <p style={{ fontSize: 24, fontWeight: 700, color: "#F2B33D" }}>{pendingCount}</p>
         </div>
         <div className="card" style={{ padding: 16, flex: 1, borderLeft: "4px solid #3BA55C" }}>
           <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Bugün Alınan Ciro</p>

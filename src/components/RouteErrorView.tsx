@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import PixelMark from "@/components/brand/PixelMark";
 
 export interface RouteErrorProps {
   error: Error & { digest?: string };
@@ -33,8 +34,8 @@ export default function RouteErrorView({
   return (
     <div role="alert" className={`${className} flex items-center justify-center p-6`}>
       <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
-        <div aria-hidden="true" style={{ fontSize: 48 }}>⚠️</div>
-        <h1 className="font-display text-2xl font-semibold">{title}</h1>
+        <PixelMark size={44} />
+        <h1 className="font-display text-4xl">{title}</h1>
         <p style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>{message}</p>
         {error.digest && (
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
