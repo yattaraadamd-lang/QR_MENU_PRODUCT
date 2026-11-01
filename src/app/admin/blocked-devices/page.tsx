@@ -293,7 +293,7 @@ export default function BlockedDevicesPage() {
 
             <div style={{
               padding: "10px 14px", background: "rgba(242,179,61, 0.1)",
-              color: "#F2B33D", borderRadius: 8, marginBottom: 16,
+              color: "#7A4A05", borderRadius: 8, marginBottom: 16,
               fontSize: 12, fontWeight: 500, lineHeight: 1.5,
             }}>
               ⚠️ Bu işlem cihaz engelini kaldırır. Cihaz sahibi QR kodunu yeniden okuttuğunda yeni bir oturum açabilir.

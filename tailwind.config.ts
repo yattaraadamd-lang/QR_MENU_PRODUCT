@@ -8,33 +8,29 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      // "Kor & Mürekkep" — değerler globals.css token'larıyla aynı (tek kaynak orası)
+      // "Mahalle bistrosu" — değerler globals.css token'larıyla aynı (tek kaynak orası)
       colors: {
-        ember: {
-          DEFAULT: "#FF5A1F",
-          hover: "#FF7A3D",
-          soft: "#FF8A4C",
-          deep: "#B83A0B",
+        tomato: {
+          DEFAULT: "#D13C27",
+          hover: "#B8341F",
+          text: "#B8341F",
+          soft: "#FDE4DE",
         },
-        ink: {
-          DEFAULT: "#0F0D0B",
-          900: "#0F0D0B",
-          850: "#161310",
-          800: "#1D1915",
-          700: "#27221D",
-          600: "#342D27",
+        basil: {
+          DEFAULT: "#2F6B4F",
+          hover: "#26583F",
+          soft: "#E1F0E7",
         },
-        paper: {
-          DEFAULT: "#F6F0E8",
-          card: "#FFFDF9",
-          line: "#E3D7C8",
+        butter: {
+          DEFAULT: "#F6C350",
+          soft: "#FDF0CC",
         },
-        bone: "#F5EEE6",
+        cream: "#FFF9F2",
+        ink: "#2A2420",
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "Georgia", "serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
       },
       animation: {
         "float": "float 3s ease-in-out infinite",

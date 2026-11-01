@@ -151,10 +151,10 @@ export default function WaiterPaymentsPage() {
                 style={{
                   padding: 16,
                   borderLeft: isAwaitingApproval
-                    ? "4px solid #3b82f6"
+                    ? "4px solid #24578A"
                     : isRejected
-                    ? "4px solid #ef4444"
-                    : "4px solid #F2B33D",
+                    ? "4px solid #B42318"
+                    : "4px solid #7A4A05",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 10 }}>
@@ -174,7 +174,7 @@ export default function WaiterPaymentsPage() {
                       </span>
                     )}
                     {isAwaitingApproval && (
-                      <span className="badge" style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa", gap: 4 }}>
+                      <span className="badge" style={{ background: "rgba(59,130,246,0.15)", color: "#24578A", gap: 4 }}>
                         <CheckCircle2 size={11} /> Admin Onayı Bekleniyor
                       </span>
                     )}
@@ -193,7 +193,7 @@ export default function WaiterPaymentsPage() {
                 )}
 
                 {isAwaitingApproval && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,0.08)", marginBottom: 10, fontSize: 13, color: "#60a5fa" }}>
+                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,0.08)", marginBottom: 10, fontSize: 13, color: "#24578A" }}>
                     Garson {p.requestedByName ? `(${p.requestedByName})` : ""} admin onayına gönderdi. (Yöntem: {p.method === "CASH" ? "Nakit" : "Kart"}, Tutar: {formatTRY(p.amount)})
                   </div>
                 )}
@@ -319,7 +319,7 @@ export default function WaiterPaymentsPage() {
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Hesaplanan Para Üstü</span>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: change > 0 ? "#3BA55C" : "var(--text-primary)" }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: change > 0 ? "#276044" : "var(--text-primary)" }}>
                     {formatTRY(change)}
                   </span>
                 </div>
@@ -332,7 +332,7 @@ export default function WaiterPaymentsPage() {
               background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.12)",
               display: "flex", alignItems: "flex-start", gap: 8,
             }}>
-              <Info size={16} color="#3b82f6" style={{ flexShrink: 0, marginTop: 1 }} />
+              <Info size={16} color="#24578A" style={{ flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
                 Garson doğrudan ödemeyi tamamlayamaz. Gönderilen bilgiler admin onayından sonra ciroya yansıyacaktır.
               </p>

@@ -182,7 +182,7 @@ export default function SuperAdminBusinessesPage() {
 
               <div>
                 <label htmlFor="f-isletme-adi" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                  İşletme Adı <span style={{ color: "#ef4444" }}>*</span>
+                  İşletme Adı <span style={{ color: "#B42318" }}>*</span>
                 </label>
                 <input id="f-isletme-adi"
                   className="input"
@@ -244,7 +244,7 @@ export default function SuperAdminBusinessesPage() {
 
               <div>
                 <label htmlFor="f-admin-e-posta" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                  Admin E-posta <span style={{ color: "#ef4444" }}>*</span>
+                  Admin E-posta <span style={{ color: "#B42318" }}>*</span>
                 </label>
                 <input id="f-admin-e-posta"
                   className="input"
@@ -258,7 +258,7 @@ export default function SuperAdminBusinessesPage() {
 
               <div>
                 <label htmlFor="f-admin-sifresi" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 4 }}>
-                  Admin Şifresi <span style={{ color: "#ef4444" }}>*</span>
+                  Admin Şifresi <span style={{ color: "#B42318" }}>*</span>
                 </label>
                 <input id="f-admin-sifresi"
                   className="input"
@@ -276,12 +276,12 @@ export default function SuperAdminBusinessesPage() {
 
               {/* Hata / Başarı */}
               {formError && (
-                <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#8F2019", fontSize: 13 }}>
+                <div role="alert" style={{ background: "#fef2f2", border: "1px solid #B42318", borderRadius: 8, padding: "10px 14px", color: "#8F2019", fontSize: 13 }}>
                   ❌ {formError}
                 </div>
               )}
               {formSuccess && (
-                <div role="status" style={{ background: "#f0fdf4", border: "1px solid #8EDBA2", borderRadius: 8, padding: "10px 14px", color: "#166534", fontSize: 13 }}>
+                <div role="status" style={{ background: "#f0fdf4", border: "1px solid #276044", borderRadius: 8, padding: "10px 14px", color: "#166534", fontSize: 13 }}>
                   ✅ {formSuccess}
                 </div>
               )}

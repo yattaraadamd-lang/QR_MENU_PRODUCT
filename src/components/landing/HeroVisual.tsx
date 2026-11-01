@@ -1,47 +1,52 @@
-import PixelMorph from "@/components/brand/PixelMorph";
+import QrGlyph from "@/components/brand/QrGlyph";
 import { enterDelay } from "./motion-style";
 import { MENU_PREVIEW } from "./content";
 import styles from "./landing.module.css";
 
-const ITEM_DELAY_START = 1.25;
+const ITEM_DELAY_START = 0.75;
 const ITEM_DELAY_STEP = 0.1;
 
-/** QR kodu sağa doğru köze dönüşür; dönüştüğü yerden menü kartı çıkar */
+/** Kareli örtülü masada QR masa kartı, yanında açılan menü ve mutfağa düşen fiş */
 export default function HeroVisual() {
   return (
     <div
       role="img"
-      aria-label="Masadaki QR kodun menüye ve siparişe dönüşmesini gösteren çizim"
+      aria-label="Kareli örtülü masada QR kodlu masa kartı, telefondaki menü ve mutfağa giden sipariş fişi"
       className={`enter-fade ${styles.visual}`}
       style={enterDelay(0.2)}
     >
-      <p className={styles.visualCaption}>
-        <span>QR · 21×21</span>
-        <span>→ Menü</span>
-      </p>
-      <div className={styles.qrFrame}>
-        <PixelMorph />
-        <span className={styles.scan} />
+      <div className={styles.tablecloth} />
+
+      <div className={styles.tent}>
+        <p className={styles.tentTable}>Masa 5</p>
+        <QrGlyph className={styles.tentQr} />
+        <p className={styles.tentHint}>Menü için okutun</p>
       </div>
 
-      <div className={`theme-paper enter-from-right ${styles.menuCard}`} style={enterDelay(1.1)}>
-        <p className={styles.menuCardHead}>
-          <span>Masa 05</span>
-          <span>Lezzet Durağı</span>
-        </p>
+      <div className={`enter-from-right ${styles.menuCard}`} style={enterDelay(0.55)}>
+        <p className={styles.menuCardHead}>Günün menüsü</p>
         <ul className={styles.menuCardList}>
           {MENU_PREVIEW.map((item, i) => (
             <li key={item.name} className="enter-fade" style={enterDelay(ITEM_DELAY_START + i * ITEM_DELAY_STEP)}>
               <span className={styles.menuCardName}>{item.name}</span>
-              <span className={styles.menuCardNote}>{item.note}</span>
+              <span className={styles.menuCardDots} />
               <span className={styles.menuCardPrice}>{item.price} ₺</span>
+              <span className={styles.menuCardNote}>{item.note}</span>
             </li>
           ))}
         </ul>
         <p className={styles.menuCardCart}>
-          <span>Sepet · 3</span>
-          <span>715,00 ₺</span>
+          <span>Sepet · 3 ürün</span>
+          <span>715 ₺</span>
         </p>
+      </div>
+
+      <div className={`enter-fade ${styles.ticket}`} style={enterDelay(1.1)}>
+        <span className={styles.ticketDot} />
+        <span>
+          <strong>Yeni sipariş</strong>
+          <span>Masa 5 · mutfakta</span>
+        </span>
       </div>
     </div>
   );

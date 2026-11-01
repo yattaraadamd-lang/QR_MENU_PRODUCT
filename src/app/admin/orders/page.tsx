@@ -18,9 +18,9 @@ const paymentLabels: Record<string, string> = {
 };
 // color: metin (≥4.5:1), bg: aynı tonun saydam zemini
 const paymentColors: Record<string, { color: string; bg: string }> = {
-  UNPAID:            { color: "#F2B33D",            bg: "rgba(242,179,61,0.09)" },
+  UNPAID:            { color: "#7A4A05",            bg: "rgba(242,179,61,0.09)" },
   PAYMENT_REQUESTED: { color: "var(--purple-text)", bg: "rgba(163,71,122,0.09)" },
-  PAID:              { color: "#3BA55C",            bg: "rgba(59,165,92,0.09)" },
+  PAID:              { color: "#276044",            bg: "rgba(59,165,92,0.09)" },
   CANCELLED:         { color: "var(--danger-text)", bg: "rgba(239,68,68,0.09)" },
 };
 const paymentFallback = { color: "var(--text-secondary)", bg: "var(--bg-hover)" };
@@ -28,9 +28,9 @@ const paymentFallback = { color: "var(--text-secondary)", bg: "var(--bg-hover)" 
 // Sekme tanımları — badgeColor: metin (≥4.5:1), badgeBg: saydam zemin
 const TABS = [
   { key: "all",      label: "Tümü",           badgeColor: null,                  badgeBg: null },
-  { key: "active",   label: "Aktif",           badgeColor: "#F2B33D",            badgeBg: "rgba(242,179,61,0.13)" },
+  { key: "active",   label: "Aktif",           badgeColor: "#7A4A05",            badgeBg: "rgba(242,179,61,0.13)" },
   { key: "pending_payment", label: "Bekleyen Ödeme", badgeColor: "var(--purple-text)", badgeBg: "rgba(163,71,122,0.13)" },
-  { key: "completed",label: "Tamamlanan",      badgeColor: "#3BA55C",            badgeBg: "rgba(59,165,92,0.13)" },
+  { key: "completed",label: "Tamamlanan",      badgeColor: "#276044",            badgeBg: "rgba(59,165,92,0.13)" },
   { key: "cancelled",label: "İptal Edilen",    badgeColor: "var(--danger-text)", badgeBg: "rgba(239,68,68,0.13)" },
 ] as const;
 
@@ -243,7 +243,7 @@ export default function AdminOrdersPage() {
         <div style={{
           padding: "12px 16px", background: "rgba(163,71,122,0.08)",
           border: "1px solid rgba(163,71,122,0.2)", borderRadius: 10,
-          marginBottom: 16, fontSize: 13, color: "#EBAFD0",
+          marginBottom: 16, fontSize: 13, color: "#7E2F5B",
           display: "flex", alignItems: "center", gap: 8,
         }}>
           💳 Bu siparişler servis edilmiş ancak henüz ödeme alınmamış. Ödeme almak için admin/kasa panelinden işlem yapın.
@@ -284,7 +284,7 @@ export default function AdminOrdersPage() {
                       onClick={() => handleSelectReasonCode(opt.code)}
                       style={{
                         padding: "10px 14px", borderRadius: 9, textAlign: "left", fontSize: 13,
-                        border: `1.5px solid ${isSelected ? "#ef4444" : "var(--border-color)"}`,
+                        border: `1.5px solid ${isSelected ? "#B42318" : "var(--border-color)"}`,
                         background: isSelected ? "rgba(239,68,68,0.08)" : "transparent",
                         color: isSelected ? "var(--danger-text)" : "var(--text-secondary)",
                         cursor: "pointer", fontWeight: isSelected ? 600 : 400,
@@ -309,7 +309,7 @@ export default function AdminOrdersPage() {
                           type="checkbox"
                           checked={selectedOutOfStockPids.includes(p.id)}
                           onChange={() => toggleOutOfStockPid(p.id)}
-                          style={{ width: 16, height: 16, accentColor: "#ef4444" }}
+                          style={{ width: 16, height: 16, accentColor: "#B42318" }}
                         />
                         <span>{p.name}</span>
                       </label>
@@ -342,7 +342,7 @@ export default function AdminOrdersPage() {
                   {cancelError}
                 </p>
               )}
-              <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#fca5a5" }}>
+              <div style={{ padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#B42318" }}>
                 ⚠️ Bu işlem geri alınamaz.
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -405,7 +405,7 @@ export default function AdminOrdersPage() {
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "4px 0", borderBottom: "1px solid var(--border-subtle)" }}>
                     <div style={{ flex: 1 }}>
                       <span>{item.quantity}× {item.productName || item.product?.name}</span>
-                      {item.customerNote && <div style={{ fontSize: 11, color: "#F2B33D", marginTop: 2 }}>📝 {item.customerNote}</div>}
+                      {item.customerNote && <div style={{ fontSize: 11, color: "#7A4A05", marginTop: 2 }}>📝 {item.customerNote}</div>}
                     </div>
                     <span style={{ fontWeight: 600 }}>{formatTRY(item.totalPrice)}</span>
                   </div>
@@ -418,7 +418,7 @@ export default function AdminOrdersPage() {
                 </div>
               )}
               {order.cancelReason && (
-                <div style={{ padding: "8px 12px", background: "rgba(239,68,68,0.08)", color: "#fca5a5", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
+                <div style={{ padding: "8px 12px", background: "rgba(239,68,68,0.08)", color: "#B42318", borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
                   <strong>{order.status === "REJECTED" ? "Red Nedeni:" : "İptal Nedeni:"}</strong> {order.cancelReason}
                 </div>
               )}

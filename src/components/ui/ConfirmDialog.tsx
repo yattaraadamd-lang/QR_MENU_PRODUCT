@@ -33,7 +33,7 @@ export default function ConfirmDialog({
 
   const isDanger = variant === "danger";
   const iconBg = isDanger ? "rgba(220,38,38,0.1)" : "rgba(242,179,61,0.1)";
-  const iconColor = isDanger ? "#DC2626" : "#F2B33D";
+  const iconColor = isDanger ? "#DC2626" : "#7A4A05";
 
   return (
     <Dialog onClose={onClose} contentStyle={{ padding: 24, maxWidth: 400 }}>

@@ -33,9 +33,9 @@ type Data = {
 };
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  TRIAL: { label: "Deneme", color: "#60a5fa" },
-  ACTIVE: { label: "Aktif", color: "#3BA55C" },
-  PAST_DUE: { label: "Ödeme Bekleniyor", color: "#F2B33D" },
+  TRIAL: { label: "Deneme", color: "#24578A" },
+  ACTIVE: { label: "Aktif", color: "#276044" },
+  PAST_DUE: { label: "Ödeme Bekleniyor", color: "#7A4A05" },
   CANCELLED: { label: "İptal Edildi", color: "var(--danger-text)" },
   EXPIRED: { label: "Süresi Doldu", color: "var(--danger-text)" },
 };
@@ -45,7 +45,7 @@ const labelStyle = { fontSize: 13, fontWeight: 600, color: "var(--text-secondary
 
 function UsageBar({ label, usage }: { label: string; usage: Usage }) {
   const pct = usage.limit ? Math.min(100, (usage.current / usage.limit) * 100) : 0;
-  const color = pct >= 100 ? "#ef4444" : pct >= 80 ? "#F2B33D" : "var(--primary)";
+  const color = pct >= 100 ? "#B42318" : pct >= 80 ? "#7A4A05" : "var(--primary)";
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
@@ -156,12 +156,12 @@ function SubscriptionContent() {
       <h1 className="page-title" style={{ marginBottom: 24 }}>Abonelik</h1>
 
       {paymentResult === "success" && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid #3BA55C" }}>
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid #276044" }}>
           ✅ Ödemeniz alındı, aboneliğiniz aktif.
         </div>
       )}
       {paymentResult === "failed" && (
-        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid #ef4444" }}>
+        <div className="card" style={{ padding: 14, marginBottom: 16, borderLeft: "3px solid #B42318" }}>
           ❌ Ödeme tamamlanamadı. Lütfen tekrar deneyin.
         </div>
       )}
@@ -246,7 +246,7 @@ function SubscriptionContent() {
             Ödeme iyzico güvenli ödeme sayfasında alınır. Kart bilgileriniz bize ulaşmaz.
           </p>
 
-          {error && <p style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+          {error && <p style={{ color: "#B42318", fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
           {!checkoutReady ? (
             <form onSubmit={startCheckout} style={{ display: "grid", gap: 12 }}>

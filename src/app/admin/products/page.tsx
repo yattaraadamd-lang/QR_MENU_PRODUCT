@@ -269,8 +269,8 @@ export default function AdminProductsPage() {
                   Menüde Görünsün
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
-                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#F2B33D" }} />
-                  <Star size={14} color="#F2B33D" /> Popüler
+                  <input type="checkbox" checked={form.isPopular} onChange={e => setForm({ ...form, isPopular: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#7A4A05" }} />
+                  <Star size={14} color="#7A4A05" /> Popüler
                 </label>
               </div>
             </div>

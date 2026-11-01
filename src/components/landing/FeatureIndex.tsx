@@ -4,10 +4,10 @@ import { revealIndex } from "./motion-style";
 import { FEATURES } from "./content";
 import styles from "./landing.module.css";
 
-/** Özellikler: kart ızgarası yerine dergi içindekiler sayfası düzeni (kâğıt zemin) */
+/** Özellikler: fesleğen yeşili "günün menüsü" tahtası, noktalı fiyat çizgisi düzeninde */
 export default function FeatureIndex() {
   return (
-    <section id="ozellikler" aria-labelledby="ozellikler-title" className={`theme-paper ${styles.section} ${styles.paper}`}>
+    <section id="ozellikler" aria-labelledby="ozellikler-title" className={`board ${styles.section} ${styles.board}`}>
       <div className={`${styles.container} ${styles.featureLayout}`}>
         <SectionHeading
           id="ozellikler-title"

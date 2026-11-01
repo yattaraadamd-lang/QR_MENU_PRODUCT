@@ -16,13 +16,13 @@ export default function Hero() {
             {/* Arama için ürün adı başlığın içinde; görsel olarak etiket */}
             <span className={`eyebrow ${styles.heroEyebrow}`}>QR menü ve sipariş sistemi</span>
             <span className="font-display">
-              Masadaki kare, <em>mutfağa açılan kapı.</em>
+              Menünüz masada, <em>siparişiniz mutfakta.</em>
             </span>
           </h1>
 
           <p className={`enter-rise ${styles.heroLead}`} style={enterDelay(0.18)}>
-            QR kodunuz bir menüye, siparişe ve canlı ciroya dönüşür. Misafiriniz uygulama indirmez; ekibiniz
-            her şeyi tek bir akıştan yönetir.
+            Misafir QR kodu okutur, fotoğraflı menüden seçer, siparişi saniyeler içinde iletir. Garson ve
+            mutfak her şeyi tek ekrandan takip eder; siz ciroyu canlı görürsünüz.
           </p>
 
           <div className={`enter-fade ${styles.heroActions}`} style={enterDelay(0.3)}>

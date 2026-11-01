@@ -87,7 +87,7 @@ function SuperAdminGate({ children }: { children: ReactNode }) {
                   textDecoration: "none",
                   fontWeight: isActive ? 600 : 500,
                   color: isActive ? "var(--primary)" : "var(--text-secondary)",
-                  background: isActive ? "rgba(var(--ember-rgb),0.12)" : "transparent",
+                  background: isActive ? "rgba(var(--brand-rgb),0.12)" : "transparent",
                   transition: "all 0.2s",
                 }}
               >
