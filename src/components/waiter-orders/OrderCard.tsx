@@ -1,13 +1,14 @@
 import { Clock, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatTimeAgo, formatTRY } from "@/lib/format";
+import OrderContents from "@/components/orders/OrderContents";
+import { orderStatusMeta } from "@/components/orders/orderStatus";
+import type { OrderDTO } from "@/components/orders/types";
 import { tableDisplayName } from "@/components/tables/tableModel";
-import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ToneStripe from "@/components/ui/ToneStripe";
-import { nextOrderStep, orderStatusMeta, stopStatusFor, type OrderStep } from "./orderModel";
-import type { OrderDTO } from "./types";
+import { nextOrderStep, stopStatusFor, type OrderStep } from "./orderModel";
 
 interface OrderCardProps {
   order: OrderDTO;
@@ -49,30 +50,8 @@ export default function OrderCard({ order, now, busy, onAdvance, onStop }: Order
         </span>
       </div>
 
-      <div className="flex flex-col gap-2 px-4 py-2.5">
-        <ul className="text-sm">
-          {order.items.map((item, i) => (
-            <li key={item.id ?? i} className="flex justify-between gap-2 py-0.5">
-              <span className="min-w-0 text-fg-secondary">
-                <span className="font-semibold text-fg">{item.quantity}×</span> {item.productName || item.product?.name}
-                {item.customerNote && <span className="ml-1.5 text-2xs text-warning-fg">📝 {item.customerNote}</span>}
-              </span>
-              <span className="shrink-0 font-semibold tabular-nums text-fg-secondary">
-                {formatTRY(Number(item.unitPrice) * item.quantity)}
-              </span>
-            </li>
-          ))}
-        </ul>
-        {order.note && (
-          <Alert tone="warning" size="sm">
-            📝 {order.note}
-          </Alert>
-        )}
-        {order.cancelReason && (
-          <Alert tone="danger" size="sm">
-            ❌ {order.cancelReason}
-          </Alert>
-        )}
+      <div className="px-4 py-2.5">
+        <OrderContents order={order} />
       </div>
 
       {step && (
