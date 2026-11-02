@@ -2,12 +2,14 @@
 
 import { lazy, Suspense, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
-import TableDetailDialog from "./TableDetailDialog";
 import type { useTableDetail } from "./useTableDetail";
 import type { TableDTO } from "./types";
 
-// Alt pencereler ilk yükte gerekmez: ayrı chunk'ta, detay açılınca önceden indirilir.
+// Pencereler ilk yükte gerekmez: ayrı chunk'ta. Detay sayfa açılınca, alt pencereler detay
+// açılınca arka planda indirilir; ilk tıklamada beklenmez.
 // React.lazy (next/dynamic değil): yalnız tıklamayla çizilir, SSR'a girmez; ek çalışma zamanı yok.
+const loadDetailDialog = () => import("./TableDetailDialog");
+const TableDetailDialog = lazy(loadDetailDialog);
 const loadPaymentDialog = () => import("./PaymentDialog");
 const loadCloseTableDialog = () => import("./CloseTableDialog");
 const PaymentDialog = lazy(loadPaymentDialog);
@@ -29,8 +31,17 @@ interface TableDetailFlowProps {
  */
 export default function TableDetailFlow(props: TableDetailFlowProps) {
   const { table } = props.detail;
+
+  useEffect(() => {
+    void loadDetailDialog();
+  }, []);
+
   // Masa değişince alt pencere durumu sıfırlanır (key ile yeniden takılır)
-  return table ? <OpenTableFlow key={table.id} table={table} {...props} /> : null;
+  return table ? (
+    <Suspense fallback={null}>
+      <OpenTableFlow key={table.id} table={table} {...props} />
+    </Suspense>
+  ) : null;
 }
 
 function OpenTableFlow({

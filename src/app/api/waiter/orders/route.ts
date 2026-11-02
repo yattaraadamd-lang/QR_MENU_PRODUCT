@@ -87,6 +87,8 @@ export async function GET(request: NextRequest) {
         items: {
           select: {
             id: true,
+            // "Stokta yok" ile reddederken hangi ürünün işaretleneceği buradan seçilir
+            productId: true,
             productName: true,
             quantity: true,
             unitPrice: true,

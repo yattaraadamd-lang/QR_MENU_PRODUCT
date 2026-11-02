@@ -1,0 +1,12 @@
+/* Temada (globals.css) olmayan varyantlar. .btn Tailwind'den sonra geldiği için birleşik
+   seçiciyle (0,2,0) verilir; renkler token'dan, tema değişince kendiliğinden uyar. */
+
+/* Yıkıcı ikincil eylem (iptal, sil): dolgusuz, kırmızı yazı + ince kırmızı çerçeve */
+.dangerGhost:global(.btn) {
+  background: transparent;
+  color: var(--danger-text);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+}
+.dangerGhost:global(.btn):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
