@@ -1,15 +1,77 @@
 import type { Config } from "tailwindcss";
 
+type ColorFn = (opts: { opacityValue?: string }) => string;
+
+/**
+ * globals.css'teki bir token'a bağlı renk. Düz kullanımda (`text-success-fg`) token'ın
+ * kendisi, saydamlıkla (`bg-danger/10`) color-mix üretir; tema değişince sınıflar da değişir.
+ * Opaklık çekirdek eklentileri kapalı: yoksa Tailwind düz renkte de opaklık değişkeni geçirir.
+ * Tailwind 3 renk fonksiyonunu çalışma zamanında destekler ama tip tanımı yalnız string
+ * kabul eder; dönüşüm bu tek yerde.
+ */
+const token = (name: string): string => {
+  const color: ColorFn = ({ opacityValue }) =>
+    opacityValue === undefined
+      ? `var(--${name})`
+      : `color-mix(in srgb, var(--${name}) calc(${opacityValue} * 100%), transparent)`;
+  return color as unknown as string;
+};
+
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  corePlugins: {
+    textOpacity: false,
+    backgroundOpacity: false,
+    borderOpacity: false,
+    divideOpacity: false,
+    placeholderOpacity: false,
+    ringOpacity: false,
+  },
   theme: {
     extend: {
-      // "Mahalle bistrosu" — değerler globals.css token'larıyla aynı (tek kaynak orası)
+      fontSize: {
+        "2xs": ["0.6875rem", { lineHeight: "1rem" }],
+      },
+      borderRadius: {
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
+      },
       colors: {
+        // Anlamsal renkler: yalnız her temada tanımlı token adları (bileşen kodu temadan bağımsız)
+        primary: {
+          DEFAULT: token("primary"),
+          on: token("on-primary"),
+          dark: token("primary-dark"),
+          light: token("primary-light"),
+        },
+        accent: { DEFAULT: token("accent"), light: token("accent-light") },
+        success: { DEFAULT: token("success"), fg: token("success-text") },
+        warning: { DEFAULT: token("warning"), fg: token("warning-text") },
+        danger: { DEFAULT: token("danger"), fg: token("danger-text") },
+        info: { DEFAULT: token("info"), fg: token("info-text") },
+        purple: { DEFAULT: token("purple"), fg: token("purple-text") },
+        surface: {
+          DEFAULT: token("bg-card"),
+          page: token("bg-primary"),
+          muted: token("bg-secondary"),
+          hover: token("bg-hover"),
+          input: token("bg-input"),
+        },
+        fg: {
+          DEFAULT: token("text-primary"),
+          secondary: token("text-secondary"),
+          muted: token("text-muted"),
+        },
+        line: { DEFAULT: token("border-color"), subtle: token("border-subtle") },
+        focus: token("focus-ring"),
+        // "Mahalle bistrosu" — değerler globals.css token'larıyla aynı (tek kaynak orası)
         tomato: {
           DEFAULT: "#D13C27",
           hover: "#B8341F",

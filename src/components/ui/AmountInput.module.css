@@ -1,0 +1,6 @@
+/* .input (globals.css) Tailwind'den sonra geldiği için yazı boyutu birleşik seçiciyle verilir */
+.amount:global(.input) {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

@@ -1,51 +1,30 @@
-"use client";
-
-import React from "react";
+import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 
 interface EmptyStateProps {
-  icon: React.ReactNode;
+  /** Dekoratif ikon/emoji (ekran okuyucuya okunmaz) */
+  icon: ReactNode;
   title: string;
   description?: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
+  /** "card": kendi kartında (sayfa); "plain": çerçevesiz (modal/kart içi) */
+  variant?: "card" | "plain";
 }
 
-export default function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+export default function EmptyState({ icon, title, description, action, variant = "card" }: EmptyStateProps) {
   return (
     <div
-      className="card"
-      style={{
-        padding: "48px 24px",
-        textAlign: "center",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 4,
-      }}
-    >
-      <div style={{ fontSize: 48, marginBottom: 8, lineHeight: 1 }}>{icon}</div>
-      <h3
-        style={{
-          fontSize: 16,
-          fontWeight: 700,
-          color: "var(--text-primary)",
-          marginBottom: 4,
-        }}
-      >
-        {title}
-      </h3>
-      {description && (
-        <p
-          style={{
-            color: "var(--text-secondary)",
-            fontSize: 14,
-            maxWidth: 300,
-            lineHeight: 1.5,
-          }}
-        >
-          {description}
-        </p>
+      className={cn(
+        "flex flex-col items-center gap-1 text-center",
+        variant === "card" ? "card px-6 py-12" : "px-4 py-8",
       )}
-      {action && <div style={{ marginTop: 16 }}>{action}</div>}
+    >
+      <div aria-hidden="true" className="mb-2 text-5xl leading-none">
+        {icon}
+      </div>
+      <p className="text-base font-bold text-fg">{title}</p>
+      {description && <p className="max-w-xs text-sm leading-normal text-fg-secondary">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
