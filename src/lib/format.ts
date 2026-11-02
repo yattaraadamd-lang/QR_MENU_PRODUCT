@@ -1,5 +1,17 @@
 const TRY = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" });
 const CLOCK = new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" });
+const DATE_TIME = new Intl.DateTimeFormat("tr-TR", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** "02.11.2026 14:05" */
+export function formatDateTime(value: string | Date): string {
+  return DATE_TIME.format(typeof value === "string" ? new Date(value) : value);
+}
 const MS_PER_MINUTE = 60_000;
 const MINUTES_PER_HOUR = 60;
 
