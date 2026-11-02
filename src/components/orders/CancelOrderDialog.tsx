@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, type FormEvent } from "react";
+import { useId, type FormEvent, type ReactNode } from "react";
+import { cn } from "@/lib/cn";
 import { tableDisplayName } from "@/components/tables/tableModel";
 import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
@@ -9,23 +10,26 @@ import Field from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
 import { eyebrowClass } from "@/components/ui/tone";
-import { cn } from "@/lib/cn";
-import { CANCEL_REASONS, type OrderProduct } from "./orderModel";
+import { CANCEL_REASONS, type OrderProduct } from "./cancelOrder";
 import type { OrderDTO } from "./types";
-import { useStopOrderForm } from "./useStopOrderForm";
+import { useCancelOrderForm, type CancelAction } from "./useCancelOrderForm";
 
-interface StopOrderDialogProps {
+interface CancelOrderDialogProps {
   order: OrderDTO;
-  /** Bekleyen sipariş reddedilir, kabul edilmiş olan iptal edilir */
-  target: "REJECTED" | "CANCELLED";
+  /** "Siparişi Reddet" / "Siparişi İptal Et" — başlık ve düğme */
+  title: string;
+  action: CancelAction;
   onClose: () => void;
-  onDone: (message: string) => void;
+  onDone: () => void;
+  /** Neden listesinin üstünde (ör. admin için masa/tutar/durum özeti) */
+  summary?: ReactNode;
 }
 
-export default function StopOrderDialog({ order, target, onClose, onDone }: StopOrderDialogProps) {
-  const form = useStopOrderForm({ order, target, onDone });
+/** Siparişi reddet/iptal et: neden, stokta olmayan ürünler, açıklama. Garson ve admin ortak. */
+export default function CancelOrderDialog({ order, title, action, onClose, onDone, summary }: CancelOrderDialogProps) {
+  const form = useCancelOrderForm({ order, action, onDone });
   const formId = useId();
-  const title = target === "REJECTED" ? "Siparişi Reddet" : "Siparişi İptal Et";
+  const isOther = form.values.reason === "OTHER";
   // İstek sürerken pencere kapanmaz: sonuç kaybolmasın
   const close = () => !form.pending && onClose();
 
@@ -51,6 +55,8 @@ export default function StopOrderDialog({ order, target, onClose, onDone }: Stop
       }
     >
       <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        {summary}
+
         <ChoiceGroup
           legend="Neden *"
           layout="stack"
@@ -63,21 +69,22 @@ export default function StopOrderDialog({ order, target, onClose, onDone }: Stop
           <OutOfStockPicker products={form.products} selected={form.values.outOfStockIds} onToggle={form.toggleProduct} />
         )}
 
-        {form.values.reason === "OTHER" && (
-          <Field label="Açıklama *" htmlFor={`${formId}-note`}>
-            <textarea
-              id={`${formId}-note`}
-              className="input min-h-[4.5rem] resize-none"
-              value={form.values.note}
-              onChange={(e) => form.setNote(e.target.value)}
-              placeholder="İptal/red nedenini detaylandırın..."
-              maxLength={500}
-              required
-            />
-          </Field>
-        )}
+        <Field label={isOther ? "Açıklama *" : "Açıklama (Opsiyonel)"} htmlFor={`${formId}-note`}>
+          <textarea
+            id={`${formId}-note`}
+            className="input min-h-[4.5rem] resize-none"
+            value={form.values.note}
+            onChange={(e) => form.setNote(e.target.value)}
+            placeholder="İptal/red nedenini detaylandırın..."
+            maxLength={500}
+            required={isOther}
+          />
+        </Field>
 
         <FormError message={form.error} />
+        <Alert tone="danger" size="sm">
+          ⚠️ Bu işlem geri alınamaz.
+        </Alert>
       </form>
     </Modal>
   );

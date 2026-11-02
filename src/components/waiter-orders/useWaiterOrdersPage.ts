@@ -5,8 +5,9 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useBusinessSocket } from "@/hooks/useBusinessSocket";
-import type { OrderStep } from "./orderModel";
-import type { OrderDTO, OrderFilter } from "./types";
+import type { OrderDTO } from "@/components/orders/types";
+import { stopStatusFor, type OrderStep } from "./orderModel";
+import type { OrderFilter } from "./types";
 import { ordersUrl, selectOrders, waiterOrdersApi } from "./waiterOrders.api";
 
 /** Sekme görünürken yenileme aralığı; yeni sipariş ve durum değişimi ayrıca soketle gelir */
@@ -39,9 +40,12 @@ export function useWaiterOrdersPage() {
     else if (!result.aborted) toast.error(result.error);
   };
 
-  const handleStopped = (message: string) => {
+  // Bekleyen sipariş reddedilir, kabul edilmiş olan iptal edilir
+  const stopTarget = stopping ? stopStatusFor(stopping.status) : null;
+
+  const handleStopped = () => {
     setStopping(null);
-    toast.info(message);
+    toast.info(stopTarget === "REJECTED" ? "Sipariş reddedildi" : "Sipariş iptal edildi");
     void query.refresh();
   };
 
@@ -54,6 +58,7 @@ export function useWaiterOrdersPage() {
     busyId,
     advance,
     stopping,
+    stopTarget,
     openStop: setStopping,
     closeStop: () => setStopping(null),
     handleStopped,

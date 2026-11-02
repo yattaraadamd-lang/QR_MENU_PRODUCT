@@ -4,15 +4,16 @@ import { lazy, Suspense } from "react";
 import { ClipboardList } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import OrderCard from "@/components/waiter-orders/OrderCard";
-import OrderFilterTabs from "@/components/waiter-orders/OrderFilterTabs";
-import { stopStatusFor } from "@/components/waiter-orders/orderModel";
 import { useWaiterOrdersPage } from "@/components/waiter-orders/useWaiterOrdersPage";
+import { waiterOrdersApi } from "@/components/waiter-orders/waiterOrders.api";
+import type { OrderFilter } from "@/components/waiter-orders/types";
 import EmptyState from "@/components/ui/EmptyState";
+import FilterTabs from "@/components/ui/FilterTabs";
 import QueryError from "@/components/ui/QueryError";
 import Skeleton from "@/components/ui/Skeleton";
 
 // Yalnız tıklamayla açılır: ilk yük paketinin dışında (SSR'da hiç çizilmez)
-const StopOrderDialog = lazy(() => import("@/components/waiter-orders/StopOrderDialog"));
+const CancelOrderDialog = lazy(() => import("@/components/orders/CancelOrderDialog"));
 
 const SKELETON_COUNT = 3;
 /** "40sn önce" gibi göreli zamanlar bu aralıkla tazelenir */
@@ -20,9 +21,9 @@ const CLOCK_TICK_MS = 15_000;
 
 export default function WaiterOrdersPage() {
   const page = useWaiterOrdersPage();
-  const { query, orders, filter, pendingCount, stopping } = page;
+  const { query, orders, filter, pendingCount, stopping, stopTarget } = page;
   const now = useNow(CLOCK_TICK_MS);
-  const stopTarget = stopping ? stopStatusFor(stopping.status) : null;
+  const isReject = stopTarget === "REJECTED";
 
   return (
     <div>
@@ -35,7 +36,15 @@ export default function WaiterOrdersPage() {
             </span>
           )}
         </div>
-        <OrderFilterTabs value={filter} onChange={page.setFilter} pendingCount={pendingCount} />
+        <FilterTabs<OrderFilter>
+          label="Sipariş filtresi"
+          value={filter}
+          onChange={page.setFilter}
+          tabs={[
+            { value: "active", label: "Aktif", count: pendingCount, tone: "danger" },
+            { value: "completed", label: "Geçmiş" },
+          ]}
+        />
       </header>
 
       <QueryError message={query.error} onRetry={query.refresh} />
@@ -72,7 +81,13 @@ export default function WaiterOrdersPage() {
 
       <Suspense fallback={null}>
         {stopping && stopTarget && (
-          <StopOrderDialog order={stopping} target={stopTarget} onClose={page.closeStop} onDone={page.handleStopped} />
+          <CancelOrderDialog
+            order={stopping}
+            title={isReject ? "Siparişi Reddet" : "Siparişi İptal Et"}
+            action={isReject ? waiterOrdersApi.reject : waiterOrdersApi.cancel}
+            onClose={page.closeStop}
+            onDone={page.handleStopped}
+          />
         )}
       </Suspense>
     </div>

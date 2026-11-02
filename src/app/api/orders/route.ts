@@ -39,6 +39,8 @@ async function handleGet(request: NextRequest) {
       status: true,
       paymentStatus: true,
       note: true,
+      // Admin listesinde iptal/red nedeni gösterilir
+      cancelReason: true,
       createdAt: true,
       table: {
         select: {
@@ -56,6 +58,8 @@ async function handleGet(request: NextRequest) {
       items: {
         select: {
           id: true,
+          // "Stokta yok" ile iptal ederken hangi ürünün işaretleneceği buradan seçilir
+          productId: true,
           productName: true,
           quantity: true,
           unitPrice: true,
