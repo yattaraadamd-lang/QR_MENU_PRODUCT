@@ -1,7 +1,14 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import styles from "./Button.module.css";
 
-type ButtonVariant = "primary" | "accent" | "success" | "danger" | "warning" | "ghost" | "subtle";
+type ThemeVariant = "primary" | "accent" | "success" | "danger" | "warning" | "ghost" | "subtle";
+type ButtonVariant = ThemeVariant | "danger-ghost";
+
+/** Temada `.btn-<ad>` olarak tanımlı olmayan varyantlar */
+const MODULE_VARIANT: Partial<Record<ButtonVariant, string>> = {
+  "danger-ghost": styles.dangerGhost,
+};
 type ButtonSize = "sm" | "md" | "lg" | "xl" | "icon";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -29,7 +36,7 @@ export default function Button({
   return (
     <button
       type={type}
-      className={cn("btn", `btn-${variant}`, size !== "md" && `btn-${size}`, className)}
+      className={cn("btn", MODULE_VARIANT[variant] ?? `btn-${variant}`, size !== "md" && `btn-${size}`, className)}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}
