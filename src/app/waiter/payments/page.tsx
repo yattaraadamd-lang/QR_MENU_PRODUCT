@@ -1,364 +1,54 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
-import { toast } from "sonner";
-import { useApiQuery } from "@/hooks/useApiQuery";
-import { useBusinessSocket } from "@/hooks/useBusinessSocket";
-import { CreditCard, Banknote, Loader2, Clock, Info, Calculator, ShieldAlert, CheckCircle2, XCircle } from "lucide-react";
-import Dialog from "@/components/ui/Dialog";
-import FormError from "@/components/ui/FormError";
+import { lazy, Suspense } from "react";
+import { CreditCard } from "lucide-react";
+import { useWaiterPaymentsPage } from "@/components/waiter-payments/useWaiterPaymentsPage";
+import WaiterPaymentCard from "@/components/waiter-payments/WaiterPaymentCard";
+import EmptyState from "@/components/ui/EmptyState";
 import QueryError from "@/components/ui/QueryError";
-import { formatTRY } from "@/lib/format";
+import Skeleton from "@/components/ui/Skeleton";
+
+// Yalnız tıklamayla açılır: ilk yük paketinin dışında (SSR'da hiç çizilmez)
+const RequestApprovalDialog = lazy(() => import("@/components/waiter-payments/RequestApprovalDialog"));
+
+const SKELETON_COUNT = 3;
 
 export default function WaiterPaymentsPage() {
-  const { data: session } = useSession();
-  // Sekme gizliyken polling durur; ekran ayrılınca uçuştaki istek iptal edilir
-  const paymentsQuery = useApiQuery<any[]>(
-    session?.user.businessId ? "/api/waiter/payments" : null,
-    { select: (j) => (j as { payments?: any[] } | null)?.payments ?? [], refreshInterval: 5000 },
-  );
-  const payments = paymentsQuery.data ?? [];
-  const loading = paymentsQuery.isLoading;
-  const fetchPayments = paymentsQuery.refresh;
-  const [selectedPayment, setSelectedPayment] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
-  const [paymentNote, setPaymentNote] = useState("");
-  const [customAmount, setCustomAmount] = useState("");
-  const [receivedAmount, setReceivedAmount] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  // Modal içi hata (FormError): toast açık <dialog>'un arkasında kalırdı
-  const [approvalError, setApprovalError] = useState<string | null>(null);
-  const closeModal = () => { setSelectedPayment(null); setApprovalError(null); };
-
-  useBusinessSocket(
-    ["payment_request", "payment_approval_requested", "payment_approved", "payment_rejected", "payment_collected"],
-    fetchPayments,
-  );
-
-  const openModalForPayment = (p: any) => {
-    setApprovalError(null);
-    setSelectedPayment(p);
-    setPaymentMethod(p.method || "CASH");
-    setPaymentNote(p.note || "");
-    const dueAmount = Number(p.amount);
-    setCustomAmount(dueAmount.toString());
-    setReceivedAmount(p.receivedAmount ? Number(p.receivedAmount).toString() : "");
-  };
-
-  const handleRequestApproval = async () => {
-    if (!selectedPayment) return;
-
-    const amountToSend = parseFloat(customAmount);
-    if (isNaN(amountToSend) || amountToSend <= 0) {
-      setApprovalError("Lütfen geçerli bir tahsilat tutarı giriniz.");
-      return;
-    }
-
-    const dueAmount = Number(selectedPayment.amount);
-    if (amountToSend > dueAmount) {
-      setApprovalError(`Tahsil edilecek tutar kalan borçtan (${formatTRY(dueAmount)}) fazla olamaz.`);
-      return;
-    }
-
-    // Nakit ödeme için validasyon
-    if (paymentMethod === "CASH") {
-      const received = parseFloat(receivedAmount);
-
-      if (!receivedAmount || isNaN(received) || received <= 0) {
-        setApprovalError("Lütfen alınan nakit tutarını giriniz.");
-        return;
-      }
-
-      if (received < amountToSend) {
-        setApprovalError(`Alınan tutar (${formatTRY(received)}), tahsil edilecek tutardan (${formatTRY(amountToSend)}) küçük olamaz.`);
-        return;
-      }
-    }
-
-    setApprovalError(null);
-    setSubmitting(true);
-    try {
-      const body: any = {
-        method: paymentMethod,
-        amount: amountToSend,
-        note: paymentNote,
-      };
-
-      if (paymentMethod === "CASH") {
-        body.receivedAmount = parseFloat(receivedAmount);
-      }
-
-      const res = await fetch(`/api/waiter/payments/${selectedPayment.id}/request-approval`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        toast.success("Ödeme bilgisi admin onayına gönderildi!");
-        setSelectedPayment(null);
-        setPaymentMethod("CASH");
-        setPaymentNote("");
-        setReceivedAmount("");
-        setCustomAmount("");
-        fetchPayments();
-      } else {
-        setApprovalError(data.error || "Onay talebi gönderilemedi. Lütfen tekrar deneyin.");
-      }
-    } catch {
-      setApprovalError("Bağlantı hatası. Lütfen tekrar deneyin.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const dueAmount = selectedPayment ? Number(selectedPayment.amount) : 0;
-  const amountToPay = parseFloat(customAmount) || 0;
-  const received = parseFloat(receivedAmount) || 0;
-  const change = paymentMethod === "CASH" && received > amountToPay ? received - amountToPay : 0;
-
-  if (loading) return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 100, borderRadius: 14 }} />)}
-    </div>
-  );
+  const { query, payments, selected, open, close, handleSent } = useWaiterPaymentsPage();
 
   return (
     <div>
-      <h1 className="page-title page-title-sm" style={{ marginBottom: 16 }}>Ödeme Talepleri ve Garson Bildirimleri</h1>
+      <h1 className="page-title page-title-sm mb-4">Ödeme Talepleri ve Garson Bildirimleri</h1>
 
-      <QueryError message={paymentsQuery.error} onRetry={fetchPayments} />
+      <QueryError message={query.error} onRetry={query.refresh} />
 
-      {payments.length === 0 ? (
-        <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
-          <CreditCard size={48} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 12px" }} />
-          <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Bekleyen ödeme talebi yok</p>
-        </div>
-      ) : (
-        <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {payments.map((p) => {
-            const isAwaitingApproval = p.status === "AWAITING_ADMIN_APPROVAL";
-            const isRejected = p.status === "REJECTED";
-            const isPending = p.status === "PENDING";
-
-            return (
-              <div
-                key={p.id}
-                className="card animate-fade-in"
-                style={{
-                  padding: 16,
-                  borderLeft: isAwaitingApproval
-                    ? "4px solid #24578A"
-                    : isRejected
-                    ? "4px solid #B42318"
-                    : "4px solid #7A4A05",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 10 }}>
-                  <div>
-                    <h2 style={{ fontWeight: 700, fontSize: 16 }}>
-                      {p.table?.tableName || `Masa ${p.table?.tableNumber}`}
-                    </h2>
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                      <Clock size={12} />
-                      Talep: {new Date(p.requestedAt || p.createdAt).toLocaleTimeString("tr-TR")}
-                    </p>
-                  </div>
-                  <div>
-                    {isPending && (
-                      <span className="badge badge-warning" style={{ gap: 4 }}>
-                        <Clock size={11} /> Müşteri Talebi
-                      </span>
-                    )}
-                    {isAwaitingApproval && (
-                      <span className="badge" style={{ background: "rgba(59,130,246,0.15)", color: "#24578A", gap: 4 }}>
-                        <CheckCircle2 size={11} /> Admin Onayı Bekleniyor
-                      </span>
-                    )}
-                    {isRejected && (
-                      <span className="badge badge-danger" style={{ gap: 4 }}>
-                        <XCircle size={11} /> Admin Reddetti
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {isRejected && p.rejectionReason && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.1)", marginBottom: 10, fontSize: 13, color: "var(--danger-text)" }}>
-                    <strong>Red Nedeni:</strong> {p.rejectionReason}
-                  </div>
-                )}
-
-                {isAwaitingApproval && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(59,130,246,0.08)", marginBottom: 10, fontSize: 13, color: "#24578A" }}>
-                    Garson {p.requestedByName ? `(${p.requestedByName})` : ""} admin onayına gönderdi. (Yöntem: {p.method === "CASH" ? "Nakit" : "Kart"}, Tutar: {formatTRY(p.amount)})
-                  </div>
-                )}
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid var(--border-color)" }}>
-                  <div>
-                    <span style={{ fontWeight: 700, fontSize: 18, color: "var(--primary-light)" }}>
-                      {formatTRY(p.amount)}
-                    </span>
-                    {p.bill && (
-                      <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: 8 }}>
-                        (Adisyon Kalanı: {formatTRY(p.bill.remainingAmount)})
-                      </span>
-                    )}
-                  </div>
-
-                  {isAwaitingApproval ? (
-                    <button disabled className="btn btn-sm btn-ghost" style={{ opacity: 0.6, cursor: "not-allowed" }}>
-                      Onay Bekleniyor...
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => openModalForPayment(p)}
-                      className={`btn btn-sm ${isRejected ? "btn-danger" : "btn-primary"}`}
-                      style={{ gap: 4 }}
-                    >
-                      <CreditCard size={14} />
-                      {isRejected ? "Düzenle ve Tekrar Gönder" : "Admin Onayına Gönder"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      {query.isLoading && (
+        <div role="status" aria-label="Ödeme talepleri yükleniyor" className="flex flex-col gap-2.5">
+          {Array.from({ length: SKELETON_COUNT }, (_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
         </div>
       )}
 
-      {/* Payment Approval Modal */}
-      {selectedPayment && (
-        <Dialog onClose={closeModal} contentStyle={{ padding: 24, maxWidth: 460 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-              <Calculator size={20} /> Ödeme Bilgisini Admin Onayına Gönder
-            </h2>
-
-            {/* Table info */}
-            <div style={{ marginBottom: 16, padding: "12px 16px", background: "var(--bg-hover)", borderRadius: 12 }}>
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Masa</p>
-              <p style={{ fontSize: 16, fontWeight: 700 }}>{selectedPayment.table?.tableName || `Masa ${selectedPayment.table?.tableNumber}`}</p>
-            </div>
-
-            {/* Bill amount */}
-            <div style={{
-              marginBottom: 16, padding: "16px", borderRadius: 14,
-              background: "linear-gradient(135deg, var(--primary-glow), rgba(255,90,31,0.05))",
-              border: "1px solid rgba(255,90,31,0.15)",
-            }}>
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4, fontWeight: 600 }}>
-                Adisyon / Kalan Borç
-              </p>
-              <p style={{ fontSize: 26, fontWeight: 800, color: "var(--primary-light)" }}>
-                {formatTRY(dueAmount)}
-              </p>
-            </div>
-
-            {/* Amount to collect input */}
-            <div style={{ marginBottom: 16 }}>
-              <label htmlFor="f-tahsil-edilecek-tutar" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text-secondary)" }}>
-                Tahsil Edilecek Tutar (₺)
-              </label>
-              <input id="f-tahsil-edilecek-tutar"
-                type="number"
-                className="input"
-                value={customAmount}
-                onChange={(e) => setCustomAmount(e.target.value)}
-                step="0.01"
-                min="0.01"
-                max={dueAmount}
-                style={{ fontSize: 18, fontWeight: 700 }}
-              />
-            </div>
-
-            {/* Payment method */}
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Ödeme Yöntemi</p>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setPaymentMethod("CASH")} className={`btn ${paymentMethod === "CASH" ? "btn-primary" : "btn-ghost"}`} style={{ flex: 1, gap: 6 }}>
-                  <Banknote size={18} /> Nakit
-                </button>
-                <button onClick={() => { setPaymentMethod("CARD"); setReceivedAmount(""); }} className={`btn ${paymentMethod === "CARD" ? "btn-primary" : "btn-ghost"}`} style={{ flex: 1, gap: 6 }}>
-                  <CreditCard size={18} /> Kart
-                </button>
-              </div>
-            </div>
-
-            {/* Received amount (only for CASH) */}
-            {paymentMethod === "CASH" && (
-              <div style={{ marginBottom: 16 }}>
-                <label htmlFor="f-musteriden-alinan-nakit" style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6, color: "var(--text-secondary)" }}>
-                  Müşteriden Alınan Nakit (₺)
-                </label>
-                <div style={{ position: "relative" }}>
-                  <input id="f-musteriden-alinan-nakit"
-                    type="number"
-                    className="input"
-                    value={receivedAmount}
-                    onChange={(e) => setReceivedAmount(e.target.value)}
-                    placeholder={amountToPay.toFixed(2)}
-                    min={0}
-                    step="0.01"
-                    style={{ fontSize: 18, fontWeight: 700, paddingRight: 32 }}
-                  />
-                  <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontWeight: 600 }}>₺</span>
-                </div>
-              </div>
-            )}
-
-            {/* Change calculation */}
-            {paymentMethod === "CASH" && received > 0 && (
-              <div style={{
-                marginBottom: 16, padding: "12px 16px", borderRadius: 12,
-                background: change > 0 ? "rgba(46,139,71,0.08)" : "var(--bg-hover)",
-                border: `1px solid ${change > 0 ? "rgba(46,139,71,0.2)" : "var(--border-subtle)"}`,
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Hesaplanan Para Üstü</span>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: change > 0 ? "#276044" : "var(--text-primary)" }}>
-                    {formatTRY(change)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Info box for waiter */}
-            <div style={{
-              marginBottom: 16, padding: "10px 14px", borderRadius: 10,
-              background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.12)",
-              display: "flex", alignItems: "flex-start", gap: 8,
-            }}>
-              <Info size={16} color="#24578A" style={{ flexShrink: 0, marginTop: 1 }} />
-              <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                Garson doğrudan ödemeyi tamamlayamaz. Gönderilen bilgiler admin onayından sonra ciroya yansıyacaktır.
-              </p>
-            </div>
-
-            {/* Note */}
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Not (Opsiyonel)</p>
-              <input className="input" value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)} placeholder="Örn: 200 TL nakit alındı..." />
-            </div>
-
-            <FormError message={approvalError} style={{ marginBottom: 14 }} />
-
-            {/* Actions */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={closeModal} className="btn btn-ghost" style={{ flex: 1 }}>İptal</button>
-              <button onClick={handleRequestApproval} className="btn btn-primary" style={{ flex: 2, gap: 6 }} disabled={submitting}>
-                {submitting ? (
-                  <><Loader2 size={16} className="animate-spin" /> İletiliyor...</>
-                ) : (
-                  <><CreditCard size={16} /> Admin Onayına Gönder</>
-                )}
-              </button>
-            </div>
-          </Dialog>
+      {!query.isLoading && payments.length === 0 && !query.error && (
+        <EmptyState
+          icon={<CreditCard className="mx-auto size-12 text-fg-muted" strokeWidth={1.5} />}
+          title="Bekleyen ödeme talebi yok"
+          description="Müşteri hesap istediğinde talep burada belirir."
+        />
       )}
+
+      {payments.length > 0 && (
+        <ul aria-label="Ödeme talepleri" className="stagger flex flex-col gap-3">
+          {payments.map((payment) => (
+            <WaiterPaymentCard key={payment.id} payment={payment} onSend={open} />
+          ))}
+        </ul>
+      )}
+
+      <Suspense fallback={null}>
+        {selected && <RequestApprovalDialog payment={selected} onClose={close} onSent={handleSent} />}
+      </Suspense>
     </div>
   );
 }

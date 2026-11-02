@@ -2,9 +2,9 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { useApiMutation } from "@/hooks/useApiMutation";
-import { formatTRY } from "@/lib/format";
 import { randomId } from "@/lib/uuid";
 import PaymentFields from "@/components/payments/PaymentFields";
+import PaymentTargetSummary from "@/components/payments/PaymentTargetSummary";
 import { paymentSuccessMessage, toAmountInputValue, toPaymentPayload } from "@/components/payments/paymentForm";
 import type { PaymentMethod } from "@/components/payments/paymentMethods";
 import { usePaymentFormState } from "@/components/payments/usePaymentFormState";
@@ -67,16 +67,7 @@ export default function BillPaymentDialog({ bill, onClose, onPaid }: BillPayment
       }
     >
       <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-3.5" noValidate>
-        <dl className="flex flex-col gap-2 rounded-md bg-surface-hover p-4 text-sm">
-          <div className="flex justify-between gap-2">
-            <dt className="text-fg-secondary">Masa</dt>
-            <dd className="font-bold text-fg">{tableDisplayName(bill.table)}</dd>
-          </div>
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="text-fg-secondary">Kalan Hesap</dt>
-            <dd className="text-lg font-extrabold tabular-nums text-primary-light">{formatTRY(remaining)}</dd>
-          </div>
-        </dl>
+        <PaymentTargetSummary tableName={tableDisplayName(bill.table)} amountLabel="Kalan Hesap" amount={remaining} />
         <PaymentFields form={form} methods={BILL_PAYMENT_METHODS} amountLabel="Borçtan Tahsil Edilecek Tutar (₺) *" />
         <FormError message={pay.error} />
       </form>

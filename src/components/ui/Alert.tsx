@@ -11,8 +11,15 @@ interface AlertProps {
   action?: ReactNode;
   /** "alert": belirdiği an duyurulur (hata); bilgi kutusunda verilmez */
   role?: "alert" | "status";
+  /** "sm": kart içi / yardımcı bilgi. Boyutu className ile ezme: Tailwind'de sıra garanti değil */
+  size?: "sm" | "md";
   className?: string;
 }
+
+const SIZE_CLASS = {
+  sm: "px-3 py-2 text-xs",
+  md: "px-3.5 py-3 text-sm",
+} as const;
 
 const TONE_CLASS: Record<AlertTone, string> = {
   success: "border-success/25 bg-success/10 text-success-fg",
@@ -24,12 +31,13 @@ const TONE_CLASS: Record<AlertTone, string> = {
 };
 
 /** Renkli bilgi/uyarı kutusu. Renk çifti token'lardan gelir. */
-export default function Alert({ tone, children, action, role, className }: AlertProps) {
+export default function Alert({ tone, children, action, role, size = "md", className }: AlertProps) {
   return (
     <div
       role={role}
       className={cn(
-        "flex gap-3 rounded-md border px-3.5 py-3 text-sm leading-normal",
+        "flex gap-3 rounded-md border leading-normal",
+        SIZE_CLASS[size],
         action ? "items-center" : "items-start",
         TONE_CLASS[tone],
         className,
