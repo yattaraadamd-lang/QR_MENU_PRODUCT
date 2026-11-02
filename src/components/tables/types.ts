@@ -3,6 +3,9 @@
  * /api/waiter/tables, /api/bills/[sessionId]. Prisma Decimal JSON'da string gelir.
  */
 
+import type { PaymentPayload } from "@/components/payments/paymentForm";
+import type { PaymentMethod } from "@/components/payments/paymentMethods";
+
 export type Money = number | string;
 
 export type TableStatus =
@@ -14,8 +17,6 @@ export type TableStatus =
   | "WAITING_WAITER"
   | "PAYMENT_REQUESTED"
   | "CLEANING_NEEDED";
-
-export type PaymentMethod = "CASH" | "CARD" | "ONLINE" | "OTHER";
 
 export type BillPaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID";
 
@@ -80,11 +81,6 @@ export interface BillDetailDTO extends TableBillDTO {
   readonly payments: readonly BillPaymentDTO[];
 }
 
-export interface CollectPaymentInput {
+export interface CollectPaymentInput extends PaymentPayload {
   readonly tableSessionId: string;
-  readonly amount: number;
-  readonly method: PaymentMethod;
-  /** Yalnız nakitte: müşteriden alınan tutar (para üstü sunucuda hesaplanır) */
-  readonly receivedAmount: number | null;
-  readonly note: string | null;
 }

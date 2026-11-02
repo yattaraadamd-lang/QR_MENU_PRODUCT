@@ -11,7 +11,8 @@ import Loader from "@/components/ui/Loader";
 import Modal from "@/components/ui/Modal";
 import { eyebrowClass } from "@/components/ui/tone";
 import BillAmounts from "./BillAmounts";
-import { BILL_PAYMENT_STATUS, paymentMethodLabel, tableDisplayName, tableStatusMeta } from "./tableModel";
+import { paymentMethodLabel } from "@/components/payments/paymentMethods";
+import { BILL_PAYMENT_STATUS, tableDisplayName, tableStatusMeta } from "./tableModel";
 import type { BillState } from "./useTableDetail";
 import type { BillDetailDTO, TableDTO } from "./types";
 

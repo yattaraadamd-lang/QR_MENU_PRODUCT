@@ -1,22 +1,10 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import Badge from "@/components/ui/Badge";
-import type { Tone } from "@/components/ui/tone";
+import ToneStripe from "@/components/ui/ToneStripe";
 import { countPendingActions, tableDisplayName, tableStatusMeta } from "./tableModel";
 import type { TableGridDensity } from "./TableGrid";
 import type { TableDTO } from "./types";
-
-/** Kartın sol kenarındaki durum şeridi: köşelere değmeyen iç çubuk (.card çerçevesini ezmez) */
-const STRIPE_CLASS: Record<Tone, string> = {
-  primary: "bg-primary",
-  accent: "bg-accent",
-  success: "bg-success",
-  warning: "bg-warning",
-  danger: "bg-danger",
-  info: "bg-info",
-  purple: "bg-purple",
-  neutral: "bg-fg-muted",
-};
 
 interface TableCardProps {
   table: TableDTO;
@@ -40,10 +28,7 @@ export default function TableCard({ table, onOpen, density = "comfortable", chil
 
   return (
     <li className={cn("card relative", density === "compact" ? "p-3.5" : "p-4")}>
-      <span
-        aria-hidden="true"
-        className={cn("absolute inset-y-3 left-0 w-[3px] rounded-r-full", STRIPE_CLASS[status.tone])}
-      />
+      <ToneStripe tone={status.tone} />
       <button
         type="button"
         className="card-hit"
