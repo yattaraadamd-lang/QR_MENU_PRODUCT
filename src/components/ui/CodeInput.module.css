@@ -1,0 +1,9 @@
+/* .input (globals.css) Tailwind'den sonra geldiği için birleşik seçiciyle (0,2,0) */
+.code:global(.input) {
+  font-family: var(--font-data, ui-monospace), ui-monospace, monospace;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

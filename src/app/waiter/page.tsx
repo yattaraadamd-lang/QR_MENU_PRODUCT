@@ -6,9 +6,8 @@ import { useNow } from "@/hooks/useNow";
 import OrderCard from "@/components/waiter-orders/OrderCard";
 import { useWaiterOrdersPage } from "@/components/waiter-orders/useWaiterOrdersPage";
 import { waiterOrdersApi } from "@/components/waiter-orders/waiterOrders.api";
-import type { OrderFilter } from "@/components/waiter-orders/types";
+import StaffQueueHeader from "@/components/staff/StaffQueueHeader";
 import EmptyState from "@/components/ui/EmptyState";
-import FilterTabs from "@/components/ui/FilterTabs";
 import QueryError from "@/components/ui/QueryError";
 import Skeleton from "@/components/ui/Skeleton";
 
@@ -27,25 +26,13 @@ export default function WaiterOrdersPage() {
 
   return (
     <div>
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <h1 className="page-title page-title-sm">Siparişler</h1>
-          {pendingCount > 0 && filter === "active" && (
-            <span className="animate-pulse-glow rounded-full bg-danger px-2 py-0.5 text-2xs font-extrabold text-white">
-              {pendingCount} yeni
-            </span>
-          )}
-        </div>
-        <FilterTabs<OrderFilter>
-          label="Sipariş filtresi"
-          value={filter}
-          onChange={page.setFilter}
-          tabs={[
-            { value: "active", label: "Aktif", count: pendingCount, tone: "danger" },
-            { value: "completed", label: "Geçmiş" },
-          ]}
-        />
-      </header>
+      <StaffQueueHeader
+        title="Siparişler"
+        filterLabel="Sipariş filtresi"
+        filter={filter}
+        onFilterChange={page.setFilter}
+        pendingCount={pendingCount}
+      />
 
       <QueryError message={query.error} onRetry={query.refresh} />
 

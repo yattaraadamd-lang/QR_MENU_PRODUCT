@@ -1,8 +1,12 @@
 "use client";
 
-import React from "react";
-import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import type { ReactNode } from "react";
+import { AlertTriangle, Trash2 } from "lucide-react";
+import { cn } from "@/lib/cn";
+import Button from "./Button";
 import Dialog from "./Dialog";
+import modalStyles from "./Modal.module.css";
+import { TONE_TINT } from "./tone";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -14,7 +18,7 @@ interface ConfirmDialogProps {
   cancelText?: string;
   variant?: "danger" | "warning";
   loading?: boolean;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 export default function ConfirmDialog({
@@ -32,71 +36,38 @@ export default function ConfirmDialog({
   if (!open) return null;
 
   const isDanger = variant === "danger";
-  const iconBg = isDanger ? "rgba(220,38,38,0.1)" : "rgba(242,179,61,0.1)";
-  const iconColor = isDanger ? "#DC2626" : "#7A4A05";
+  const Icon = isDanger ? Trash2 : AlertTriangle;
 
   return (
-    <Dialog onClose={onClose} contentStyle={{ padding: 24, maxWidth: 400 }}>
-        <div style={{ display: "flex", gap: 14, marginBottom: 16 }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: iconBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            {isDanger ? (
-              <Trash2 size={20} color={iconColor} />
-            ) : (
-              <AlertTriangle size={20} color={iconColor} />
-            )}
-          </div>
-          <div>
-            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>{title}</h2>
-            {description && (
-              <p style={{ color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.5 }}>
-                {description}
-              </p>
-            )}
-          </div>
+    <Dialog onClose={onClose} contentClassName={cn("modal-content p-6", modalStyles.sm)}>
+      <div className="mb-4 flex gap-3.5">
+        <div
+          aria-hidden="true"
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-md",
+            TONE_TINT[variant],
+            isDanger ? "text-danger-fg" : "text-warning-fg",
+          )}
+        >
+          <Icon className="size-5" />
         </div>
-
-        {children && <div style={{ marginBottom: 16 }}>{children}</div>}
-
-        <div style={{ display: "flex", gap: 8, paddingTop: 8 }}>
-          {/* Açılışta odak geri dönülebilir seçenekte: Enter'a yanlışlıkla basmak işlemi onaylamasın */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-ghost"
-            style={{ flex: 1 }}
-            disabled={loading}
-            data-autofocus
-          >
-            {cancelText}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className={`btn ${isDanger ? "btn-danger" : "btn-warning"}`}
-            style={{ flex: 1 }}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                İşleniyor...
-              </>
-            ) : (
-              confirmText
-            )}
-          </button>
+        <div>
+          <h2 className="mb-1 text-lg font-bold text-fg">{title}</h2>
+          {description && <p className="text-sm leading-normal text-fg-secondary">{description}</p>}
         </div>
+      </div>
+
+      {children && <div className="mb-4">{children}</div>}
+
+      <div className="flex gap-2 pt-2">
+        {/* Açılışta odak geri dönülebilir seçenekte: Enter'a yanlışlıkla basmak işlemi onaylamasın */}
+        <Button variant="ghost" className="flex-1" disabled={loading} onClick={onClose} data-autofocus>
+          {cancelText}
+        </Button>
+        <Button variant={isDanger ? "danger" : "warning"} className="flex-1" loading={loading} onClick={onConfirm}>
+          {loading ? "İşleniyor..." : confirmText}
+        </Button>
+      </div>
     </Dialog>
   );
 }

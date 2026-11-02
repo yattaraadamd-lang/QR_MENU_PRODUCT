@@ -1,363 +1,63 @@
 "use client";
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
-import { useApiQuery } from "@/hooks/useApiQuery";
-import { useBusinessSocket } from "@/hooks/useBusinessSocket";
+import { useNow } from "@/hooks/useNow";
+import StaffQueueHeader from "@/components/staff/StaffQueueHeader";
+import RequestCard from "@/components/waiter-requests/RequestCard";
+import { useWaiterRequestsPage } from "@/components/waiter-requests/useWaiterRequestsPage";
+import EmptyState from "@/components/ui/EmptyState";
 import QueryError from "@/components/ui/QueryError";
-import { useConfirm } from "@/components/ui/useConfirm";
-import { toast } from "sonner";
-import { formatTRY } from "@/lib/format";
+import Skeleton from "@/components/ui/Skeleton";
 
-const TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
-  CALL_WAITER:         { label: "Garson Çağrısı",  icon: "🙋", color: "#B42318" },
-  PAYMENT_REQUEST:     { label: "Ödeme Talebi",    icon: "💳", color: "#7E2F5B" },
-  HELP_REQUEST:        { label: "Yardım Talebi",   icon: "ℹ️", color: "#24578A" },
-  CLEANING_REQUEST:    { label: "Temizlik",         icon: "🧹", color: "#0E6C80" },
-  ORDER_REQUEST:       { label: "Sipariş Talebi",  icon: "📋", color: "#7A4A05" },
-  PRODUCT_INFO:        { label: "Ürün Bilgisi",    icon: "❓", color: "#276044" },
-  COMPLAINT_SUGGESTION:{ label: "Şikayet/Öneri",   icon: "💬", color: "#7E2F5B" },
-};
-
-const STATUS_META: Record<string, { label: string; badge: string }> = {
-  PENDING:     { label: "Bekliyor",   badge: "badge-warning" },
-  SEEN:        { label: "Görüldü",    badge: "badge-info" },
-  IN_PROGRESS: { label: "İşlemde",   badge: "badge-primary" },
-  COMPLETED:   { label: "Tamamlandı",badge: "badge-success" },
-  CANCELLED:   { label: "İptal",     badge: "badge-neutral" },
-};
-
-function timeAgo(dateStr: string) {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-  if (diff < 60) return `${diff}sn önce`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}dk önce`;
-  return new Date(dateStr).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
-}
-
-function isExpired(expiresAt: string | null | undefined): boolean {
-  if (!expiresAt) return false;
-  return new Date(expiresAt) < new Date();
-}
+const SKELETON_COUNT = 3;
+/** "40sn önce" ve "süresi doldu" bu aralıkla tazelenir */
+const CLOCK_TICK_MS = 15_000;
 
 export default function WaiterRequestsPage() {
-  const { data: session } = useSession();
-  const [filter, setFilter] = useState("active");
-  const [openingTable, setOpeningTable] = useState<string | null>(null);
-
-  const [codeInputs, setCodeInputs] = useState<Record<string, string>>({});
-  const [rejectingRequest, setRejectingRequest] = useState<string | null>(null);
-  const [confirm, confirmDialog] = useConfirm();
-
-  // Filtre değişince eski istek iptal edilir; sekme gizliyken polling durur
-  const requestsQuery = useApiQuery<any[]>(
-    session?.user.businessId ? `/api/waiter/service-requests?status=${filter}` : null,
-    { select: (j) => (j as { serviceRequests?: any[] } | null)?.serviceRequests ?? [], refreshInterval: 5000 },
-  );
-  const requests = requestsQuery.data ?? [];
-  const loading = requestsQuery.isLoading;
-  const fetchRequests = requestsQuery.refresh;
-
-  // ✅ Socket.IO — ekran ayrılınca yalnız kendi dinleyicileri kalkar
-  useBusinessSocket(
-    ["call_waiter", "payment_request", "help_request", "service_request", "order_request_update", "table_opened"],
-    fetchRequests,
-  );
-
-  const updateStatus = async (id: string, status: string) => {
-    try {
-      const res = await fetch(`/api/waiter/service-requests/${id}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) fetchRequests();
-    } catch (e) { console.error(e); }
-  };
-
-  // ✅ Atomik Masa Açma — doğrulama kodu ile
-  const openTable = async (req: any) => {
-    if (!session?.user.businessId || !req.tableId) return;
-    const code = codeInputs[req.id]?.trim();
-    if (!code || code.length !== 6) {
-      toast.error("Lütfen 6 haneli doğrulama kodunu girin.");
-      return;
-    }
-    setOpeningTable(req.id);
-    try {
-      const res = await fetch(`/api/waiter/service-requests/${req.id}/open-table`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verificationCode: code }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setCodeInputs((prev) => {
-          const next = { ...prev };
-          delete next[req.id];
-          return next;
-        });
-        fetchRequests();
-        toast.success("Masa açıldı, müşteri sipariş verebilir.");
-      } else {
-        toast.error(data.error || "Masa açma hatası");
-      }
-    } catch (e) {
-      console.error("Masa açma hatası:", e);
-      toast.error("Bağlantı hatası");
-    } finally {
-      setOpeningTable(null);
-    }
-  };
-
-  // ✅ Sipariş Talebi Reddetme ve Cihaz Engelleme
-  const rejectOrderRequest = async (req: any) => {
-    const confirmed = await confirm({
-      title: "Sipariş talebi reddedilsin mi?",
-      description: "Masada müşteri bulunmadığını onaylıyorsunuz. Müşteri oturumu kapatılacak ve bu cihaz işletmede engellenecek.",
-      confirmText: "Reddet ve engelle",
-    });
-    if (!confirmed) return;
-
-    setRejectingRequest(req.id);
-    try {
-      const res = await fetch(`/api/waiter/service-requests/${req.id}/reject-order-request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "EMPTY_TABLE_ABUSE" }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        fetchRequests();
-      } else {
-        toast.error(data.error || "Sipariş talebi reddedilemedi");
-      }
-    } catch (e) {
-      console.error("Reddetme hatası:", e);
-      toast.error("Bağlantı hatası");
-    } finally {
-      setRejectingRequest(null);
-    }
-  };
-
-  const pendingCount = requests.filter(r => r.status === "PENDING").length;
+  const page = useWaiterRequestsPage();
+  const { query, requests, filter } = page;
+  const now = useNow(CLOCK_TICK_MS);
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h1 className="page-title page-title-sm">Talepler</h1>
-          {pendingCount > 0 && filter === "active" && (
-            <span style={{
-              background: "var(--danger)", color: "white", borderRadius: 99,
-              fontSize: 11, fontWeight: 800, padding: "2px 8px",
-            }}>{pendingCount} yeni</span>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            onClick={() => setFilter("active")}
-            className={`btn btn-sm ${filter === "active" ? "btn-primary" : "btn-ghost"}`}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
-          >
-            Aktif
-            {pendingCount > 0 && (
-              <span style={{
-                background: filter === "active" ? "rgba(0,0,0,0.22)" : "var(--danger)",
-                color: "white",
-                borderRadius: 99,
-                fontSize: 10,
-                fontWeight: 800,
-                padding: "1px 6px",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}>
-                {pendingCount}
-              </span>
-            )}
-          </button>
-          <button onClick={() => setFilter("completed")} className={`btn btn-sm ${filter === "completed" ? "btn-primary" : "btn-ghost"}`}>Geçmiş</button>
-        </div>
-      </div>
+      <StaffQueueHeader
+        title="Talepler"
+        filterLabel="Talep filtresi"
+        filter={filter}
+        onFilterChange={page.setFilter}
+        pendingCount={page.pendingCount}
+      />
 
-      <QueryError message={requestsQuery.error} onRetry={fetchRequests} />
+      <QueryError message={query.error} onRetry={query.refresh} />
 
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 90, borderRadius: 14 }} />)}
-        </div>
-      ) : requests.length === 0 ? (
-        <div className="card" style={{ padding: "48px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-          <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>
-            {filter === "active" ? "Bekleyen talep yok" : "Geçmiş talep yok"}
-          </p>
-        </div>
-      ) : (
-        <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {requests.map(req => {
-            const tm = TYPE_META[req.requestType] || { label: req.requestType, icon: "📌", color: "#7E2F5B" };
-            const sm = STATUS_META[req.status] || STATUS_META.PENDING;
-            const isPending = req.status === "PENDING";
-            const isOrder = req.requestType === "ORDER_REQUEST";
-            const expired = isExpired(req.expiresAt);
-
-            return (
-              <div key={req.id} className="card animate-fade-in" style={{
-                padding: 0, overflow: "hidden",
-                borderLeft: isPending ? `3px solid ${tm.color}` : "1px solid var(--border-color)",
-              }}>
-                <div style={{ padding: "12px 16px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{
-                        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                        background: `${tm.color}18`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 18,
-                      }}>{tm.icon}</span>
-                      <div>
-                        <p style={{ fontWeight: 700, fontSize: 14 }}>{tm.label}</p>
-                        <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 1 }}>
-                          {req.table?.tableName || `Masa ${req.table?.tableNumber}`} · {timeAgo(req.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {expired && isPending && (
-                        <span style={{ fontSize: 11, color: "var(--danger-text)", fontWeight: 700 }}>⏰ Süresi Doldu</span>
-                      )}
-                      <span className={`badge ${sm.badge}`}>{sm.label}</span>
-                    </div>
-                  </div>
-
-                  {/* Ürün Özeti — ORDER_REQUEST için */}
-                  {isOrder && req.orderPreview && (
-                    <div style={{
-                      padding: "10px 12px", marginTop: 8,
-                      background: "rgba(242,179,61,0.06)", borderRadius: 10,
-                      border: "1px solid rgba(242,179,61,0.2)", fontSize: 13,
-                    }}>
-                      <p style={{ fontWeight: 700, marginBottom: 6, color: "var(--text-primary)", fontSize: 12 }}>
-                        📋 Ürün Özeti:
-                      </p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        {req.orderPreview.items?.map((item: any, idx: number) => (
-                          <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                            <span>
-                              <strong>{item.quantity}x</strong> {item.name}
-                              {item.note ? <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>({item.note})</span> : null}
-                            </span>
-                            <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
-                              {formatTRY(Number(item.unitPrice || 0) * Number(item.quantity || 1))}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{
-                        display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 6,
-                        borderTop: "1px dashed rgba(242,179,61,0.3)", fontWeight: 800, fontSize: 13
-                      }}>
-                        <span>Tahmini Toplam:</span>
-                        <span style={{ color: "var(--primary-light)" }}>{formatTRY(req.orderPreview.total || 0)}</span>
-                      </div>
-                      {req.orderPreview.orderNote && (
-                        <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, fontStyle: "italic" }}>
-                          Not: {req.orderPreview.orderNote}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {req.note && !isOrder && (
-                    <div style={{ padding: "6px 10px", background: "rgba(242,179,61,0.08)", borderRadius: 8, fontSize: 12, color: "#7A4A05", marginTop: 6 }}>
-                      📝 {req.note}
-                    </div>
-                  )}
-
-                  {/* 6 Haneli Doğrulama Kodu Girişi — ORDER_REQUEST için */}
-                  {isOrder && isPending && !expired && (
-                    <div style={{ marginTop: 10 }}>
-                      <label htmlFor={`code-${req.id}`} style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>
-                        🔑 Müşteri Doğrulama Kodu (6 Haneli):
-                      </label>
-                      <input
-                        id={`code-${req.id}`}
-                        type="text"
-                        maxLength={6}
-                        placeholder="Örn: 482913"
-                        value={codeInputs[req.id] || ""}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "");
-                          setCodeInputs((prev) => ({ ...prev, [req.id]: val }));
-                        }}
-                        style={{
-                          width: "100%", padding: "8px 12px", borderRadius: 8,
-                          border: "1px solid var(--border-color)", background: "var(--bg-card)",
-                          fontSize: 18, fontWeight: 900, letterSpacing: "0.2em", textAlign: "center",
-                          fontFamily: "monospace", color: "var(--text-primary)",
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {isOrder ? (
-                    /* ✅ ORDER_REQUEST: yalnız Masayı Aç ve Reddet */
-                    isPending && !expired && (
-                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                        <button
-                          onClick={() => openTable(req)}
-                          disabled={openingTable === req.id || !(codeInputs[req.id] && codeInputs[req.id].length === 6)}
-                          className="btn btn-sm"
-                          style={{
-                            flex: 2,
-                            background: "linear-gradient(135deg, #2B8243, #24713A)",
-                            color: "white",
-                            border: "none",
-                            opacity: (openingTable === req.id || !(codeInputs[req.id] && codeInputs[req.id].length === 6)) ? 0.5 : 1,
-                            cursor: (openingTable === req.id || !(codeInputs[req.id] && codeInputs[req.id].length === 6)) ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç"}
-                        </button>
-                        <button
-                          onClick={() => rejectOrderRequest(req)}
-                          disabled={rejectingRequest === req.id}
-                          className="btn btn-sm btn-ghost"
-                          style={{ color: "var(--danger-text)", fontWeight: 700 }}
-                        >
-                          {rejectingRequest === req.id ? "⏳..." : "🛑 Reddet"}
-                        </button>
-                      </div>
-                    )
-                  ) : (
-                    /* ✅ Normal hizmet talepleri: İşleme Al → Tamamla → İptal */
-                    ["PENDING", "SEEN", "IN_PROGRESS"].includes(req.status) && (
-                      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                        {req.status === "PENDING" && (
-                          <button onClick={() => updateStatus(req.id, "IN_PROGRESS")} className="btn btn-sm btn-primary" style={{ flex: 1 }}>
-                            ▶ İşleme Al
-                          </button>
-                        )}
-                        {(req.status === "IN_PROGRESS" || req.status === "SEEN") && (
-                          <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: req.status === "PENDING" ? 1 : 2 }}>
-                            ✓ Tamamla
-                          </button>
-                        )}
-                        <button aria-label="Talebi iptal et" onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)" }}>
-                          ✕
-                        </button>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      {query.isLoading && (
+        <div role="status" aria-label="Talepler yükleniyor" className="flex flex-col gap-2.5">
+          {Array.from({ length: SKELETON_COUNT }, (_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
         </div>
       )}
-      {confirmDialog}
+
+      {!query.isLoading && requests.length === 0 && !query.error && (
+        <EmptyState icon="✅" title={filter === "active" ? "Bekleyen talep yok" : "Geçmiş talep yok"} />
+      )}
+
+      {requests.length > 0 && (
+        <ul aria-label="Talepler" className="stagger flex flex-col gap-2.5">
+          {requests.map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              now={now}
+              busy={page.busyId === request.id}
+              onStatus={page.updateStatus}
+              onOpenTable={page.openTable}
+              onRejectOrder={page.rejectOrderRequest}
+            />
+          ))}
+        </ul>
+      )}
+
+      {page.confirmDialog}
     </div>
   );
 }
