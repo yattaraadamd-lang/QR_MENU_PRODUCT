@@ -1,16 +1,17 @@
 "use client";
 
 import { useId, type FormEvent } from "react";
+import { useApiMutation } from "@/hooks/useApiMutation";
 import { formatTRY } from "@/lib/format";
-import Alert from "@/components/ui/Alert";
-import AmountInput from "@/components/ui/AmountInput";
+import PaymentFields from "@/components/payments/PaymentFields";
+import { toAmountInputValue, toPaymentPayload } from "@/components/payments/paymentForm";
+import { ALL_PAYMENT_METHODS } from "@/components/payments/paymentMethods";
+import { usePaymentFormState } from "@/components/payments/usePaymentFormState";
 import Button from "@/components/ui/Button";
-import ChoiceGroup from "@/components/ui/ChoiceGroup";
-import Field from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
-import { PAYMENT_METHOD_OPTIONS, tableDisplayName, toAmountInputValue } from "./tableModel";
-import { usePaymentForm, type PaymentSummary } from "./usePaymentForm";
+import { tableDisplayName } from "./tableModel";
+import { tablesApi } from "./tables.api";
 import type { TableBillDTO, TableDTO } from "./types";
 
 interface PaymentDialogProps {
@@ -22,19 +23,20 @@ interface PaymentDialogProps {
   onPaid: () => void;
 }
 
-/** Ödeme al: tutar, yöntem, nakitte alınan tutar ve para üstü. */
+/** Masadan ödeme al (admin ve garson): tutar, yöntem, nakitte alınan tutar ve para üstü. */
 export default function PaymentDialog({ table, sessionId, bill, onClose, onPaid }: PaymentDialogProps) {
-  const form = usePaymentForm({
-    sessionId,
-    initialAmount: bill ? toAmountInputValue(bill.remainingAmount) : "",
-    onPaid,
-  });
+  const form = usePaymentFormState({ initialAmount: bill ? toAmountInputValue(bill.remainingAmount) : "" });
+  const collect = useApiMutation(tablesApi.collectPayment);
   const formId = useId();
-  const ids = { amount: `${formId}-amount`, received: `${formId}-received`, note: `${formId}-note` };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void form.submit();
+    if (form.validationError) {
+      collect.setError(form.validationError);
+      return;
+    }
+    const result = await collect.run({ tableSessionId: sessionId, ...toPaymentPayload(form.values) });
+    if (result.ok) onPaid();
   };
 
   return (
@@ -49,8 +51,14 @@ export default function PaymentDialog({ table, sessionId, bill, onClose, onPaid 
       }
       footer={
         <>
-          <Button type="submit" form={formId} variant="success" className="flex-1" loading={form.pending} disabled={!form.canSubmit}>
-            {form.pending ? "İşleniyor..." : "Ödemeyi Onayla"}
+          <Button
+            type="submit"
+            form={formId}
+            variant="success"
+            className="flex-1"
+            loading={collect.pending}
+          >
+            {collect.pending ? "İşleniyor..." : "Ödemeyi Onayla"}
           </Button>
           <Button variant="ghost" onClick={onClose}>
             İptal
@@ -59,71 +67,9 @@ export default function PaymentDialog({ table, sessionId, bill, onClose, onPaid 
       }
     >
       <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-3.5" noValidate>
-        <Field label="Ödenecek Tutar (₺) *" htmlFor={ids.amount}>
-          <AmountInput
-            id={ids.amount}
-            value={form.values.amount}
-            onChange={(e) => form.setField("amount", e.target.value)}
-            placeholder="0.00"
-            required
-            data-autofocus
-          />
-        </Field>
-
-        <ChoiceGroup
-          legend="Ödeme Yöntemi *"
-          options={PAYMENT_METHOD_OPTIONS}
-          value={form.values.method}
-          onChange={form.setMethod}
-        />
-
-        {form.values.method === "CASH" && (
-          <div>
-            <Field label="Müşteriden Alınan Nakit (₺) *" htmlFor={ids.received}>
-              <AmountInput
-                id={ids.received}
-                value={form.values.received}
-                onChange={(e) => form.setField("received", e.target.value)}
-                placeholder={form.summary.due > 0 ? form.summary.due.toFixed(2) : "250.00"}
-                required
-              />
-            </Field>
-            {form.summary.received > 0 && <ChangeSummary summary={form.summary} />}
-          </div>
-        )}
-
-        <Field label="Not (opsiyonel)" htmlFor={ids.note}>
-          <input
-            id={ids.note}
-            className="input"
-            value={form.values.note}
-            onChange={(e) => form.setField("note", e.target.value)}
-            placeholder="Ödeme notu..."
-          />
-        </Field>
-
-        <FormError message={form.error} />
+        <PaymentFields form={form} methods={ALL_PAYMENT_METHODS} amountLabel="Ödenecek Tutar (₺) *" withNote />
+        <FormError message={collect.error} />
       </form>
     </Modal>
-  );
-}
-
-function ChangeSummary({ summary }: { summary: PaymentSummary }) {
-  const enough = summary.change >= 0;
-  return (
-    <Alert tone={enough ? "success" : "danger"} className="mt-3">
-      <dl>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-xs text-fg-secondary">Para Üstü</dt>
-          <dd className="text-lg font-extrabold tabular-nums">{enough ? formatTRY(summary.change) : "⚠️ Yetersiz"}</dd>
-        </div>
-        {enough && summary.due > 0 && (
-          <div className="mt-1.5 flex justify-between gap-2 border-t border-line-subtle pt-1.5 text-2xs">
-            <dt className="text-fg-secondary">Ciroya yansıyacak</dt>
-            <dd className="font-bold tabular-nums text-primary-light">{formatTRY(summary.due)}</dd>
-          </div>
-        )}
-      </dl>
-    </Alert>
   );
 }

@@ -1,6 +1,5 @@
 import type { Tone } from "@/components/ui/tone";
-import type { ChoiceOption } from "@/components/ui/ChoiceGroup";
-import type { BillPaymentStatus, PaymentMethod, TableDTO, TableStatus } from "./types";
+import type { BillPaymentStatus, TableDTO, TableStatus } from "./types";
 
 interface StatusMeta {
   readonly label: string;
@@ -24,28 +23,12 @@ export const BILL_PAYMENT_STATUS: Readonly<Record<BillPaymentStatus, StatusMeta>
   UNPAID: { label: "Ödenmedi", tone: "danger" },
 };
 
-const PAYMENT_METHOD_LABEL: Readonly<Record<PaymentMethod, string>> = {
-  CASH: "💵 Nakit",
-  CARD: "💳 Kart",
-  ONLINE: "📱 Havale/EFT",
-  OTHER: "🔄 Diğer",
-};
-
-export const PAYMENT_METHOD_OPTIONS: readonly ChoiceOption<PaymentMethod>[] = (
-  Object.keys(PAYMENT_METHOD_LABEL) as PaymentMethod[]
-).map((value) => ({ value, label: PAYMENT_METHOD_LABEL[value] }));
-
 export const FORCE_CLOSE_REASONS = ["İkram", "İptal", "Müşteri ayrıldı", "Hatalı sipariş", "Diğer"] as const;
 export type ForceCloseReason = (typeof FORCE_CLOSE_REASONS)[number];
 
 /** Sunucu bilinmeyen bir durum gönderirse "Boş" gibi gösterilir */
 export function tableStatusMeta(status: TableStatus): StatusMeta {
   return TABLE_STATUS[status] ?? TABLE_STATUS.EMPTY;
-}
-
-export function paymentMethodLabel(method: PaymentMethod | null): string {
-  if (!method) return "—";
-  return PAYMENT_METHOD_LABEL[method] ?? method;
 }
 
 export function tableDisplayName(table: Pick<TableDTO, "tableName" | "tableNumber">): string {
@@ -61,10 +44,4 @@ export function countPendingActions(table: TableDTO): number {
 
 export function hasUnpaidBill(table: TableDTO): boolean {
   return table.bill !== null && Number(table.bill.remainingAmount) > 0;
-}
-
-/** Tutar alanının değeri: type="number" "12.50" bekler (ekranda formatTRY) */
-export function toAmountInputValue(value: number | string): string {
-  const n = Number(value);
-  return Number.isFinite(n) ? n.toFixed(2) : "";
 }
