@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
 
 interface ScrollRegionProps {
   /** Ekran okuyucuya okunacak bölge adı (ör. "Ödemeler tablosu"). */
@@ -39,8 +40,10 @@ export default function ScrollRegion({ label, children, className, style }: Scro
       // jsx-a11y bu meşru istisnayı tanımıyor.
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={overflows ? 0 : undefined}
-      className={className}
-      style={{ overflowX: "auto", ...style }}
+      // relative: içerideki mutlak konumlu öğeler (sr-only metin, rozet) da kapla kırpılır;
+      // yoksa en yakın konumlu ata dışarıda kalır ve dar ekranda sayfayı yatay taşırırlar
+      className={cn("relative overflow-x-auto", className)}
+      style={style}
     >
       {children}
     </div>
