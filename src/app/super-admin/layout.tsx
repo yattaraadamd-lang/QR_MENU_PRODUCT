@@ -1,23 +1,18 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
-import Loader from "@/components/ui/Loader";
+import type { ReactNode } from "react";
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
-import { useCssHeightVar } from "@/hooks/useCssHeightVar";
-import BrandLogo from "@/components/brand/BrandLogo";
-import { Lock, LogOut, Menu, X } from "lucide-react";
+import AccessDenied from "@/components/staff/AccessDenied";
+import { useMobileSidebar } from "@/components/staff/useMobileSidebar";
+import SuperAdminMobileBar from "@/components/super-admin-shell/SuperAdminMobileBar";
+import SuperAdminSidebar from "@/components/super-admin-shell/SuperAdminSidebar";
+import Loader from "@/components/ui/Loader";
 
-const sidebarLinks = [
-  { href: "/super-admin/dashboard", label: "Dashboard", icon: "📊" },
-  { href: "/super-admin/businesses", label: "İşletmeler", icon: "🏪" },
-  { href: "/super-admin/users", label: "Kullanıcılar", icon: "👥" },
-  { href: "/super-admin/subscriptions", label: "Abonelikler", icon: "💎" },
-  { href: "/super-admin/payments", label: "Platform Ödemeleri", icon: "💳" },
-  { href: "/super-admin/settings", label: "Ayarlar", icon: "⚙️" },
-];
+const MOBILE_MENU_ID = "super-admin-menu";
+/** Tailwind md kırılımı: kenar çubuğu görünür, telefon menüsü kapanır */
+const DESKTOP_QUERY = "(min-width: 768px)";
 
 export default function SuperAdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -29,135 +24,36 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
 
 function SuperAdminGate({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
-  const router = useRouter();
+
+  // Oturum okunurken kilit ekranı çizilirse yetkili kullanıcı her yenilemede "Erişim Engellendi" görür
+  if (status === "loading") return <Loader fullScreen label="Panel yükleniyor" />;
+  if (session?.user.role !== "SUPER_ADMIN") return <AccessDenied message="Bu alana sadece Super Admin erişebilir." />;
+
+  return <SuperAdminShell>{children}</SuperAdminShell>;
+}
+
+function SuperAdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  // Mobil menü yapışkan başlığın hemen altından başlar (eskiden sabit top: 60)
-  const mobileHeaderRef = useCssHeightVar("--sa-header-h");
-
-  if (status === "loading") {
-    return <Loader fullScreen />;
-  }
-
-  if (!session || session.user.role !== "SUPER_ADMIN") {
-    return (
-      <div className="min-h-viewport flex items-center justify-center">
-        <div className="text-center">
-          <Lock size={44} aria-hidden="true" className="mx-auto mb-4" style={{ color: "var(--primary)" }} />
-          <h1 className="page-title mb-2">Erişim engellendi</h1>
-          <p style={{ color: "var(--text-secondary)" }} className="mb-4">Bu alana sadece Super Admin erişebilir.</p>
-          <button onClick={() => router.push("/auth/signin")} className="btn btn-primary">Giriş Yap</button>
-        </div>
-      </div>
-    );
-  }
+  const menu = useMobileSidebar(MOBILE_MENU_ID, DESKTOP_QUERY);
 
   return (
-    <div className="min-h-viewport" data-height-vars style={{ display: "flex", background: "var(--bg-secondary)" }}>
-      {/* Sidebar */}
-      <aside style={{
-        width: 260,
-        background: "var(--bg-primary)",
-        borderRight: "1px solid var(--border-color)",
-        flexDirection: "column",
-        position: "sticky",
-        top: 0,
-      }} className="hidden md:flex h-viewport">
-        <div style={{ padding: "24px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <div className="panel-brand">
-            <BrandLogo size="sm" />
-            <p className="panel-brand-sub">Platform yönetimi</p>
-          </div>
-        </div>
-
-        <nav aria-label="Platform menüsü" style={{ flex: 1, padding: "20px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
-          {sidebarLinks.map((link) => {
-            const isActive = pathname.startsWith(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={isActive ? "page" : undefined}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "12px 16px",
-                  borderRadius: 12,
-                  textDecoration: "none",
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive ? "var(--primary)" : "var(--text-secondary)",
-                  background: isActive ? "rgba(var(--brand-rgb),0.12)" : "transparent",
-                  transition: "all 0.2s",
-                }}
-              >
-                <span style={{ fontSize: 18 }}>{link.icon}</span>
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div style={{ padding: 20, borderTop: "1px solid var(--border-color)" }}>
-          <button
-            onClick={() => signOut({ callbackUrl: "/auth/signin" })}
-            className="btn btn-ghost"
-            style={{ width: "100%", justifyContent: "flex-start", color: "var(--danger-text)" }}
-          >
-            <LogOut size={16} aria-hidden="true" /> Çıkış yap
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {/* Mobile Header */}
-        <div ref={mobileHeaderRef} className="flex md:hidden" style={{
-          background: "var(--bg-primary)",
-          borderBottom: "1px solid var(--border-color)",
-          padding: "16px 20px",
-          justifyContent: "space-between",
-          alignItems: "center",
-          position: "sticky",
-          top: 0,
-          zIndex: 40,
-        }}>
-          <BrandLogo size="sm" />
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} aria-label={isMobileMenuOpen ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={isMobileMenuOpen} style={{ minWidth: 44, minHeight: 44, background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "var(--text-primary)" }}>
-            {isMobileMenuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}
-          </button>
-        </div>
-
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="flex md:hidden" style={{
-            position: "fixed", top: "var(--sa-header-h, 60px)", left: 0, right: 0, bottom: 0,
-            background: "var(--bg-primary)", zIndex: 30, padding: 20,
-            flexDirection: "column", gap: 8,
-          }}>
-            {sidebarLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="btn btn-ghost"
-                style={{ justifyContent: "flex-start", padding: "16px", fontSize: 16 }}
-              >
-                <span style={{ marginRight: 12, fontSize: 20 }}>{link.icon}</span>
-                {link.label}
-              </Link>
-            ))}
-            <button
-              onClick={() => signOut({ callbackUrl: "/auth/signin" })}
-              className="btn btn-ghost"
-              style={{ justifyContent: "flex-start", padding: "16px", fontSize: 16, color: "var(--danger-text)", marginTop: "auto" }}
-            >
-              <LogOut size={16} aria-hidden="true" /> Çıkış yap
-            </button>
-          </div>
-        )}
-
-        <main id="main-content" key={pathname} className="page-enter" style={{ padding: "24px 32px", flex: 1, overflowY: "auto" }}>
+    <div className="min-h-viewport flex bg-surface-muted" data-height-vars>
+      <SuperAdminSidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <SuperAdminMobileBar
+          menuId={MOBILE_MENU_ID}
+          open={menu.open}
+          menuButtonRef={menu.menuButtonRef}
+          onToggle={menu.toggle}
+          onNavigate={menu.closeOnNavigate}
+        />
+        {/* Telefon menüsü açıkken içerik etkisiz: Tab menüden arkaya kaçmasın */}
+        <main
+          id="main-content"
+          key={pathname}
+          inert={menu.open}
+          className="page-enter flex-1 overflow-y-auto px-4 py-6 sm:px-8"
+        >
           {children}
         </main>
       </div>

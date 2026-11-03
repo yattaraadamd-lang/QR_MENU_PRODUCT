@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import type { BadgeCounts } from "@/hooks/useBadgeCounts";
-import { ADMIN_NAV, NAV_GROUPS, badgeText } from "./navConfig";
+import NavCountBadge from "@/components/staff/NavCountBadge";
+import { ADMIN_NAV, NAV_GROUPS } from "./navConfig";
 
 interface AdminNavProps {
   counts: BadgeCounts;
@@ -49,12 +50,7 @@ export default function AdminNav({ counts, onNavigate }: AdminNavProps) {
                         className={cn("size-[18px] shrink-0", active ? "text-primary-light" : "text-fg-muted")}
                       />
                       <span className="flex-1">{item.label}</span>
-                      {count > 0 && (
-                        <span className="animate-pulse-glow min-w-[18px] shrink-0 rounded-full bg-danger px-1.5 text-center text-2xs font-extrabold leading-4 text-white">
-                          <span className="sr-only">, bekleyen </span>
-                          {badgeText(count)}
-                        </span>
-                      )}
+                      <NavCountBadge count={count} />
                     </Link>
                   </li>
                 );

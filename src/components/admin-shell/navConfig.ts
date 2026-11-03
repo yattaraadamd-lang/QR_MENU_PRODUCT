@@ -49,10 +49,3 @@ export const NAV_GROUPS: readonly { readonly key: NavGroup; readonly label: stri
   { key: "venue", label: "İşletme" },
   { key: "system", label: "Sistem" },
 ];
-
-/** Rozetlerde en fazla iki hane: 99'dan sonrası "99+" */
-const MAX_BADGE = 99;
-
-export function badgeText(count: number): string {
-  return count > MAX_BADGE ? `${MAX_BADGE}+` : String(count);
-}

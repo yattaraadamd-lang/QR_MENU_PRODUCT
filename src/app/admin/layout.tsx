@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
 import AdminSidebar from "@/components/admin-shell/AdminSidebar";
 import AdminTopBar from "@/components/admin-shell/AdminTopBar";
-import { useMobileSidebar } from "@/components/admin-shell/useMobileSidebar";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
 import AccessDenied from "@/components/staff/AccessDenied";
+import { useMobileSidebar } from "@/components/staff/useMobileSidebar";
 import Loader from "@/components/ui/Loader";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 
