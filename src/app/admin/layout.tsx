@@ -1,58 +1,20 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
-import { NotificationPanel } from "@/components/NotificationPanel";
-import { useBadgeCounts } from "@/hooks/useBadgeCounts";
-import Loader from "@/components/ui/Loader";
+import AdminSidebar from "@/components/admin-shell/AdminSidebar";
+import AdminTopBar from "@/components/admin-shell/AdminTopBar";
+import { useMobileSidebar } from "@/components/admin-shell/useMobileSidebar";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
-import BrandLogo from "@/components/brand/BrandLogo";
-import {
-  LayoutDashboard,
-  ClipboardList,
-  Bell,
-  Clock,
-  CreditCard,
-  Package,
-  FolderOpen,
-  Table2,
-  Users,
-  Ban,
-  Settings,
-  LogOut,
-  Lock,
-  Menu,
-  Store,
-  Gem,
-} from "lucide-react";
+import AccessDenied from "@/components/staff/AccessDenied";
+import Loader from "@/components/ui/Loader";
+import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 
-const adminMenuItems = [
-  { href: "/admin",                  label: "Dashboard",         icon: <LayoutDashboard size={18} />, group: "main" },
-  { href: "/admin/orders",           label: "Siparişler",        icon: <ClipboardList size={18} />,   group: "ops" },
-  { href: "/admin/requests",         label: "Talepler",          icon: <Bell size={18} />,            group: "ops" },
-  { href: "/admin/pending-payments", label: "Bekleyen Ödemeler", icon: <Clock size={18} />,           group: "ops" },
-  { href: "/admin/payments",         label: "Geçmiş Ödemeler",   icon: <CreditCard size={18} />,      group: "ops" },
-  { href: "/admin/products",         label: "Ürünler",           icon: <Package size={18} />,         group: "menu" },
-  { href: "/admin/categories",       label: "Kategoriler",       icon: <FolderOpen size={18} />,      group: "menu" },
-  { href: "/admin/tables",           label: "Masalar & QR",      icon: <Table2 size={18} />,          group: "venue" },
-  { href: "/admin/staff",            label: "Personel",          icon: <Users size={18} />,           group: "venue" },
-  { href: "/admin/blocked-devices",  label: "Engelli Cihazlar",  icon: <Ban size={18} />,             group: "system" },
-  { href: "/admin/subscription",     label: "Abonelik",          icon: <Gem size={18} />,             group: "system" },
-  { href: "/admin/settings",         label: "Ayarlar",          icon: <Settings size={18} />,        group: "system" },
-];
+const SIDEBAR_ID = "admin-sidebar";
 
-const groups: Record<string, string> = {
-  main: "",
-  ops: "Operasyon",
-  menu: "Menü",
-  venue: "İşletme",
-  system: "Sistem",
-};
-
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <AuthSessionProvider>
       <AdminGate>{children}</AdminGate>
@@ -60,313 +22,50 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 }
 
-function AdminGate({ children }: { children: React.ReactNode }) {
+function AdminGate({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
-  const router = useRouter();
 
   // Oturum okunurken kilit ekranı çizilirse yetkili admin her yenilemede "Erişim Engellendi" görür
   if (status === "loading") return <Loader fullScreen label="Panel yükleniyor" />;
-
-  if (session?.user.role !== "ADMIN") {
-    return (
-      <div className="min-h-viewport" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 32 }}>
-          <Lock size={44} aria-hidden="true" className="mx-auto mb-4" style={{ color: "var(--primary)" }} />
-          <h1 className="page-title" style={{ marginBottom: 8 }}>Erişim engellendi</h1>
-          <p style={{ color: "var(--text-secondary)", marginBottom: 24 }}>
-            Bu sayfaya erişim için admin yetkisi gerekli.
-          </p>
-          <button onClick={() => router.push("/auth/signin")} className="btn btn-primary">
-            Giriş Yap
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (session?.user.role !== "ADMIN") return <AccessDenied message="Bu sayfaya erişim için admin yetkisi gerekli." />;
 
   return (
     <NotificationSoundProvider mode="admin">
-      <AdminContent>{children}</AdminContent>
+      <AdminShell>{children}</AdminShell>
     </NotificationSoundProvider>
   );
 }
 
-function AdminContent({ children }: { children: React.ReactNode }) {
+function AdminShell({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { counts } = useBadgeCounts(); // ✅ PERF: default 30sn (önceki: 8sn)
-
-  // Masaüstü genişliğine geçilince mobil menü kapanır; açık kalsa içerik inert ve örtülü kalırdı
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const onChange = () => { if (mq.matches) setSidebarOpen(false); };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  // Mobil kenar çubuğu: açılınca odak ilk linke gider; Esc ya da örtüye tıklama kapatıp
-  // odağı menü butonuna döndürür. İade efektte: butonun sarmalayıcısı kapanana kadar inert.
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const restoreFocusRef = useRef(false);
-  useEffect(() => {
-    if (!sidebarOpen) {
-      if (restoreFocusRef.current) {
-        restoreFocusRef.current = false;
-        menuButtonRef.current?.focus();
-      }
-      return;
-    }
-    document.querySelector<HTMLElement>("#admin-sidebar nav a")?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      restoreFocusRef.current = true;
-      setSidebarOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [sidebarOpen]);
-
-  const badgeMap: Record<string, number> = {
-    "/admin/orders": counts.orders,
-    "/admin/requests": counts.requests,
-    "/admin/pending-payments": counts.payments,
-    "/admin/tables": counts.payments,
-  };
-
-  const initials = session?.user.name?.slice(0, 2).toUpperCase() || "AD";
-  const grouped = Object.entries(groups);
+  const sidebar = useMobileSidebar(SIDEBAR_ID);
+  const { counts } = useBadgeCounts();
 
   return (
-    <div className="min-h-viewport" style={{ display: "flex" }}>
-      {sidebarOpen && (
-        <div
-          aria-hidden="true"
-          onClick={() => { restoreFocusRef.current = true; setSidebarOpen(false); }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            zIndex: 40,
-            backdropFilter: "blur(2px)",
-          }}
-        />
+    <div className="min-h-viewport flex">
+      {sidebar.open && (
+        <div aria-hidden="true" onClick={sidebar.dismiss} className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]" />
       )}
 
-      {/* Konum, gizlenme ve masaüstü davranışı globals.css .admin-sidebar'da */}
-      <aside id="admin-sidebar" className="admin-sidebar" data-open={sidebarOpen}>
-        <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid var(--border-subtle)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div className="panel-brand">
-              <BrandLogo size="sm" />
-              <p className="panel-brand-sub">Yönetim paneli</p>
-            </div>
-          </div>
-
-          {session?.user.businessName && (
-            <div
-              style={{
-                marginTop: 10,
-                padding: "6px 10px",
-                background: "var(--bg-hover)",
-                borderRadius: 8,
-                fontSize: 12,
-                color: "var(--text-secondary)",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <Store size={14} />
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {session.user.businessName}
-              </span>
-            </div>
-          )}
-        </div>
-
-        <nav aria-label="Yönetim menüsü" style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
-          {grouped.map(([groupKey, groupLabel]) => {
-            const items = adminMenuItems.filter((item) => item.group === groupKey);
-            if (!items.length) return null;
-
-            return (
-              <div key={groupKey} style={{ marginBottom: 4 }}>
-                {groupLabel && (
-                  <p
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      color: "var(--text-muted)",
-                      padding: "8px 10px 4px",
-                    }}
-                  >
-                    {groupLabel}
-                  </p>
-                )}
-
-                {items.map((item) => {
-                  const isActive = pathname === item.href;
-                  const badge = badgeMap[item.href] || 0;
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      aria-current={isActive ? "page" : undefined}
-                      onClick={() => setSidebarOpen(false)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "9px 10px",
-                        borderRadius: 8,
-                        fontSize: 13,
-                        fontWeight: isActive ? 600 : 400,
-                        color: isActive ? "var(--primary-light)" : "var(--text-secondary)",
-                        background: isActive ? "var(--primary-glow)" : "transparent",
-                        textDecoration: "none",
-                        marginBottom: 1,
-                        // "all" olmasın: kenar çubuğunun visibility geçişini miras alıp
-                        // açılış anında gizli kalır ve odak alamaz
-                        transition: "background 0.15s, color 0.15s, border-color 0.15s",
-                        borderLeft: isActive ? "2px solid var(--primary)" : "2px solid transparent",
-                      }}
-                    >
-                      <span
-                        style={{
-                          flexShrink: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          color: isActive ? "var(--primary-light)" : "var(--text-muted)",
-                        }}
-                      >
-                        {item.icon}
-                      </span>
-                      <span style={{ flex: 1 }}>{item.label}</span>
-
-                      {badge > 0 && (
-                        <span
-                          style={{
-                            background: "var(--danger)",
-                            color: "white",
-                            borderRadius: 99,
-                            fontSize: 10,
-                            fontWeight: 800,
-                            padding: "1px 6px",
-                            minWidth: 18,
-                            textAlign: "center",
-                            lineHeight: "16px",
-                            flexShrink: 0,
-                          }}
-                          className="animate-pulse-glow"
-                        >
-                          {badge > 99 ? "99+" : badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </nav>
-
-        <div style={{ padding: "12px 10px", borderTop: "1px solid var(--border-subtle)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 10,
-                flexShrink: 0,
-                background: "var(--brand)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--on-brand)",
-                fontWeight: 700,
-                fontSize: 13,
-              }}
-            >
-              {initials}
-            </div>
-
-            <div style={{ overflow: "hidden" }}>
-              <p
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {session?.user.name}
-              </p>
-              <p style={{ fontSize: 11, color: "var(--text-secondary)" }}>Admin</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => signOut({ callbackUrl: "/auth/signin" })}
-            className="btn btn-ghost btn-sm"
-            style={{ width: "100%", fontSize: 12, justifyContent: "flex-start", gap: 8 }}
-          >
-            <LogOut size={14} /> Çıkış Yap
-          </button>
-        </div>
-      </aside>
+      <AdminSidebar
+        id={SIDEBAR_ID}
+        open={sidebar.open}
+        businessName={session?.user.businessName}
+        userName={session?.user.name}
+        counts={counts}
+        onNavigate={sidebar.closeOnNavigate}
+      />
 
       {/* Mobil menü açıkken içerik etkisiz: Tab kenar çubuğundan arkaya kaçmasın */}
-      <div style={{ flex: 1, minWidth: 0 }} className="admin-main" inert={sidebarOpen}>
-        {/* Üst çubuk main dışında: banner landmark'ı */}
-        <header
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 20px",
-            borderBottom: "1px solid var(--border-color)",
-            background: "var(--bg-secondary)",
-            position: "sticky",
-            top: 0,
-            zIndex: 30,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              ref={menuButtonRef}
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Menüyü aç"
-              aria-expanded={sidebarOpen}
-              aria-controls="admin-sidebar"
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--text-primary)",
-                cursor: "pointer",
-                padding: 4,
-              }}
-              className="admin-mobile-only"
-            >
-              <Menu size={22} aria-hidden="true" />
-            </button>
-
-            <span className="admin-mobile-only">
-              <BrandLogo size="sm" />
-            </span>
-          </div>
-
-          {/* Real-time Notification Panel Button in Top Header Bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <NotificationPanel />
-          </div>
-        </header>
-
-        <main id="main-content" key={pathname} className="page-enter" style={{ padding: "24px 20px", maxWidth: 1280, margin: "0 auto" }}>
+      <div className="admin-main min-w-0 flex-1" inert={sidebar.open}>
+        <AdminTopBar
+          sidebarId={SIDEBAR_ID}
+          sidebarOpen={sidebar.open}
+          menuButtonRef={sidebar.menuButtonRef}
+          onOpenMenu={sidebar.openSidebar}
+        />
+        <main id="main-content" key={pathname} className="page-enter mx-auto max-w-screen-xl px-5 py-6">
           {children}
         </main>
       </div>
