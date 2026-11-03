@@ -1,299 +1,78 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
-import { toast } from "sonner";
+import { useNow } from "@/hooks/useNow";
+import InviteHistory from "@/components/admin-staff/InviteHistory";
+import NewInviteCard from "@/components/admin-staff/NewInviteCard";
+import StaffTable from "@/components/admin-staff/StaffTable";
+import { useAdminStaffPage } from "@/components/admin-staff/useAdminStaffPage";
+import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
-import ScrollRegion from "@/components/ui/ScrollRegion";
-import { useConfirm } from "@/components/ui/useConfirm";
+import QueryError from "@/components/ui/QueryError";
+import SectionCard from "@/components/ui/SectionCard";
+
+/** Davetlerin "süresi doldu" durumu dakikalık hassasiyetle yeter */
+const CLOCK_TICK_MS = 60_000;
 
 export default function AdminStaffPage() {
-  const { data: session } = useSession();
-  const [invites, setInvites] = useState<any[]>([]);
-  const [staff, setStaff] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [newInvite, setNewInvite] = useState<{ url: string; qrDataUrl: string; expiresAt?: string } | null>(null);
-  const [copied, setCopied] = useState(false);
-  const inviteUrlRef = useRef<HTMLParagraphElement>(null);
-  const [confirm, confirmDialog] = useConfirm();
+  const page = useAdminStaffPage();
+  const { staff, invites } = page;
+  const staffList = staff.data ?? [];
+  const inviteList = invites.data ?? [];
+  const now = useNow(CLOCK_TICK_MS);
 
-  useEffect(() => {
-    fetchInvites();
-    fetchStaff();
-  }, [session]);
-
-  const fetchStaff = async () => {
-    try {
-      const res = await fetch("/api/admin/staff");
-      const data = await res.json();
-      if (res.ok) setStaff(data.staff || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const fetchInvites = async () => {
-    try {
-      const res = await fetch("/api/admin/waiter-invites");
-      const data = await res.json();
-      if (res.ok) setInvites(data.invites || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createInvite = async () => {
-    setCreating(true);
-    try {
-      const res = await fetch("/api/admin/waiter-invites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}), // ✅ Server generates secure code
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || "Davet linki oluşturulurken bir hata oluştu");
-        return;
-      }
-      // ✅ Link sadece şimdi gösterilir — veritabanında yalnızca hash'i tutulur
-      const url: string = data.invite?.inviteUrl || `${window.location.origin}/auth/join/${data.invite?.inviteCode}`;
-      // qrcode yalnız davet oluşturulurken iner (sayfa paketinde değil)
-      const { default: QRCode } = await import("qrcode");
-      const qrDataUrl = await QRCode.toDataURL(url, { width: 320, margin: 2 });
-      setNewInvite({ url, qrDataUrl, expiresAt: data.invite?.expiresAt });
-      setCopied(false);
-      fetchInvites();
-    } catch (e) {
-      console.error(e);
-      toast.error("Davet linki oluşturulurken bir hata oluştu");
-    } finally {
-      setCreating(false);
-    }
-  };
-  const deleteInvite = async (inviteId: string) => {
-    const ok = await confirm({
-      title: "Davet iptal edilsin mi?",
-      description: "Link artık çalışmayacak.",
-      confirmText: "Daveti iptal et",
-    });
-    if (!ok) return;
-
-    try {
-      const res = await fetch(`/api/admin/waiter-invites?id=${inviteId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        toast.success("Davet iptal edildi");
-        fetchInvites();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Davet kodu silinirken bir hata oluştu");
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error("Davet kodu silinirken bir hata oluştu");
-    }
-  };
-
-  const copyInviteLink = async () => {
-    if (!newInvite) return;
-    try {
-      await navigator.clipboard.writeText(newInvite.url);
-      setCopied(true);
-    } catch {
-      // Pano izni yoksa (ör. http, eski tarayıcı) görünen linki seç; kullanıcı kendisi kopyalar
-      if (inviteUrlRef.current) window.getSelection()?.selectAllChildren(inviteUrlRef.current);
-      toast.info("Link seçildi; kopyalamak için Ctrl+C (mobilde uzun basın).");
-    }
-  };
-
-  const whatsappHref = newInvite
-    ? `https://wa.me/?text=${encodeURIComponent(
-        `${session?.user?.businessName ?? "İşletmemize"} garson olarak katılmak için bu linke tıklayın: ${newInvite.url}`
-      )}`
-    : "#";
   return (
-    <div>
-      <h1 className="page-title" style={{ marginBottom: 24 }}>Personel & Davetler</h1>
+    <div className="flex flex-col gap-6">
+      <h1 className="page-title">Personel & Davetler</h1>
 
-      {/* Staff Roster */}
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700 }}>Personel Listesi</h2>
-        </div>
-        {loading ? (
-          <Loader />
-        ) : staff.length === 0 ? (
-          <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>
+      <SectionCard title="Personel Listesi">
+        {staff.error && (
+          <div className="px-5 pt-4">
+            <QueryError message={staff.error} onRetry={staff.refresh} />
+          </div>
+        )}
+        {staff.isLoading && <Loader label="Personel yükleniyor" />}
+        {!staff.isLoading && staffList.length === 0 && !staff.error && (
+          <p className="p-8 text-center text-fg-secondary">
             Henüz personel yok. Aşağıdan bir davet linki oluşturup garsonlarınıza gönderin.
           </p>
-        ) : (
-          <ScrollRegion label="Personel tablosu">
-            <table style={{ width: "100%", fontSize: 14 }}>
-              <thead style={{ background: "var(--card-bg)", borderBottom: "2px solid var(--border-color)" }}>
-                <tr>
-                  <th style={{ padding: "12px 20px", textAlign: "left", fontWeight: 600 }}>İsim</th>
-                  <th style={{ padding: "12px 20px", textAlign: "left", fontWeight: 600 }}>E-posta</th>
-                  <th style={{ padding: "12px 20px", textAlign: "left", fontWeight: 600 }}>Rol</th>
-                  <th style={{ padding: "12px 20px", textAlign: "center", fontWeight: 600 }}>Durum</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staff.map((user) => (
-                  <tr key={user.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    <td style={{ padding: "14px 20px", fontWeight: 600 }}>{user.name}</td>
-                    <td style={{ padding: "14px 20px", color: "var(--text-secondary)" }}>{user.email}</td>
-                    <td style={{ padding: "14px 20px" }}>
-                      <span className={`badge ${user.role === 'ADMIN' ? 'badge-primary' : 'badge-info'}`}>
-                        {user.role === 'ADMIN' ? 'Admin' : user.role === 'WAITER' ? 'Garson' : user.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: "14px 20px", textAlign: "center" }}>
-                      <span className={`badge ${user.isActive ? 'badge-success' : 'badge-danger'}`}>
-                        {user.isActive ? '✅ Aktif' : '❌ Pasif'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </ScrollRegion>
         )}
-      </div>
+        {staffList.length > 0 && <StaffTable staff={staffList} />}
+      </SectionCard>
 
-      {/* Garson Davet Et */}
-      <div className="card" style={{ padding: 20, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Garson Davet Et</h2>
-        <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12, lineHeight: 1.5 }}>
-          Bir davet linki oluşturun ve garsonunuza WhatsApp'tan gönderin ya da QR kodu telefonuna okutun.
-          Garson linki açıp kendi hesabını oluşturur; kod yazmasına gerek kalmaz.
-          Her link <strong>tek kullanımlık</strong> ve <strong>7 gün</strong> geçerlidir.
-        </p>
-        <button onClick={createInvite} className="btn btn-primary" disabled={creating} style={{ width: "100%" }}>
-          {creating ? "Oluşturuluyor..." : "➕ Yeni Davet Linki Oluştur"}
-        </button>
+      <SectionCard
+        title="Garson Davet Et"
+        padding="md"
+        description={
+          <>
+            Bir davet linki oluşturun ve garsonunuza WhatsApp&apos;tan gönderin ya da QR kodu telefonuna okutun. Garson
+            linki açıp kendi hesabını oluşturur; kod yazmasına gerek kalmaz. Her link <strong>tek kullanımlık</strong> ve{" "}
+            <strong>7 gün</strong> geçerlidir.
+          </>
+        }
+      >
+        <Button className="w-full" loading={page.creating} onClick={page.createInvite}>
+          {page.creating ? "Oluşturuluyor..." : "➕ Yeni Davet Linki Oluştur"}
+        </Button>
+        {page.newInvite && <NewInviteCard invite={page.newInvite} businessName={page.businessName} />}
+      </SectionCard>
 
-        {newInvite && (
-          <div style={{
-            marginTop: 16,
-            padding: 16,
-            border: "1px solid var(--border-color)",
-            borderRadius: 12,
-            display: "flex",
-            gap: 16,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}>
-            <img src={newInvite.qrDataUrl} alt="Davet QR kodu" width={160} height={160}
-              style={{ borderRadius: 8, background: "white", flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Davet linki hazır</p>
-              <p ref={inviteUrlRef} style={{
-                fontFamily: "monospace",
-                fontSize: 12,
-                wordBreak: "break-all",
-                padding: "8px 10px",
-                background: "var(--bg-hover, rgba(0,0,0,0.04))",
-                borderRadius: 8,
-                marginBottom: 10,
-              }}>
-                {newInvite.url}
-              </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={copyInviteLink} className="btn btn-sm btn-primary">
-                  {copied ? "✅ Kopyalandı" : "📋 Linki Kopyala"}
-                </button>
-                <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-secondary"
-                  style={{ textDecoration: "none" }}>
-                  💬 WhatsApp'ta Gönder
-                </a>
-                <a href={newInvite.qrDataUrl} download="garson-davet-qr.png" className="btn btn-sm btn-secondary"
-                  style={{ textDecoration: "none" }}>
-                  ⬇️ QR'ı İndir
-                </a>
-              </div>
-              <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 10 }}>
-                ⚠️ Güvenlik nedeniyle link sadece şimdi gösterilir. Kaybolursa yeni bir link oluşturun.
-                {newInvite.expiresAt && ` Son geçerlilik: ${new Date(newInvite.expiresAt).toLocaleDateString("tr-TR")}.`}
-              </p>
-            </div>
+      <SectionCard
+        title="Davet Geçmişi"
+        description="Güvenlik nedeniyle linkler tekrar gösterilmez; yalnızca oluşturulduğu anda görüntülenir."
+      >
+        {invites.error && (
+          <div className="px-5 pt-4">
+            <QueryError message={invites.error} onRetry={invites.refresh} />
           </div>
         )}
-      </div>
-      {/* Invites List */}
-      <div className="card">
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-color)" }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700 }}>Davet Geçmişi</h2>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
-            Güvenlik nedeniyle linkler tekrar gösterilmez; yalnızca oluşturulduğu anda görüntülenir.
-          </p>
-        </div>
-        {loading ? (
-          <Loader />
-        ) : invites.length === 0 ? (
-          <p style={{ padding: 32, textAlign: "center", color: "var(--text-secondary)" }}>Henüz davet oluşturulmadı</p>
-        ) : (
-          <div>
-            {invites.map((invite, index) => (
-              <div key={invite.id} style={{
-                padding: "14px 20px",
-                borderBottom: "1px solid var(--border-color)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
-                    🔗 Davet #{invites.length - index}
-                  </p>
-                  <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                    Oluşturulma: {new Date(invite.createdAt).toLocaleString("tr-TR")}
-                  </p>
-                  {invite.expiresAt && (
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      Son kullanma: {new Date(invite.expiresAt).toLocaleString("tr-TR")}
-                    </p>
-                  )}
-                  {invite.usedAt && (
-                    <p style={{ fontSize: 12, color: "var(--success-text)" }}>
-                      Kullanıldı: {new Date(invite.usedAt).toLocaleString("tr-TR")}
-                    </p>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {(() => {
-                    const expired = !invite.isUsed && invite.expiresAt && new Date(invite.expiresAt) < new Date();
-                    return (
-                      <span className={`badge ${invite.isUsed ? "badge-success" : expired ? "badge-error" : "badge-warning"}`}>
-                        {invite.isUsed ? "✅ Kullanıldı" : expired ? "⌛ Süresi doldu" : "⏳ Bekliyor"}
-                      </span>
-                    );
-                  })()}
-                  {!invite.isUsed && (
-                    <button
-                      onClick={() => deleteInvite(invite.id)}
-                      className="btn btn-error"
-                      style={{
-                        padding: "6px 12px",
-                        fontSize: 12,
-                        minWidth: "auto"
-                      }}
-                      title="Davet kodunu sil"
-                    >
-                      🗑️ Sil
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+        {invites.isLoading && <Loader label="Davetler yükleniyor" />}
+        {!invites.isLoading && inviteList.length === 0 && !invites.error && (
+          <p className="p-8 text-center text-fg-secondary">Henüz davet oluşturulmadı</p>
         )}
-      </div>
-      {confirmDialog}
+        {inviteList.length > 0 && <InviteHistory invites={inviteList} now={now} onDelete={page.deleteInvite} />}
+      </SectionCard>
+
+      {page.confirmDialog}
     </div>
   );
 }
