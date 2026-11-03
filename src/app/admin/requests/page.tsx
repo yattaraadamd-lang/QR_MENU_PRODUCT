@@ -1,291 +1,54 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import Loader from "@/components/ui/Loader";
-import { useConfirm } from "@/components/ui/useConfirm";
-import { toast } from "sonner";
+import AdminRequestCard from "@/components/admin-requests/AdminRequestCard";
+import type { RequestTab } from "@/components/admin-requests/requestTabs";
+import { useAdminRequestsPage } from "@/components/admin-requests/useAdminRequestsPage";
+import EmptyState from "@/components/ui/EmptyState";
+import FilterTabs from "@/components/ui/FilterTabs";
+import QueryError from "@/components/ui/QueryError";
+import Skeleton from "@/components/ui/Skeleton";
 
-const requestTypeLabels: Record<string, string> = {
-  CALL_WAITER: "🙋 Garson Çağrısı",
-  PAYMENT_REQUEST: "💳 Ödeme Talebi",
-  HELP_REQUEST: "ℹ️ Yardım Talebi",
-  CLEANING_REQUEST: "🧹 Temizlik Talebi",
-  ORDER_REQUEST: "📋 Sipariş Talebi",
-  PRODUCT_INFO: "❓ Ürün Bilgisi",
-  COMPLAINT_SUGGESTION: "💬 Şikayet/Öneri",
-};
-
-const statusLabels: Record<string, string> = {
-  PENDING: "Bekliyor",
-  SEEN: "Görüldü",
-  IN_PROGRESS: "İşlemde",
-  COMPLETED: "Tamamlandı",
-  CANCELLED: "İptal",
-};
-
-const statusColors: Record<string, string> = {
-  PENDING: "badge-warning",
-  SEEN: "badge-info",
-  IN_PROGRESS: "badge-primary",
-  COMPLETED: "badge-success",
-  CANCELLED: "badge-danger",
-};
+const SKELETON_COUNT = 3;
 
 export default function AdminRequestsPage() {
-  const { data: session } = useSession();
-  const [requests, setRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("active");
-  const [openingTable, setOpeningTable] = useState<string | null>(null);
-  const [rejectingRequest, setRejectingRequest] = useState<string | null>(null);
-  const [confirm, confirmDialog] = useConfirm();
-
-  const businessId = session?.user.businessId;
-
-  const fetchRequests = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/service-requests?businessId=${businessId}`);
-      const data = await res.json();
-      if (res.ok) setRequests(data.serviceRequests || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [businessId]);
-
-  // session nesnesine değil businessId'ye bağlı: oturum her yenilendiğinde aralık yeniden kurulmasın
-  useEffect(() => {
-    if (!businessId) return;
-    fetchRequests();
-    const interval = setInterval(fetchRequests, 5000);
-    return () => clearInterval(interval);
-  }, [businessId, fetchRequests]);
-
-  // ✅ Talep durumunu güncelle — garson ekranıyla aynı uç: masa durumunu yeniden hesaplar ve
-  // socket olayı yayınlar (eski /api/service-requests/[id] ikisini de yapmıyordu)
-  const updateStatus = async (id: string, status: string) => {
-    try {
-      const res = await fetch(`/api/waiter/service-requests/${id}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (res.ok) fetchRequests();
-      else toast.error((await res.json().catch(() => null))?.error || "Talep güncellenemedi");
-    } catch (e) {
-      console.error(e);
-      toast.error("Bağlantı hatası");
-    }
-  };
-
-  // ✅ Sipariş talebi yalnız bu uçla reddedilir: müşteri oturumu kapatılır ve cihaz engellenir
-  // (eski uç yalnız talebi CANCELLED yapıyor, müşteri onay beklerken kalıyordu)
-  const rejectOrderRequest = async (req: any) => {
-    const confirmed = await confirm({
-      title: "Sipariş talebi reddedilsin mi?",
-      description: "Masada müşteri bulunmadığını onaylıyorsunuz. Müşteri oturumu kapatılacak ve bu cihaz işletmede engellenecek.",
-      confirmText: "Reddet ve engelle",
-    });
-    if (!confirmed) return;
-
-    setRejectingRequest(req.id);
-    try {
-      const res = await fetch(`/api/waiter/service-requests/${req.id}/reject-order-request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "EMPTY_TABLE_ABUSE" }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok) fetchRequests();
-      else toast.error(data?.error || "Sipariş talebi reddedilemedi");
-    } catch (e) {
-      console.error("Reddetme hatası:", e);
-      toast.error("Bağlantı hatası");
-    } finally {
-      setRejectingRequest(null);
-    }
-  };
-
-  // ✅ Atomik Masa Açma — tek endpoint çağrısı (sadece ORDER_REQUEST için)
-  const openTable = async (req: any) => {
-    if (!session?.user.businessId || !req.tableId) return;
-    
-    // ✅ Admin/Garson için doğrulama kodu gerekli değil
-    // Zaten yetkili personel onaylıyor
-    
-    setOpeningTable(req.id);
-    try {
-      const res = await fetch(`/api/waiter/service-requests/${req.id}/open-table`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          verificationCode: req.verificationCode, // ✅ Doğrulama kodunu otomatik gönder
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success("Masa açıldı, müşteri sipariş verebilir.");
-        fetchRequests();
-      } else {
-        toast.error(data.error || "Masa açma hatası");
-      }
-    } catch (e) {
-      console.error("Masa açma hatası:", e);
-      toast.error("Bağlantı hatası");
-    }
-    finally { setOpeningTable(null); }
-  };
-
-  // ✅ İptal edilen sekmesi eklendi
-  const filtered = requests.filter((r) => {
-    if (filter === "active") return ["PENDING", "SEEN", "IN_PROGRESS"].includes(r.status);
-    if (filter === "completed") return r.status === "COMPLETED";
-    if (filter === "cancelled") return r.status === "CANCELLED";
-    return true;
-  });
-
-  const counts = {
-    all: requests.length,
-    active: requests.filter((r) => ["PENDING", "SEEN", "IN_PROGRESS"].includes(r.status)).length,
-    completed: requests.filter((r) => r.status === "COMPLETED").length,
-    cancelled: requests.filter((r) => r.status === "CANCELLED").length,
-  };
+  const page = useAdminRequestsPage();
+  const { query, tab, visible } = page;
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">Müşteri Talepleri</h1>
-        {/* ✅ İptal Edilen sekmesi eklendi */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {(["active", "completed", "cancelled", "all"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              aria-pressed={filter === f}
-              className={`btn btn-sm ${filter === f ? "btn-primary" : "btn-ghost"}`}
-            >
-              {f === "active" ? "Aktif" : f === "completed" ? "Tamamlanan" : f === "cancelled" ? "İptal Edilen" : "Tümü"}
-              {counts[f] > 0 && (
-                <span style={{
-                  marginLeft: 6,
-                  // Seçili sekmede koyulaştırılmış zemin + beyaz; diğerlerinde saydam zemin (≥4.5:1)
-                  background: filter === f ? "rgba(0,0,0,0.22)" : f === "cancelled" ? "rgba(239,68,68,0.13)" : "var(--bg-hover)",
-                  color: filter === f ? "white" : f === "cancelled" ? "var(--danger-text)" : "var(--text-secondary)",
-                  borderRadius: 10,
-                  padding: "1px 6px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}>
-                  {counts[f]}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+        <FilterTabs<RequestTab> label="Talep durumu" tabs={page.tabs} value={tab} onChange={page.setTab} />
+      </header>
 
-      {loading ? (
-        <Loader />
-      ) : filtered.length === 0 ? (
-        <div className="card" style={{ padding: 48, textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🔔</div>
-          <p style={{ color: "var(--text-secondary)" }}>Talep bulunamadı</p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {filtered.map((req) => (
-            <div key={req.id} className="card" style={{ padding: "14px 18px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 600, fontSize: 15 }}>
-                    {requestTypeLabels[req.requestType] || req.requestType}
-                  </p>
-                  <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>
-                    {req.table?.tableName || `Masa ${req.table?.tableNumber}`} • {new Date(req.createdAt).toLocaleString("tr-TR")}
-                  </p>
-                  {/* ✅ Garson çağırma nedeni göster */}
-                  {req.note && (
-                    <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, padding: "4px 8px", background: "rgba(242,179,61,0.1)", borderRadius: 6 }}>
-                      📝 {req.note}
-                    </p>
-                  )}
-                  {req.completedAt && (
-                    <p style={{ fontSize: 11, color: "#276044", marginTop: 4 }}>
-                      ✅ Tamamlandı: {new Date(req.completedAt).toLocaleString("tr-TR")}
-                    </p>
-                  )}
-                </div>
-                <span className={`badge ${statusColors[req.status] || "badge-info"}`}>
-                  {statusLabels[req.status] || req.status}
-                </span>
-              </div>
-              {/* ✅ Aksiyon butonları */}
-              {["PENDING", "SEEN", "IN_PROGRESS"].includes(req.status) && (
-                <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                  {/* ✅ Masayı Aç butonu — yalnız ORDER_REQUEST için */}
-                  {req.requestType === "ORDER_REQUEST" && req.status === "PENDING" && (
-                    <>
-                      {req.verificationCode && (
-                        <div style={{ flex: "0 0 100%", padding: "8px 12px", marginBottom: 4, background: "rgba(242,179,61,0.1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#7A4A05" }}>Doğrulama Kodu (Müşteriye gösteriliyor)</span>
-                          <span style={{ fontSize: 20, fontWeight: 900, color: "var(--primary-light)", fontFamily: "monospace", letterSpacing: "0.1em" }}>{req.verificationCode}</span>
-                        </div>
-                      )}
-                      <button
-                        onClick={() => openTable(req)}
-                        disabled={openingTable === req.id}
-                        className="btn btn-sm"
-                        style={{
-                          flex: 1,
-                          background: "linear-gradient(135deg, #2E8B47, #24713A)",
-                          color: "white",
-                          border: "none",
-                          opacity: openingTable === req.id ? 0.6 : 1,
-                        }}
-                      >
-                        {openingTable === req.id ? "⏳ Açılıyor..." : "🔓 Masayı Aç ve Müşteriyi Yetkilendir"}
-                      </button>
-                      <button
-                        onClick={() => rejectOrderRequest(req)}
-                        disabled={rejectingRequest === req.id}
-                        className="btn btn-sm btn-ghost"
-                        style={{ color: "var(--danger-text)" }}
-                      >
-                        {rejectingRequest === req.id ? "⏳..." : "✕ Reddet"}
-                      </button>
-                    </>
-                  )}
-                  {/* ✅ Diğer talep türleri için tamamla/iptal butonları */}
-                  {req.requestType !== "ORDER_REQUEST" && (
-                    <>
-                      <button onClick={() => updateStatus(req.id, "COMPLETED")} className="btn btn-sm btn-success" style={{ flex: 1 }}>
-                        ✓ Tamamla
-                      </button>
-                      <button onClick={() => updateStatus(req.id, "CANCELLED")} className="btn btn-sm btn-ghost" style={{ color: "var(--danger-text)" }}>
-                        ✕ İptal
-                      </button>
-                    </>
-                  )}
-                  {/* ✅ ORDER_REQUEST görüldü durumundaysa reddet (reddetme ucu PENDING/SEEN kabul eder) */}
-                  {req.requestType === "ORDER_REQUEST" && req.status === "SEEN" && (
-                    <button
-                      onClick={() => rejectOrderRequest(req)}
-                      disabled={rejectingRequest === req.id}
-                      className="btn btn-sm btn-ghost"
-                      style={{ color: "var(--danger-text)", flex: 1 }}
-                    >
-                      {rejectingRequest === req.id ? "⏳..." : "✕ Reddet"}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+      <QueryError message={query.error} onRetry={query.refresh} />
+
+      {query.isLoading && (
+        <div role="status" aria-label="Talepler yükleniyor" className="flex flex-col gap-2">
+          {Array.from({ length: SKELETON_COUNT }, (_, i) => (
+            <Skeleton key={i} className="h-24" />
           ))}
         </div>
       )}
-      {confirmDialog}
+
+      {!query.isLoading && visible.length === 0 && !query.error && <EmptyState icon="🔔" title="Talep bulunamadı" />}
+
+      {visible.length > 0 && (
+        <ul aria-label="Talepler" className="stagger flex flex-col gap-2">
+          {visible.map((request) => (
+            <AdminRequestCard
+              key={request.id}
+              request={request}
+              busy={page.busyId === request.id}
+              onStatus={page.updateStatus}
+              onOpenTable={page.openTable}
+              onRejectOrder={page.rejectOrderRequest}
+            />
+          ))}
+        </ul>
+      )}
+
+      {page.confirmDialog}
     </div>
   );
 }

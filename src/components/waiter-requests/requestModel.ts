@@ -34,6 +34,16 @@ export function requestStatusMeta(status: RequestStatus) {
   return REQUEST_STATUS[status] ?? REQUEST_STATUS.PENDING;
 }
 
+/** Talep listesini tazeleyen soket olayları (garson ve admin ekranı) */
+export const REQUEST_SOCKET_EVENTS = [
+  "call_waiter",
+  "payment_request",
+  "help_request",
+  "service_request",
+  "order_request_update",
+  "table_opened",
+];
+
 /** Müşterinin ekranında gördüğü masa açma kodu */
 export const VERIFICATION_CODE_LENGTH = 6;
 

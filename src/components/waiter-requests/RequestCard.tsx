@@ -6,7 +6,8 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ToneStripe from "@/components/ui/ToneStripe";
 import { TONE_TINT } from "@/components/ui/tone";
-import { OrderPreview, OrderRequestActions } from "./OrderRequestPanel";
+import OrderPreview from "./OrderPreview";
+import { OrderRequestActions } from "./OrderRequestPanel";
 import { isExpired, isOpenRequest, nextRequestStep, requestStatusMeta, requestTypeMeta } from "./requestModel";
 import type { RequestStatus, ServiceRequestDTO } from "./types";
 
