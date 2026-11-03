@@ -1,25 +1,18 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import type { ReactNode } from "react";
+import { useSession } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
-import { NotificationPanel } from "@/components/NotificationPanel";
-import { useBadgeCounts } from "@/hooks/useBadgeCounts";
-import Loader from "@/components/ui/Loader";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
+import AccessDenied from "@/components/staff/AccessDenied";
+import Loader from "@/components/ui/Loader";
+import WaiterBottomNav from "@/components/waiter-shell/WaiterBottomNav";
+import WaiterTopBar from "@/components/waiter-shell/WaiterTopBar";
+import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useCssHeightVar } from "@/hooks/useCssHeightVar";
-import { ClipboardList, Bell, CreditCard, Table2, LogOut, Lock } from "lucide-react";
-import BrandMark from "@/components/brand/BrandMark";
 
-const NAV = [
-  { href: "/waiter",          label: "Siparişler", icon: <ClipboardList size={22} /> },
-  { href: "/waiter/requests", label: "Talepler",   icon: <Bell size={22} /> },
-  { href: "/waiter/payments", label: "Ödemeler",   icon: <CreditCard size={22} /> },
-  { href: "/waiter/tables",   label: "Masalar",    icon: <Table2 size={22} /> },
-];
-
-export default function WaiterLayout({ children }: { children: React.ReactNode }) {
+export default function WaiterLayout({ children }: { children: ReactNode }) {
   return (
     <AuthSessionProvider>
       <WaiterGate>{children}</WaiterGate>
@@ -27,136 +20,35 @@ export default function WaiterLayout({ children }: { children: React.ReactNode }
   );
 }
 
-function WaiterGate({ children }: { children: React.ReactNode }) {
+function WaiterGate({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
-  const router = useRouter();
 
   // Oturum okunurken kilit ekranı çizilirse yetkili garson her yenilemede "Erişim Engellendi" görür
   if (status === "loading") return <Loader fullScreen label="Panel yükleniyor" />;
-
-  if (session?.user.role !== "WAITER" && session?.user.role !== "ADMIN") {
-    return (
-      <div className="min-h-viewport" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 32 }}>
-          <Lock size={44} aria-hidden="true" className="mx-auto mb-4" style={{ color: "var(--primary)" }} />
-          <h1 className="page-title" style={{ marginBottom: 8 }}>Erişim engellendi</h1>
-          <p style={{ color: "var(--text-secondary)", marginBottom: 24 }}>Garson veya admin yetkisi gerekli.</p>
-          <button onClick={() => router.push("/auth/signin")} className="btn btn-primary">Giriş Yap</button>
-        </div>
-      </div>
-    );
-  }
+  const role = session?.user.role;
+  if (role !== "WAITER" && role !== "ADMIN") return <AccessDenied message="Garson veya admin yetkisi gerekli." />;
 
   return (
     <NotificationSoundProvider mode="waiter">
-      <WaiterContent>{children}</WaiterContent>
+      <WaiterShell>{children}</WaiterShell>
     </NotificationSoundProvider>
   );
 }
 
-function WaiterContent({ children }: { children: React.ReactNode }) {
+function WaiterShell({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const { counts } = useBadgeCounts(); // ✅ PERF: default 30sn (önceki: 8sn)
+  const { counts } = useBadgeCounts();
   // Alt menü yüksekliği (güvenli alan payı dahil): içerik onun altında kalmasın
   const navRef = useCssHeightVar("--waiter-nav-h");
 
-  const badgeMap: Record<string, number> = {
-    "/waiter":          counts.orders,
-    "/waiter/requests": counts.requests,
-    "/waiter/payments": counts.payments,
-    "/waiter/tables":   counts.payments,
-  };
-
   return (
-    <div className="min-h-viewport" data-height-vars style={{ background: "var(--bg-primary)", paddingBottom: "var(--waiter-nav-h, 72px)" }}>
-      {/* Üst çubuk: banner landmark'ı */}
-      <header style={{
-        background: "var(--bg-secondary)",
-        borderBottom: "1px solid var(--border-color)",
-        padding: "0 16px",
-        height: 56,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        position: "sticky", top: 0, zIndex: 30,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BrandMark size={34} />
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.2 }}>
-              {session?.user.name || "Garson"}
-            </p>
-            <p style={{ fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.2 }}>
-              {session?.user.businessName}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Integrated Premium Notification System (Bell + Sound Control + Toast + Glassmorphism Panel) */}
-          <NotificationPanel />
-
-          <button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="btn btn-ghost btn-sm btn-icon" title="Çıkış Yap" aria-label="Çıkış Yap" style={{ color: "var(--text-secondary)" }}>
-            <LogOut size={18} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main id="main-content" key={pathname} className="page-enter" style={{ padding: "16px 14px" }}>
+    <div className="min-h-viewport bg-surface-page pb-[var(--waiter-nav-h,72px)]" data-height-vars>
+      <WaiterTopBar userName={session?.user.name} businessName={session?.user.businessName} />
+      <main id="main-content" key={pathname} className="page-enter px-3.5 py-4">
         {children}
       </main>
-
-      {/* Bottom nav */}
-      <nav ref={navRef} aria-label="Garson menüsü" style={{
-        position: "fixed", bottom: 0, left: 0, right: 0,
-        background: "var(--bg-secondary)",
-        borderTop: "1px solid var(--border-color)",
-        display: "flex",
-        paddingBottom: "max(8px, env(safe-area-inset-bottom))",
-        zIndex: 30,
-      }}>
-        {NAV.map(item => {
-          const active = pathname === item.href;
-          const badge = badgeMap[item.href] || 0;
-          return (
-            <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} style={{
-              flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-              gap: 3, padding: "10px 4px 6px",
-              textDecoration: "none", fontSize: 10, fontWeight: active ? 700 : 500,
-              color: active ? "var(--primary-light)" : "var(--text-secondary)",
-              position: "relative", transition: "color 0.15s",
-            }}>
-              {active && (
-                <span style={{
-                  position: "absolute", top: 0, left: "20%", right: "20%",
-                  height: 2, background: "var(--primary)", borderRadius: "0 0 4px 4px",
-                }} />
-              )}
-              <span style={{ position: "relative", display: "inline-flex" }}>
-                {item.icon}
-                {badge > 0 && (
-                  <span className="animate-pulse-glow" style={{
-                    position: "absolute",
-                    top: -4, right: -8,
-                    background: "var(--danger)",
-                    color: "white",
-                    borderRadius: 99,
-                    fontSize: 9,
-                    fontWeight: 800,
-                    padding: "1px 4px",
-                    minWidth: 15,
-                    textAlign: "center",
-                    lineHeight: "13px",
-                  }}>
-                    {badge > 99 ? "99+" : badge}
-                  </span>
-                )}
-              </span>
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
+      <WaiterBottomNav counts={counts} navRef={navRef} />
     </div>
   );
 }
