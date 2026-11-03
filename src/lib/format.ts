@@ -8,6 +8,17 @@ const DATE_TIME = new Intl.DateTimeFormat("tr-TR", {
   minute: "2-digit",
 });
 
+/**
+ * Yerel takvim günü "2026-11-03" (input[type=date] biçimi). toISOString() UTC'ye çevirir:
+ * Türkiye'de (UTC+3) gece 00:00–03:00 arası önceki güne düşerdi.
+ */
+export function localDateKey(value: string | Date | number): string {
+  const d = value instanceof Date ? value : new Date(value);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 /** "02.11.2026 14:05" */
 export function formatDateTime(value: string | Date): string {
   return DATE_TIME.format(typeof value === "string" ? new Date(value) : value);
