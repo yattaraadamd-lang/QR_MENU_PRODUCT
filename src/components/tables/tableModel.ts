@@ -31,9 +31,7 @@ export function tableStatusMeta(status: TableStatus): StatusMeta {
   return TABLE_STATUS[status] ?? TABLE_STATUS.EMPTY;
 }
 
-export function tableDisplayName(table: Pick<TableDTO, "tableName" | "tableNumber">): string {
-  return table.tableName || `Masa ${table.tableNumber}`;
-}
+export { tableDisplayName } from "./tableName";
 
 /** Bekleyen sipariş + talep + ödeme isteği: kartın köşesindeki sayaç */
 export function countPendingActions(table: TableDTO): number {

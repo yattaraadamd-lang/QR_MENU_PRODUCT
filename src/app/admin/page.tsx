@@ -1,239 +1,61 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
-import Loader from "@/components/ui/Loader";
-import { formatTRY } from "@/lib/format";
-import {
-  TrendingUp, BarChart3, ClipboardList, Clock, Bell, CreditCard,
-  Table2, Package, Users, Eye, EyeOff, ArrowRight,
-} from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { dashboardKpis } from "@/components/admin-dashboard/dashboardModel";
+import KpiGrid from "@/components/admin-dashboard/KpiGrid";
+import QuickLinks from "@/components/admin-dashboard/QuickLinks";
+import RecentOrders from "@/components/admin-dashboard/RecentOrders";
+import { useDashboardPage } from "@/components/admin-dashboard/useDashboardPage";
+import Button from "@/components/ui/Button";
+import QueryError from "@/components/ui/QueryError";
+import Skeleton from "@/components/ui/Skeleton";
 
-const statusLabels: Record<string, string> = {
-  PENDING: "Bekliyor", ACCEPTED: "Kabul Edildi", PREPARING: "Hazırlanıyor",
-  SERVED: "Tamamlandı", CANCELLED: "İptal", REJECTED: "Reddedildi",
-};
-const statusBadge: Record<string, string> = {
-  PENDING: "badge-warning", ACCEPTED: "badge-info", PREPARING: "badge-primary",
-  SERVED: "badge-success", CANCELLED: "badge-danger", REJECTED: "badge-danger",
-};
+const KPI_SKELETONS = 7;
 
 export default function AdminDashboardPage() {
-  const { data: session } = useSession();
-  const [stats, setStats] = useState({
-    todayRevenue: 0, monthlyRevenue: 0, todayOrderCount: 0,
-    pendingOrderCount: 0, activeRequestCount: 0, paymentRequestCount: 0,
-    occupiedTableCount: 0, totalTableCount: 0,
-  });
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hideRevenue, setHideRevenue] = useState(() =>
-    typeof window !== "undefined" && localStorage.getItem("admin_hide_revenue") === "true"
-  );
-
-  useEffect(() => {
-    if (session?.user.businessId) {
-      fetchData();
-
-      // ✅ PERF: Polling aralığı 30sn (önceki: 10sn), arka planda durdur
-      let iv: ReturnType<typeof setInterval> | null = setInterval(fetchData, 30000);
-
-      const handleVisibility = () => {
-        if (document.hidden) {
-          if (iv) { clearInterval(iv); iv = null; }
-        } else {
-          fetchData();
-          if (!iv) iv = setInterval(fetchData, 30000);
-        }
-      };
-
-      document.addEventListener("visibilitychange", handleVisibility);
-      return () => {
-        if (iv) clearInterval(iv);
-        document.removeEventListener("visibilitychange", handleVisibility);
-      };
-    }
-  }, [session]);
-
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/admin/dashboard/summary");
-      const data = await res.json();
-      if (data.success) {
-        setStats(data.data);
-        setRecentOrders(data.data.recentOrders || []);
-      }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
-
-  const toggleRevenue = () => {
-    const v = !hideRevenue;
-    setHideRevenue(v);
-    localStorage.setItem("admin_hide_revenue", String(v));
-  };
-
-  const fmt = (v: number) => hideRevenue ? "••••" : formatTRY(v);
-
-  if (loading) return <Loader label="Panel hazırlanıyor" style={{ minHeight: 300 }} />;
-
-  const kpiCards = [
-    { label: "Bugünkü Ciro",    value: fmt(stats.todayRevenue),    icon: <TrendingUp size={20} />, color: "#276044", bg: "rgba(59,165,92,0.08)" },
-    { label: "Aylık Ciro",      value: fmt(stats.monthlyRevenue),  icon: <BarChart3 size={20} />,  color: "var(--purple-text)", bg: "rgba(163,71,122,0.08)" },
-    { label: "Bugün Sipariş",   value: stats.todayOrderCount,      icon: <ClipboardList size={20} />, color: "#24578A", bg: "rgba(59,130,246,0.08)" },
-    { label: "Bekleyen",        value: stats.pendingOrderCount,    icon: <Clock size={20} />,      color: "#7A4A05", bg: "rgba(242,179,61,0.08)" },
-    { label: "Aktif Talep",     value: stats.activeRequestCount,   icon: <Bell size={20} />,       color: "var(--danger-text)", bg: "rgba(239,68,68,0.08)" },
-    { label: "Ödeme Talebi",    value: stats.paymentRequestCount,  icon: <CreditCard size={20} />, color: "var(--purple-text)", bg: "rgba(163,71,122,0.08)" },
-    { label: "Dolu Masa",       value: `${stats.occupiedTableCount}/${stats.totalTableCount}`, icon: <Table2 size={20} />, color: "#0E6C80", bg: "rgba(6,182,212,0.08)" },
-  ];
-
-  const quickLinks = [
-    { href: "/admin/orders",   icon: <ClipboardList size={24} />,  label: "Siparişler",   color: "#24578A" },
-    { href: "/admin/products", icon: <Package size={24} />,        label: "Ürünler",      color: "var(--purple-text)" },
-    { href: "/admin/tables",   icon: <Table2 size={24} />,         label: "Masalar",      color: "#276044" },
-    { href: "/admin/requests", icon: <Bell size={24} />,           label: "Talepler",     color: "#7A4A05" },
-    { href: "/admin/payments", icon: <CreditCard size={24} />,     label: "Ödemeler",     color: "var(--purple-text)" },
-    { href: "/admin/staff",    icon: <Users size={24} />,          label: "Personel",     color: "var(--danger-text)" },
-  ];
+  const page = useDashboardPage();
+  const { query, summary, revenueHidden } = page;
 
   return (
     <div>
-      {/* Header */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        marginBottom: 28,
-        flexWrap: "wrap",
-        gap: 14,
-      }}>
+      <header className="mb-7 flex flex-wrap items-start justify-between gap-3.5">
         <div>
           <h1 className="page-title">Dashboard</h1>
-          <p style={{
-            color: "var(--text-secondary)",
-            fontSize: 14,
-            marginTop: 4,
-          }}>
-            Hoş geldiniz, {session?.user.name}
-          </p>
+          <p className="mt-1 text-sm text-fg-secondary">Hoş geldiniz, {page.userName}</p>
         </div>
-        <button onClick={toggleRevenue} className="btn btn-ghost btn-sm" style={{ gap: 6 }}>
-          {hideRevenue ? <><Eye size={14} /> Ciroyu Göster</> : <><EyeOff size={14} /> Ciroyu Gizle</>}
-        </button>
-      </div>
-
-      {/* KPI Grid - Fully Responsive */}
-      <div className="stagger" style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-        gap: 14,
-        marginBottom: 32,
-      }}>
-        {kpiCards.map((k, i) => (
-          <div key={i} className="stat-card" style={{
-            background: "var(--bg-card)",
-            border: "1px solid var(--border-color)",
-            borderRadius: 14,
-            padding: "18px",
-            position: "relative",
-            overflow: "hidden",
-            transition: "all 0.2s",
-          }}>
-
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, background: k.bg,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: k.color, marginBottom: 10,
-            }}>{k.icon}</div>
-            <p className="stat-label">{k.label}</p>
-            <p className="stat-value">{k.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Bottom grid: recent orders + quick links - Responsive */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr",
-        gap: 20,
-        alignItems: "start",
-      }}
-      className="lg:grid-cols-[1fr_auto]"
-      >
-        {/* Recent Orders */}
-        <div className="card" style={{ overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700 }}>Son Siparişler</h2>
-            <Link href="/admin/orders" style={{ color: "var(--primary-light)", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-              Tümünü Gör <ArrowRight size={12} />
-            </Link>
-          </div>
-          {recentOrders.length === 0 ? (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
-              <ClipboardList size={36} color="var(--text-muted)" strokeWidth={1.5} style={{ margin: "0 auto 8px" }} />
-              <p style={{ fontSize: 13 }}>Henüz sipariş yok</p>
-            </div>
-          ) : (
-            recentOrders.map((order) => (
-              <div key={order.id} style={{
-                padding: "14px 20px",
-                borderBottom: "1px solid var(--border-subtle)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                transition: "background 0.15s",
-                gap: 12,
-                flexWrap: "wrap",
-              }}>
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <p style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>
-                    {order.table?.tableName || `Masa ${order.table?.tableNumber}`}
-                  </p>
-                  <p style={{
-                    fontSize: 12,
-                    color: "var(--text-secondary)",
-                  }}>
-                    {order.items?.length} ürün · {formatTRY(order.totalPrice)} · {new Date(order.createdAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-                <span className={`badge ${statusBadge[order.status] || "badge-neutral"}`}>
-                  {statusLabels[order.status] || order.status}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Quick Links */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))",
-          gap: 10,
-        }}
-        className="stagger lg:grid-cols-2 lg:min-w-[220px]"
+        <Button
+          variant="ghost"
+          size="sm"
+          leftIcon={revenueHidden ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+          onClick={page.toggleRevenue}
         >
-          {quickLinks.map((q) => (
-            <Link key={q.href} href={q.href} style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "18px 12px",
-              borderRadius: 12,
-              background: "var(--bg-card)",
-              border: "1px solid var(--border-color)",
-              textDecoration: "none",
-              transition: "all 0.2s",
-              color: "var(--text-primary)",
-            }}>
-              <span style={{ color: q.color }}>{q.icon}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{q.label}</span>
-            </Link>
-          ))}
+          {revenueHidden ? "Ciroyu Göster" : "Ciroyu Gizle"}
+        </Button>
+      </header>
+
+      {/* Hata eski sayıların yerine 0 göstermesin: özet yoksa kartlar hiç çizilmez */}
+      <QueryError message={query.error} onRetry={query.refresh} />
+
+      {query.isLoading && (
+        <div role="status" aria-label="Panel hazırlanıyor">
+          <div className="mb-8 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3.5">
+            {Array.from({ length: KPI_SKELETONS }, (_, i) => (
+              <Skeleton key={i} className="h-[118px]" />
+            ))}
+          </div>
+          <Skeleton className="h-64" />
         </div>
-      </div>
+      )}
+
+      {summary && (
+        <>
+          <KpiGrid kpis={dashboardKpis(summary)} revenueHidden={revenueHidden} />
+          <div className="grid items-start gap-5 lg:grid-cols-[1fr_auto]">
+            <RecentOrders orders={summary.recentOrders} />
+            <QuickLinks />
+          </div>
+        </>
+      )}
     </div>
   );
 }

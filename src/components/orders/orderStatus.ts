@@ -1,19 +1,14 @@
 import { AlertTriangle, Check, ChefHat, Clock, UtensilsCrossed, X, type LucideIcon } from "lucide-react";
-import type { Tone } from "@/components/ui/tone";
+import { ORDER_STATUS_LABEL as L, type OrderStatusLabel as StatusMeta } from "./orderStatusLabel";
 import type { OrderPaymentStatus, OrderStatus } from "./types";
 
-interface StatusMeta {
-  readonly label: string;
-  readonly tone: Tone;
-}
-
 export const ORDER_STATUS: Readonly<Record<OrderStatus, StatusMeta & { readonly Icon: LucideIcon }>> = {
-  PENDING: { label: "Bekliyor", tone: "warning", Icon: Clock },
-  ACCEPTED: { label: "Kabul Edildi", tone: "info", Icon: Check },
-  PREPARING: { label: "Hazırlanıyor", tone: "primary", Icon: ChefHat },
-  SERVED: { label: "Servis Edildi", tone: "success", Icon: UtensilsCrossed },
-  CANCELLED: { label: "İptal", tone: "danger", Icon: X },
-  REJECTED: { label: "Reddedildi", tone: "danger", Icon: AlertTriangle },
+  PENDING: { ...L.PENDING, Icon: Clock },
+  ACCEPTED: { ...L.ACCEPTED, Icon: Check },
+  PREPARING: { ...L.PREPARING, Icon: ChefHat },
+  SERVED: { ...L.SERVED, Icon: UtensilsCrossed },
+  CANCELLED: { ...L.CANCELLED, Icon: X },
+  REJECTED: { ...L.REJECTED, Icon: AlertTriangle },
 };
 
 export function orderStatusMeta(status: OrderStatus) {

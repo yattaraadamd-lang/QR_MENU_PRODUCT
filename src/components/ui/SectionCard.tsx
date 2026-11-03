@@ -7,20 +7,25 @@ interface SectionCardProps {
   children: ReactNode;
   /** Gövde dolgusu: liste/tablo kenara dayanır ("none"), form/metin "md" */
   padding?: "none" | "md";
+  /** Başlığın sağındaki eylem (ör. "Tümünü Gör" linki) */
+  action?: ReactNode;
   className?: string;
 }
 
 /** Başlıklı kart bölümü (section + aria-labelledby): ayar ve liste ekranları */
-export default function SectionCard({ title, description, children, padding = "none", className }: SectionCardProps) {
+export default function SectionCard({ title, description, children, padding = "none", action, className }: SectionCardProps) {
   const headingId = useId();
 
   return (
     <section aria-labelledby={headingId} className={cn("card", className)}>
-      <div className="border-b border-line px-5 py-4">
-        <h2 id={headingId} className="text-base font-bold text-fg">
-          {title}
-        </h2>
-        {description && <p className="mt-1 text-xs leading-normal text-fg-secondary">{description}</p>}
+      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+        <div className="min-w-0">
+          <h2 id={headingId} className="text-base font-bold text-fg">
+            {title}
+          </h2>
+          {description && <p className="mt-1 text-xs leading-normal text-fg-secondary">{description}</p>}
+        </div>
+        {action}
       </div>
       <div className={padding === "md" ? "p-5" : undefined}>{children}</div>
     </section>
