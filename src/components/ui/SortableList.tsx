@@ -197,7 +197,7 @@ function SortableRow({ id, name, index, previousId, nextId, onStep, className, c
     <li
       ref={setNodeRef}
       data-sortable-id={id}
-      // transform/transition dnd-kit'ten her karede gelir
+      // eslint-disable-next-line no-restricted-syntax -- transform/transition dnd-kit'ten her karede gelir
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn("relative", isDragging && "z-10 opacity-60", className)}
     >

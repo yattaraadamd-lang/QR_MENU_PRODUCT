@@ -30,7 +30,7 @@ export default function UsageMeter({ label, usage }: { label: string; usage: Usa
         aria-valuetext={`${usage.current} / ${limitText}`}
         className="h-1.5 overflow-hidden rounded-full bg-surface-hover"
       >
-        {/* Genişlik veriye bağlı tek değer: inline kalması bilinçli */}
+        {/* eslint-disable-next-line no-restricted-syntax -- genişlik veriye bağlı yüzde */}
         <div className={cn("h-full", FILL[level.tone])} style={{ width: `${level.percent}%` }} />
       </div>
     </div>

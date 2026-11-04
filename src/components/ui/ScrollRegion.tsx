@@ -8,7 +8,6 @@ interface ScrollRegionProps {
   label: string;
   children: React.ReactNode;
   className?: string;
-  style?: React.CSSProperties;
 }
 
 /**
@@ -16,7 +15,7 @@ interface ScrollRegionProps {
  * böylece ok tuşlarıyla kaydırılabilir (WCAG 2.1.1, axe
  * "scrollable-region-focusable"). Taşmadığında gereksiz sekme durağı eklemez.
  */
-export default function ScrollRegion({ label, children, className, style }: ScrollRegionProps) {
+export default function ScrollRegion({ label, children, className }: ScrollRegionProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [overflows, setOverflows] = useState(false);
 
@@ -43,7 +42,6 @@ export default function ScrollRegion({ label, children, className, style }: Scro
       // relative: içerideki mutlak konumlu öğeler (sr-only metin, rozet) da kapla kırpılır;
       // yoksa en yakın konumlu ata dışarıda kalır ve dar ekranda sayfayı yatay taşırırlar
       className={cn("relative overflow-x-auto", className)}
-      style={style}
     >
       {children}
     </div>
