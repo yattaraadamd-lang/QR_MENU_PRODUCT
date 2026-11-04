@@ -45,6 +45,9 @@ export async function GET(request: NextRequest) {
         id: true,
         name: true,
         description: true,
+        // Düzenleme formu bu değerlerden açılır: seçilmezse kaydetmek alerjen ve içindekileri siler
+        ingredients: true,
+        allergens: true,
         price: true,
         image: true,
         isAvailable: true,

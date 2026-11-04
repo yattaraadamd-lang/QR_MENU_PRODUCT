@@ -9,7 +9,6 @@ interface DialogProps {
   open?: boolean;
   /** İçerik kutusunun sınıfı (varsayılan: "modal-content"). */
   contentClassName?: string;
-  contentStyle?: React.CSSProperties;
   overlayClassName?: string;
   /** Görünür başlık yoksa ekran okuyucuya okunacak ad. */
   "aria-label"?: string;
@@ -31,7 +30,6 @@ function OpenDialog({
   onClose,
   children,
   contentClassName = "modal-content",
-  contentStyle,
   overlayClassName = "",
   "aria-label": ariaLabel,
 }: Omit<DialogProps, "open">) {
@@ -124,7 +122,7 @@ function OpenDialog({
       className={`modal-overlay ${overlayClassName}`.trim()}
       aria-label={ariaLabel}
     >
-      <div className={contentClassName} style={contentStyle}>
+      <div className={contentClassName}>
         {children}
       </div>
     </dialog>
