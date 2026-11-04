@@ -7,8 +7,6 @@ import { enterDelay } from "@/components/landing/motion-style";
 import { AuthCard, AuthLinks, FormAlert, authStyles as styles } from "./AuthParts";
 import { DEMO_ACCOUNTS, useSignIn } from "./useSignIn";
 
-const FIELD_STYLE = { fontSize: 15, minHeight: 48 } as const;
-
 export default function SignInForm() {
   const { email, password, error, loading, onEmailChange, onPasswordChange, fillDemo, submit } = useSignIn();
 
@@ -27,7 +25,7 @@ export default function SignInForm() {
             required
             autoComplete="email"
             leftIcon={<Mail size={18} aria-hidden="true" />}
-            style={FIELD_STYLE}
+            large
           />
           <Input
             label="Şifre"
@@ -38,7 +36,7 @@ export default function SignInForm() {
             autoComplete="current-password"
             showPasswordToggle
             leftIcon={<Lock size={18} aria-hidden="true" />}
-            style={FIELD_STYLE}
+            large
           />
           <button type="submit" disabled={loading} className={`btn btn-primary btn-lg ${styles.submit}`}>
             {loading ? (

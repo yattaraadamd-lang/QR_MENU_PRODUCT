@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import BrandMark from "@/components/brand/BrandMark";
+import Button from "@/components/ui/Button";
 
 export interface RouteErrorProps {
   error: Error & { digest?: string };
@@ -36,16 +37,10 @@ export default function RouteErrorView({
       <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
         <BrandMark size={44} />
         <h1 className="font-display text-4xl">{title}</h1>
-        <p style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>{message}</p>
-        {error.digest && (
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Hata kodu: {error.digest}
-          </p>
-        )}
+        <p className="leading-relaxed text-fg-secondary">{message}</p>
+        {error.digest && <p className="text-xs text-fg-muted">Hata kodu: {error.digest}</p>}
         {/* autoFocus yok (jsx-a11y no-autofocus); role="alert" metni zaten duyurur */}
-        <button type="button" className="btn btn-primary" onClick={reset}>
-          Tekrar dene
-        </button>
+        <Button onClick={reset}>Tekrar dene</Button>
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CheckCheck, Volume2, VolumeX, X } from "lucide-react";
+import { Bell, CheckCheck, X } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
-import { useNotificationActions, useNotificationList, useNotificationSoundState } from "@/contexts/NotificationSoundContext";
+import { useNotificationActions, useNotificationList } from "@/contexts/NotificationSoundContext";
 import NotificationCard from "./NotificationCard";
+import SoundStatus from "./SoundStatus";
 
 /**
  * Sağdan açılan modal çekmece (yerel <dialog>): odak tuzağı, Esc, arka planı etkisizleştirme
@@ -12,8 +13,7 @@ import NotificationCard from "./NotificationCard";
  */
 export default function NotificationDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { notifications } = useNotificationList();
-  const { mode, soundEnabled, audioUnlocked } = useNotificationSoundState();
-  const { clearNotification, clearAll, enableSound, disableSound } = useNotificationActions();
+  const { clearNotification, clearAll } = useNotificationActions();
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -33,9 +33,7 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
           {/* Satır içi span boşluk eklemez: ad "Bildirimler(1)" okunurdu */}
           {notifications.length > 0 && " "}
           {notifications.length > 0 && (
-            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 500 }}>
-              ({notifications.length})
-            </span>
+            <span className="text-xs font-medium text-fg-muted">({notifications.length})</span>
           )}
         </h2>
         <div className="notification-panel-actions">
@@ -75,52 +73,7 @@ export default function NotificationDrawer({ open, onClose }: { open: boolean; o
         )}
       </div>
 
-      {/* Sound status footer */}
-      <div
-        style={{
-          padding: "12px 16px",
-          borderTop: "1px solid var(--border-color)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          fontSize: "0.75rem",
-          color: "var(--text-muted)",
-          flexShrink: 0,
-        }}
-      >
-        {soundEnabled && audioUnlocked ? (
-          <>
-            <Volume2 size={14} style={{ color: "var(--success)" }} />
-            <span>{mode === "admin" ? "Sipariş ve ödeme talepleri sesli" : "Sesli bildirimler aktif"}</span>
-          </>
-        ) : soundEnabled ? (
-          <>
-            <VolumeX size={14} style={{ color: "var(--primary-light)" }} />
-            <span>Ses kilitli — ekrana dokunun</span>
-          </>
-        ) : (
-          <>
-            <VolumeX size={14} />
-            <span>Sesli bildirimler kapalı</span>
-          </>
-        )}
-        <button
-          onClick={soundEnabled && audioUnlocked ? disableSound : enableSound}
-          aria-label={soundEnabled && audioUnlocked ? "Sesli bildirimleri kapat" : "Sesli bildirimleri aç"}
-          style={{
-            background: "none",
-            border: "none",
-            color: "var(--primary-light)",
-            cursor: "pointer",
-            fontSize: "0.75rem",
-            fontWeight: 600,
-            textDecoration: "underline",
-          }}
-        >
-          {soundEnabled && audioUnlocked ? "Kapat" : "Aç"}
-        </button>
-      </div>
+      <SoundStatus />
     </Dialog>
   );
 }

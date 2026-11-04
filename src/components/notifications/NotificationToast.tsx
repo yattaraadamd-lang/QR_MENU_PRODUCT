@@ -1,6 +1,7 @@
 "use client";
 
 import { VolumeX, X } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { useNotificationActions, useNotificationSoundState, useNotificationToast } from "@/contexts/NotificationSoundContext";
 
 /**
@@ -15,48 +16,24 @@ export default function NotificationToast() {
 
   return (
     <div
-      className={`notification-toast ${toast.persistent ? "notification-toast-persistent" : ""}`}
+      className={cn("notification-toast", toast.persistent && "notification-toast-persistent")}
       role={toast.persistent ? "alert" : "status"}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>
+      <div className="flex items-center gap-2.5">
+        <span aria-hidden="true" className="shrink-0 text-lg leading-none">
           {toast.icon}
         </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: "0.875rem", marginBottom: 2 }}>
-            {toast.title}
-          </div>
-          <div style={{
-            fontSize: "0.8125rem",
-            color: "var(--text-secondary)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}>
-            {toast.message}
-          </div>
+        <div className="min-w-0 flex-1">
+          <p className="mb-0.5 text-sm font-semibold">{toast.title}</p>
+          <p className="truncate text-[13px] text-fg-secondary">{toast.message}</p>
           {/* Tarayıcı sesi kilitli: ekrana herhangi bir dokunuş da açar, düğme bunu görünür kılar */}
           {soundEnabled && !audioUnlocked && (
             <button
               type="button"
               onClick={enableSound}
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                color: "var(--primary-light)",
-                marginTop: 6,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                padding: "4px 10px",
-                minHeight: 28,
-                borderRadius: 8,
-                border: "1px solid rgba(209,60,39,0.4)",
-                background: "rgba(209,60,39,0.12)",
-                cursor: "pointer",
-              }}
+              className="mt-1.5 inline-flex min-h-7 items-center gap-1 rounded-sm border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary-light"
             >
-              <VolumeX size={12} aria-hidden="true" />
+              <VolumeX aria-hidden="true" className="size-3" />
               Ses kilitli — sesi aç
             </button>
           )}
@@ -64,24 +41,11 @@ export default function NotificationToast() {
         <button
           type="button"
           onClick={dismissToast}
-          style={{
-            background: "none",
-            border: "none",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            padding: 4,
-            minWidth: 24,
-            minHeight: 24,
-            borderRadius: 6,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}
           title="Bildirimi kapat"
           aria-label="Bildirimi kapat"
+          className="flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-muted hover:text-fg"
         >
-          <X size={16} aria-hidden="true" />
+          <X aria-hidden="true" className="size-4" />
         </button>
       </div>
     </div>
