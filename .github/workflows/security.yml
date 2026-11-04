@@ -152,8 +152,8 @@ jobs:
 
       - name: Seed runs on the migrated database
         run: |
-          npx tsx prisma/seed.ts
           node prisma/seed-plans.cjs --create-only
+          npx tsx prisma/seed.ts
 
       # Masa başına tek aktif oturum / tek bekleyen sipariş talebi: kısmi unique indeksler
       # migration'da ve openTable eşzamanlı çağrılarda tek oturum bırakıyor mu

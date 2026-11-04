@@ -61,8 +61,8 @@ jobs:
       - name: Database (migrate + demo seed)
         run: |
           npx prisma migrate deploy
-          npx tsx prisma/seed.ts
           node prisma/seed-plans.cjs --create-only
+          npx tsx prisma/seed.ts
 
       - name: Build
         run: npx next build
