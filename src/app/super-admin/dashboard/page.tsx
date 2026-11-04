@@ -1,83 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import Loader from "@/components/ui/Loader";
-import { formatTRY } from "@/lib/format";
+import { PLATFORM_STATS_URL, selectStats } from "@/components/super-admin-platform/platform.api";
+import { platformStats } from "@/components/super-admin-platform/platformModel";
+import { usePlatformQuery } from "@/components/super-admin-platform/usePlatformQuery";
+import QueryError from "@/components/ui/QueryError";
+import Skeleton from "@/components/ui/Skeleton";
+import StatCard from "@/components/ui/StatCard";
+
+const GRID = "grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4";
+const SKELETON_COUNT = 6;
 
 export default function SuperAdminDashboardPage() {
-  const { data: session } = useSession();
-  const [stats, setStats] = useState({
-    totalBusinesses: 0,
-    activeBusinesses: 0,
-    totalAdmins: 0,
-    totalWaiters: 0,
-    monthlyPlatformRevenue: 0,
-    totalOrders: 0,
-    totalPayments: 0,
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (session?.user.role === "SUPER_ADMIN") {
-      fetchDashboardData();
-    }
-  }, [session]);
-
-  const fetchDashboardData = async () => {
-    try {
-      const res = await fetch("/api/super-admin/dashboard");
-      const data = await res.json();
-      if (res.ok) {
-        setStats(data.stats);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) return <Loader />;
-
-  const statCards = [
-    { label: "Toplam İşletme", value: stats.totalBusinesses, icon: "🏢", color: "#7E2F5B" },
-    { label: "Aktif İşletme", value: stats.activeBusinesses, icon: "🟢", color: "#276044" },
-    { label: "Aylık Platform Geliri", value: formatTRY(stats.monthlyPlatformRevenue), icon: "💎", color: "#7E2F5B" },
-    { label: "Toplam Admin", value: stats.totalAdmins, icon: "👑", color: "#7A4A05" },
-    { label: "Toplam Garson", value: stats.totalWaiters, icon: "👔", color: "#B42318" },
-    { label: "Toplam Sipariş", value: stats.totalOrders, icon: "📋", color: "#24578A" },
-  ];
+  const query = usePlatformQuery(PLATFORM_STATS_URL, selectStats);
 
   return (
     <div>
-      <h1 className="page-title" style={{ marginBottom: 24 }}>Platform Özeti</h1>
-      
-      <div className="stagger" style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-        gap: 16,
-      }}>
-        {statCards.map((stat, i) => (
-          <div key={i} className="card" style={{ padding: 20, position: "relative", overflow: "hidden" }}>
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, height: 4,
-              background: stat.color,
-            }} />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 4, fontWeight: 600 }}>
-                  {stat.label}
-                </p>
-                <p style={{ fontSize: 28, fontWeight: 800, color: "var(--text-primary)" }}>
-                  {stat.value}
-                </p>
-              </div>
-              <span style={{ fontSize: 36, opacity: 0.8 }}>{stat.icon}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+      <h1 className="page-title mb-6">Platform Özeti</h1>
+
+      {/* Hata sıfır gibi görünmesin: özet yoksa kartlar hiç çizilmez */}
+      <QueryError message={query.error} onRetry={query.refresh} />
+
+      {query.isLoading && (
+        <div role="status" aria-label="Özet yükleniyor" className={GRID}>
+          {Array.from({ length: SKELETON_COUNT }, (_, i) => (
+            <Skeleton key={i} className="h-[92px]" />
+          ))}
+        </div>
+      )}
+
+      {query.data && (
+        <div className={`stagger ${GRID}`}>
+          {platformStats(query.data).map((stat) => (
+            <StatCard key={stat.label} label={stat.label} value={stat.value} tone={stat.tone} icon={stat.icon} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

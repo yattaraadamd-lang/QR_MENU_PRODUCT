@@ -1,85 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import Loader from "@/components/ui/Loader";
-import { formatTRY } from "@/lib/format";
+import { PLATFORM_SUBSCRIPTIONS_URL, selectSubscriptions } from "@/components/super-admin-platform/platform.api";
+import SubscriptionsTable from "@/components/super-admin-platform/SubscriptionsTable";
+import { usePlatformQuery } from "@/components/super-admin-platform/usePlatformQuery";
+import Button from "@/components/ui/Button";
+import EmptyState from "@/components/ui/EmptyState";
+import QueryError from "@/components/ui/QueryError";
+import Skeleton from "@/components/ui/Skeleton";
 
 export default function SuperAdminSubscriptionsPage() {
-  const { data: session } = useSession();
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (session?.user.role === "SUPER_ADMIN") {
-      fetchSubscriptions();
-    }
-  }, [session]);
-
-  const fetchSubscriptions = async () => {
-    try {
-      const res = await fetch("/api/super-admin/subscriptions");
-      const data = await res.json();
-      if (res.ok) setSubscriptions(data.subscriptions);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) return <Loader />;
+  const query = usePlatformQuery(PLATFORM_SUBSCRIPTIONS_URL, selectSubscriptions);
+  const subscriptions = query.data ?? [];
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">Abonelikler</h1>
         {/* Plan ekleme formu henüz yok: tıklanınca alert açmak yerine kapalı */}
-        <button type="button" className="btn btn-primary" disabled>+ Yeni Plan Ekle (yakında)</button>
-      </div>
+        <Button disabled>+ Yeni Plan Ekle (yakında)</Button>
+      </header>
 
-      <div className="card" style={{ overflowX: "auto" }}>
-        <table className="table" style={{ minWidth: 800 }}>
-          <thead>
-            <tr>
-              <th>İşletme</th>
-              <th>Plan</th>
-              <th>Durum</th>
-              <th>Aylık Tutar</th>
-              <th>Başlangıç</th>
-              <th>Bitiş</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subscriptions.map((s) => (
-              <tr key={s.id}>
-                <td style={{ fontWeight: 600 }}>{s.business?.name || "-"}</td>
-                <td>{s.plan?.name || "-"}</td>
-                <td>
-                  <span className={`badge ${
-                    s.status === "ACTIVE" ? "badge-success" : 
-                    s.status === "TRIAL" ? "badge-warning" : "badge-danger"
-                  }`}>
-                    {s.status}
-                  </span>
-                </td>
-                <td style={{ color: "var(--primary-light)", fontWeight: 600 }}>
-                  {formatTRY(s.plan?.monthlyPrice || 0)}
-                </td>
-                <td>{new Date(s.startedAt).toLocaleDateString("tr-TR")}</td>
-                <td>{s.endsAt ? new Date(s.endsAt).toLocaleDateString("tr-TR") : "Süresiz"}</td>
-              </tr>
-            ))}
-            {subscriptions.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: 32, color: "var(--text-secondary)" }}>
-                  Abonelik kaydı bulunamadı.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <QueryError message={query.error} onRetry={query.refresh} />
+
+      {query.isLoading && (
+        <div role="status" aria-label="Abonelikler yükleniyor">
+          <Skeleton className="h-64" />
+        </div>
+      )}
+
+      {!query.isLoading && subscriptions.length === 0 && !query.error && <EmptyState icon="💎" title="Abonelik kaydı bulunamadı" />}
+
+      {subscriptions.length > 0 && <SubscriptionsTable subscriptions={subscriptions} />}
     </div>
   );
 }

@@ -1,56 +1,24 @@
-"use client";
+import Link from "next/link";
+import EmptyState from "@/components/ui/EmptyState";
 
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import Loader from "@/components/ui/Loader";
-import { formatTRY } from "@/lib/format";
-
+/**
+ * Platform tahsilat kaydı henüz tutulmuyor (/api/super-admin/platform-payments sabit boş liste
+ * döner). Burada toplam gösterilmez: gerçek abonelikler varken "₺0,00" ve "0 abonelik" yanıltıyordu.
+ */
 export default function SuperAdminPaymentsPage() {
-  const { data: session } = useSession();
-  const [payments, setPayments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (session?.user.role === "SUPER_ADMIN") {
-      fetchPayments();
-    }
-  }, [session]);
-
-  const fetchPayments = async () => {
-    try {
-      const res = await fetch("/api/super-admin/platform-payments");
-      const data = await res.json();
-      if (res.ok) setPayments(data.payments || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-  if (loading) return <Loader />;
-
   return (
     <div>
-      <h1 className="page-title" style={{ marginBottom: 24 }}>Platform Ödemeleri</h1>
-
-      <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-        <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #7E2F5B" }}>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Toplam Platform Geliri</p>
-          <p style={{ fontSize: 24, fontWeight: 800, color: "var(--purple-text)" }}>{formatTRY(totalRevenue)}</p>
-        </div>
-        <div className="card" style={{ padding: 20, flex: 1, borderLeft: "4px solid #276044" }}>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Aktif Abonelik</p>
-          <p style={{ fontSize: 24, fontWeight: 800, color: "#276044" }}>{payments.length}</p>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 32, textAlign: "center" }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🏗️</div>
-        <p style={{ color: "var(--text-secondary)" }}>Platform ödeme kayıtları abonelik sistemi aktifleştirildiğinde burada görünecektir.</p>
-      </div>
+      <h1 className="page-title mb-6">Platform Ödemeleri</h1>
+      <EmptyState
+        icon="🏗️"
+        title="Ödeme kayıtları henüz tutulmuyor"
+        description="Platform ödeme kayıtları abonelik sistemi aktifleştirildiğinde burada görünecektir."
+        action={
+          <Link href="/super-admin/subscriptions" className="btn btn-primary">
+            Abonelikleri gör
+          </Link>
+        }
+      />
     </div>
   );
 }

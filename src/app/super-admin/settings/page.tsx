@@ -1,44 +1,54 @@
 "use client";
 
+import { useId } from "react";
 import { useSession } from "next-auth/react";
+import { userRoleMeta } from "@/components/super-admin-platform/platformModel";
+import Button from "@/components/ui/Button";
+import Field from "@/components/ui/Field";
+
+/** API henüz yok: değerler örnek, alanlar kapalı ("kaydedildi" ya da düzenlenebilir görünmek yanıltırdı) */
+const PLACEHOLDER_FIELDS = [
+  { key: "name", label: "Platform Adı", value: "QR Menu SaaS" },
+  { key: "trial", label: "Varsayılan Deneme Süresi (Gün)", value: "14" },
+  { key: "support", label: "Destek E-posta", value: "destek@qrmenu.com" },
+] as const;
 
 export default function SuperAdminSettingsPage() {
   const { data: session } = useSession();
+  const id = useId();
+  const user = session?.user;
 
   return (
     <div>
-      <h1 className="page-title" style={{ marginBottom: 24 }}>Platform Ayarları</h1>
+      <h1 className="page-title mb-6">Platform Ayarları</h1>
 
-      <div className="card" style={{ padding: 24, maxWidth: 600 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label htmlFor="f-platform-adi" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Platform Adı</label>
-            <input id="f-platform-adi" className="input" defaultValue="QR Menu SaaS" />
-          </div>
-          <div>
-            <label htmlFor="f-varsayilan-deneme-suresi-gun" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Varsayılan Deneme Süresi (Gün)</label>
-            <input id="f-varsayilan-deneme-suresi-gun" type="number" className="input" defaultValue={14} />
-          </div>
-          <div>
-            <label htmlFor="f-destek-e-posta" style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Destek E-posta</label>
-            <input id="f-destek-e-posta" className="input" defaultValue="destek@qrmenu.com" />
-          </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Super Admin Bilgisi</p>
-            <div className="card" style={{ padding: 16, background: "var(--bg-secondary)" }}>
-              <p style={{ fontSize: 14 }}><strong>İsim:</strong> {session?.user?.name || "-"}</p>
-              <p style={{ fontSize: 14 }}><strong>Email:</strong> {session?.user?.email || "-"}</p>
-              <p style={{ fontSize: 14 }}><strong>Rol:</strong> {session?.user?.role || "-"}</p>
-            </div>
-          </div>
-          {/* API henüz yok: "kaydedildi" demek yanıltıcıydı; buton kapalı ve nedeni yazıyor */}
-          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 8 }}>
-            Platform ayarlarını kaydetme yakında eklenecek; şimdilik buradaki değişiklikler saklanmıyor.
-          </p>
-          <button type="button" className="btn btn-primary btn-lg" disabled>
-            💾 Kaydet (yakında)
-          </button>
-        </div>
+      <div className="card flex max-w-[600px] flex-col gap-4 p-6">
+        {PLACEHOLDER_FIELDS.map((field) => (
+          <Field key={field.key} label={field.label} htmlFor={`${id}-${field.key}`}>
+            <input id={`${id}-${field.key}`} className="input opacity-60" value={field.value} disabled readOnly />
+          </Field>
+        ))}
+
+        <section aria-labelledby={`${id}-account`}>
+          <h2 id={`${id}-account`} className="mb-1.5 text-[13px] font-semibold text-fg-secondary">
+            Süper Admin Bilgisi
+          </h2>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 rounded-md border border-line bg-surface-muted p-4 text-sm">
+            <dt className="font-bold text-fg">İsim:</dt>
+            <dd className="min-w-0 break-words text-fg">{user?.name || "-"}</dd>
+            <dt className="font-bold text-fg">E-posta:</dt>
+            <dd className="min-w-0 break-words text-fg">{user?.email || "-"}</dd>
+            <dt className="font-bold text-fg">Rol:</dt>
+            <dd className="min-w-0 break-words text-fg">{user?.role ? userRoleMeta(user.role).label : "-"}</dd>
+          </dl>
+        </section>
+
+        <p className="mt-2 text-[13px] text-fg-secondary">
+          Platform ayarlarını kaydetme yakında eklenecek; buradaki değerler şimdilik örnek olarak gösteriliyor.
+        </p>
+        <Button size="lg" disabled>
+          <span aria-hidden="true">💾</span> Kaydet (yakında)
+        </Button>
       </div>
     </div>
   );
