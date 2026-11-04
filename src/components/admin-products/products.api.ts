@@ -22,11 +22,11 @@ export const productsApi = {
 
   remove: (id: string) => apiRequest<unknown>(itemUrl(id), { method: "DELETE", fallbackError: "Ürün silinemedi." }),
 
-  /** Stok düğmesi: sipariş iptalindeki "stokta yok" gibi müsaitliği de birlikte değiştirir */
+  /** Stok düğmesi yalnız stoğu değiştirir: görünürlük (isAvailable) formdaki "Menüde Görünsün"dür */
   setStock: (id: string, stockStatus: StockStatus) =>
     apiRequest<unknown>(itemUrl(id), {
       method: "PUT",
-      body: { stockStatus, isAvailable: stockStatus === "IN_STOCK" },
+      body: { stockStatus },
       fallbackError: "Stok güncellenemedi.",
     }),
 

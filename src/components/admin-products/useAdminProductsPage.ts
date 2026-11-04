@@ -45,19 +45,19 @@ export function useAdminProductsPage() {
     void saveOrder(next);
   };
 
-  const patchProduct = (id: string, patch: Pick<ProductDTO, "stockStatus" | "isAvailable">) =>
-    productsQuery.mutate((list) => (list ?? []).map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  const setLocalStock = (id: string, stockStatus: ProductDTO["stockStatus"]) =>
+    productsQuery.mutate((list) => (list ?? []).map((item) => (item.id === id ? { ...item, stockStatus } : item)));
 
   const toggleStock = async (product: ProductDTO) => {
     const stockStatus = product.stockStatus === "IN_STOCK" ? "OUT_OF_STOCK" : "IN_STOCK";
-    patchProduct(product.id, { stockStatus, isAvailable: stockStatus === "IN_STOCK" });
+    setLocalStock(product.id, stockStatus);
     setBusyId(product.id);
     const result = await productsApi.setStock(product.id, stockStatus);
     setBusyId(null);
     if (result.ok) {
       toast.success(stockStatus === "IN_STOCK" ? `${product.name} stoğa alındı` : `${product.name} stoktan çıkarıldı`);
     } else {
-      patchProduct(product.id, { stockStatus: product.stockStatus, isAvailable: product.isAvailable });
+      setLocalStock(product.id, product.stockStatus);
       toast.error(result.error);
     }
   };
