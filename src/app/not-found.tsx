@@ -14,7 +14,7 @@ export default function NotFound() {
         <BrandMark size={44} />
         <p className="eyebrow">404</p>
         <h1 className="font-display text-5xl">Sayfa bulunamadı</h1>
-        <p style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+        <p className="leading-relaxed text-fg-secondary">
           Aradığınız sayfa taşınmış ya da hiç var olmamış olabilir. Masadaysanız QR kodu yeniden okutun.
         </p>
         <Link href="/" className="btn btn-primary">

@@ -1,0 +1,18 @@
+/* .input (globals.css) Tailwind yardımcılarından sonra geldiği için dolgu ve boyut birleşik
+   seçiciyle (0,2,0) verilir; !important gerekmez. */
+.withLeftIcon:global(.input) { padding-left: 40px; }
+.withRightIcon:global(.input) { padding-right: 44px; }
+
+/* Öne çıkan alan. Telefonda globals'ın 16px'i kalır: altı iOS Safari'de odakta sayfayı yakınlaştırır */
+.large:global(.input) { min-height: 48px; }
+@media (min-width: 641px) {
+  .large:global(.input) { font-size: 15px; }
+}
+
+/* Hata rengi :hover ve :focus'ta da kalır */
+.invalid:global(.input),
+.invalid:global(.input):hover,
+.invalid:global(.input):focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent);
+}

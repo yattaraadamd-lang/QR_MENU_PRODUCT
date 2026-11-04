@@ -1,46 +1,39 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { useNotificationList } from "@/contexts/NotificationSoundContext";
+
+/** Rozette en fazla iki hane */
+const MAX_BADGE = 99;
 
 /** Zil: toplam bildirim rozeti, okunmamış varsa kırmızı ve nabızlı. Yalnız liste bağlamını okur. */
 export default function NotificationBell({ onClick }: { onClick: () => void }) {
   const { notifications, unreadCount } = useNotificationList();
   const count = notifications.length;
   const hasUnread = unreadCount > 0;
+  const countText = count > MAX_BADGE ? `${MAX_BADGE}+` : String(count);
+  // Rozetteki sayı adın içinde (WCAG 2.5.3); okunmamış sayısı toplamdan farklı olabilir
+  const name = [count > 0 ? `Bildirimler: ${countText}` : "Bildirimler", hasUnread && `${unreadCount} okunmamış`]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <button
       id="notification-bell"
+      type="button"
       onClick={onClick}
-      className={`notification-badge ${hasUnread ? "notification-bell-active" : ""}`}
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: "var(--radius-md)",
-        border: hasUnread
-          ? "1px solid rgba(239, 68, 68, 0.5)"
-          : "1px solid var(--border-color)",
-        background: hasUnread
-          ? "rgba(239, 68, 68, 0.08)"
-          : "var(--bg-card)",
-        color: hasUnread ? "#B42318" : "var(--text-secondary)",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "all 0.2s ease",
-        position: "relative",
-      }}
-      title={hasUnread ? `${unreadCount} okunmamış bildirim` : "Bildirimler"}
-      aria-label={hasUnread ? `Bildirimler, ${unreadCount} okunmamış` : "Bildirimler"}
-    >
-      <Bell size={18} aria-hidden="true" />
-      {count > 0 && (
-        <span className={`notification-badge-count ${hasUnread ? "pulse" : ""}`}>
-          {count > 99 ? "99+" : count}
-        </span>
+      aria-haspopup="dialog"
+      className={cn(
+        // Konum ve display .notification-badge'de (globals)
+        "notification-badge size-10 shrink-0 items-center justify-center rounded-md border transition-colors",
+        hasUnread ? "notification-bell-active border-danger/50 bg-danger/10 text-danger-fg" : "border-line bg-surface text-fg-secondary",
       )}
+      title={hasUnread ? `${unreadCount} okunmamış bildirim` : "Bildirimler"}
+      aria-label={name}
+    >
+      <Bell aria-hidden="true" className="size-[18px]" />
+      {count > 0 && <span className={cn("notification-badge-count", hasUnread && "pulse")}>{countText}</span>}
     </button>
   );
 }

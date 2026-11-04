@@ -17,7 +17,8 @@ export default function WaiterTopBar({ userName, businessName }: { userName?: st
           <p className="truncate text-2xs leading-tight text-fg-secondary">{businessName}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      {/* Dar ekranda sıkışan taraf ad/işletme (kırpılır): düğmeler boyutunu korur */}
+      <div className="flex shrink-0 items-center gap-2">
         <NotificationPanel />
         <Button
           variant="ghost"

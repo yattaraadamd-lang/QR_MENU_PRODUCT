@@ -1,14 +1,21 @@
 "use client";
 
-import React, { useId, useState } from "react";
+import { useId, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { cn } from "@/lib/cn";
+import styles from "./Input.module.css";
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+/** Alanın içinde dikey ortalı simge/düğme */
+const ADORNMENT = "absolute top-1/2 flex -translate-y-1/2 items-center text-fg-muted";
+
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
   showPasswordToggle?: boolean;
+  /** Öne çıkan alan (giriş formu): 48px yükseklik */
+  large?: boolean;
 }
 
 export default function Input({
@@ -17,14 +24,14 @@ export default function Input({
   leftIcon,
   rightIcon,
   showPasswordToggle = false,
+  large = false,
   type,
-  className = "",
-  style,
+  className,
   id,
   ...props
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const inputType = showPasswordToggle ? (showPassword ? "text" : "password") : type;
+  const passwordType = showPassword ? "text" : "password";
   const autoId = useId();
   const inputId = id || autoId;
   const errorId = `${inputId}-error`;
@@ -32,45 +39,23 @@ export default function Input({
   return (
     <div>
       {label && (
-        <label
-          htmlFor={inputId}
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--text-secondary)",
-            display: "block",
-            marginBottom: 6,
-          }}
-        >
+        <label htmlFor={inputId} className="mb-1.5 block text-[13px] font-semibold text-fg-secondary">
           {label}
         </label>
       )}
-      <div style={{ position: "relative" }}>
-        {leftIcon && (
-          <span
-            style={{
-              position: "absolute",
-              left: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--text-muted)",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            {leftIcon}
-          </span>
-        )}
+      <div className="relative">
+        {leftIcon && <span className={cn(ADORNMENT, "left-3")}>{leftIcon}</span>}
         <input
           id={inputId}
-          type={inputType}
-          className={`input ${className}`.trim()}
-          style={{
-            ...(leftIcon ? { paddingLeft: 40 } : {}),
-            ...(rightIcon || showPasswordToggle ? { paddingRight: 44 } : {}),
-            ...(error ? { borderColor: "var(--danger)", boxShadow: "0 0 0 3px rgba(220,38,38,0.12)" } : {}),
-            ...style,
-          }}
+          type={showPasswordToggle ? passwordType : type}
+          className={cn(
+            "input",
+            Boolean(leftIcon) && styles.withLeftIcon,
+            (Boolean(rightIcon) || showPasswordToggle) && styles.withRightIcon,
+            large && styles.large,
+            Boolean(error) && styles.invalid,
+            className,
+          )}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           {...props}
@@ -81,41 +66,15 @@ export default function Input({
             onClick={() => setShowPassword(!showPassword)}
             aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
             aria-pressed={showPassword}
-            style={{
-              position: "absolute",
-              right: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-              padding: 4,
-              display: "flex",
-              alignItems: "center",
-            }}
+            className={cn(ADORNMENT, "right-3 p-1 hover:text-fg")}
           >
-            {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            {showPassword ? <EyeOff aria-hidden="true" className="size-[18px]" /> : <Eye aria-hidden="true" className="size-[18px]" />}
           </button>
         )}
-        {rightIcon && !showPasswordToggle && (
-          <span
-            style={{
-              position: "absolute",
-              right: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--text-muted)",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            {rightIcon}
-          </span>
-        )}
+        {rightIcon && !showPasswordToggle && <span className={cn(ADORNMENT, "right-3")}>{rightIcon}</span>}
       </div>
       {error && (
-        <p id={errorId} style={{ fontSize: 12, color: "var(--danger-text)", marginTop: 4, fontWeight: 500 }}>
+        <p id={errorId} className="mt-1 text-xs font-medium text-danger-fg">
           {error}
         </p>
       )}

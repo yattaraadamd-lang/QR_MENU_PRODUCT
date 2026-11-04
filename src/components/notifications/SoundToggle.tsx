@@ -1,20 +1,12 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { Volume2, VolumeX } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { useNotificationActions, useNotificationSoundState } from "@/contexts/NotificationSoundContext";
 
-const baseStyle: CSSProperties = {
-  height: 40,
-  borderRadius: "var(--radius-md)",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  fontSize: "0.8125rem",
-  transition: "all 0.2s ease",
-};
+const BASE = "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md border text-[13px] transition-colors";
+const ICON_ONLY = "w-10 border-line bg-surface";
+const ATTENTION = "bg-primary/10 px-3 text-primary-light";
 
 /**
  * Ses düğmesi, 3 durum: kapalı (tercih) · kilitli (tarayıcı dokunuş bekliyor) · açık.
@@ -29,14 +21,9 @@ export default function SoundToggle() {
     return (
       <button
         id="sound-toggle-btn"
+        type="button"
         onClick={disableSound}
-        style={{
-          ...baseStyle,
-          width: 40,
-          border: "1px solid var(--border-color)",
-          background: "var(--bg-card)",
-          color: "var(--success)",
-        }}
+        className={cn(BASE, ICON_ONLY, "text-success")}
         title={
           mode === "admin"
             ? "Sesli bildirimler açık (sipariş ve ödeme) — kapatmak için tıklayın"
@@ -44,7 +31,7 @@ export default function SoundToggle() {
         }
         aria-label="Sesli bildirimleri kapat"
       >
-        <Volume2 size={18} />
+        <Volume2 aria-hidden="true" className="size-[18px]" />
       </button>
     );
   }
@@ -54,50 +41,44 @@ export default function SoundToggle() {
     return (
       <button
         id="sound-toggle-btn"
+        type="button"
         onClick={enableSound}
-        className="animate-pulse-glow"
-        style={{
-          ...baseStyle,
-          padding: "0 12px",
-          border: "1px solid rgba(209,60,39, 0.5)",
-          background: "rgba(209,60,39, 0.12)",
-          color: "var(--primary-light)",
-        }}
+        className={cn(BASE, ATTENTION, "animate-pulse-glow border-primary/50")}
         title="Tarayıcı sesi kilitledi — ekranın herhangi bir yerine dokunmanız yeterli"
       >
-        <VolumeX size={16} />
+        <VolumeX aria-hidden="true" className="size-4" />
         <span>Dokun, sesi aç</span>
       </button>
     );
   }
 
-  // Tercih kapalı → garsonda dikkat çekici, adminde sade
+  // Tercih kapalı → garsonda dikkat çekici (görünen metin adın içinde), adminde sade
+  if (mode === "waiter") {
+    return (
+      <button
+        id="sound-toggle-btn"
+        type="button"
+        onClick={enableSound}
+        className={cn(BASE, ATTENTION, "border-primary/30")}
+        title="Sesli bildirimler kapalı — açmak için tıklayın"
+        aria-label="Ses kapalı, sesli bildirimleri aç"
+      >
+        <VolumeX aria-hidden="true" className="size-4" />
+        <span>Ses kapalı</span>
+      </button>
+    );
+  }
+
   return (
     <button
       id="sound-toggle-btn"
+      type="button"
       onClick={enableSound}
-      style={
-        mode === "waiter"
-          ? {
-              ...baseStyle,
-              padding: "0 12px",
-              border: "1px solid rgba(209,60,39, 0.3)",
-              background: "rgba(209,60,39, 0.12)",
-              color: "var(--primary-light)",
-            }
-          : {
-              ...baseStyle,
-              width: 40,
-              border: "1px solid var(--border-color)",
-              background: "var(--bg-card)",
-              color: "var(--text-muted)",
-            }
-      }
+      className={cn(BASE, ICON_ONLY, "text-fg-muted")}
       title="Sesli bildirimler kapalı — açmak için tıklayın"
       aria-label="Sesli bildirimleri aç"
     >
-      <VolumeX size={mode === "waiter" ? 16 : 18} />
-      {mode === "waiter" && <span>Ses kapalı</span>}
+      <VolumeX aria-hidden="true" className="size-[18px]" />
     </button>
   );
 }
