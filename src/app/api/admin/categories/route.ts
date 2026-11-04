@@ -23,8 +23,9 @@ export async function GET(request: NextRequest) {
         sortOrder: true,
         isActive: true,
         createdAt: true,
+        // Silme ucuyla aynı sayım: yumuşak silinmiş ürünler kategoride görünmez
         _count: {
-          select: { products: true },
+          select: { products: { where: { isDeleted: false } } },
         },
       },
       orderBy: { sortOrder: "asc" },
