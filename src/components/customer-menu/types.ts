@@ -38,9 +38,9 @@ export type LiveBill = { total: number | null; paid: number };
 
 export const orderable = (p: Product) => p.isAvailable && p.stockStatus === "IN_STOCK";
 
-/** fg/bg: açık zeminde rozet, solid: görsel üstünde beyaz yazılı rozet — hepsi ≥4.5:1 */
-export function stockLabel(p: Product) {
-  if (!p.isAvailable || p.stockStatus === "OUT_OF_STOCK") return { text: "Stokta Yok", fg: "#B42318", bg: "#FDE3E1", solid: "#B42318" };
-  if (p.stockStatus === "TEMPORARILY_UNAVAILABLE") return { text: "Geçici Yok", fg: "#8A5208", bg: "#FEF0C7", solid: "#8A5208" };
+/** Stok rozeti: metin ve ton (renkler temada) */
+export function stockLabel(p: Product): { text: string; tone: "danger" | "warning" } | null {
+  if (!p.isAvailable || p.stockStatus === "OUT_OF_STOCK") return { text: "Stokta Yok", tone: "danger" };
+  if (p.stockStatus === "TEMPORARILY_UNAVAILABLE") return { text: "Geçici Yok", tone: "warning" };
   return null;
 }

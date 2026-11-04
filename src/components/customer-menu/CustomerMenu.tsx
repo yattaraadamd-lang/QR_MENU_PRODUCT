@@ -7,6 +7,7 @@ import BottomBar from "@/components/customer-menu/BottomBar";
 import CartPanel from "@/components/customer-menu/CartPanel";
 import CategoryNav from "@/components/customer-menu/CategoryNav";
 import MenuHeader from "@/components/customer-menu/MenuHeader";
+import MenuSheet from "@/components/customer-menu/MenuSheet";
 import { MenuAccessError, MenuLoading } from "@/components/customer-menu/MenuStatusScreens";
 import ProductCard from "@/components/customer-menu/ProductCard";
 import ProductSheet from "@/components/customer-menu/ProductSheet";
@@ -21,7 +22,6 @@ import { useCustomerSession } from "@/components/customer-menu/useCustomerSessio
 import { useMenuData } from "@/components/customer-menu/useMenuData";
 import { useOrderActions } from "@/components/customer-menu/useOrderActions";
 import { useTableActivity } from "@/components/customer-menu/useTableActivity";
-import Dialog from "@/components/ui/Dialog";
 import { useCssHeightVar } from "@/hooks/useCssHeightVar";
 
 // İlk ekranda görünen kart sayısı kadar görsel hemen iner, gerisi kaydırınca
@@ -158,7 +158,7 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
           girmesin diye alert değil status. */}
       {session.blockedMsg && !session.token && session.blockedMsg !== dismissedNotice && (
         <div role="status" className="menu-notice animate-slide-up">
-          <p style={{ flex: 1 }}>{session.blockedMsg}</p>
+          <p className="flex-1">{session.blockedMsg}</p>
           <button type="button" aria-label="Uyarıyı kapat" className="tap-target" onClick={() => setDismissedNotice(session.blockedMsg)}>
             <X size={16} aria-hidden="true" />
           </button>
@@ -167,12 +167,12 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
 
       <MenuHeader ref={headerRef} business={menu.business} table={menu.table} status={session.status} onOpenService={() => setShowServiceMenu(true)} />
 
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 16px" }}>
-        <div className="flex flex-col lg:flex-row gap-6" style={{ paddingTop: 16 }}>
+      <div className="mx-auto max-w-screen-xl px-4">
+        <div className="flex flex-col gap-6 pt-4 lg:flex-row">
           <CategoryNav categories={menu.categories} activeId={activeCategory} onSelect={scrollToCategory} stripRef={stripRef} barRef={catBarRef} />
 
           {/* Kolon 2: Ürünler — alt boşluk alt bar kadar (canlı adisyon satırıyla uzar) */}
-          <main id="main-content" className="flex-1 pt-0" style={{ paddingBottom: "calc(var(--bottombar-h) + 24px)" }}>
+          <main id="main-content" className="flex-1 pb-[calc(var(--bottombar-h)+24px)]">
             {menu.categories.map(cat => (
               <section
                 key={cat.id}
@@ -222,10 +222,10 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
       )}
 
       {showCartMobile && (
-        <Dialog onClose={() => setShowCartMobile(false)} overlayClassName="lg:hidden" overlayStyle={{ alignItems: "flex-end" }} contentClassName={`modal-content modal-sheet ${styles.sheet}`} contentStyle={{ paddingBottom: 0 }}>
+        <MenuSheet onClose={() => setShowCartMobile(false)} flush>
           <SheetHeader title="Sepetim" onClose={() => setShowCartMobile(false)} />
           <div className={styles.sheetScroll}>{renderCart(actions.actionError)}</div>
-        </Dialog>
+        </MenuSheet>
       )}
 
       {showWaiterModal && (

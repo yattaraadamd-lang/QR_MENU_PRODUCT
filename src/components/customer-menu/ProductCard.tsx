@@ -2,9 +2,16 @@
 
 import { memo } from "react";
 import { formatTRY } from "@/lib/format";
+import Badge from "@/components/ui/Badge";
 import { foodTile } from "./constants";
 import { orderable, stockLabel, type Product } from "./types";
 import styles from "./customer-menu.module.css";
+
+/** Görsel üstünde okunur rozet: koyu zemin, beyaz yazı (≥4.5:1). Açık zeminde tema rozeti */
+const SOLID_BADGE = {
+  danger: "bg-danger-fg text-white",
+  warning: "bg-warning-fg text-white",
+} as const;
 
 type Props = {
   product: Product;
@@ -47,7 +54,7 @@ function ProductCard({ product: p, categoryIcon, priority = false, onOpen, onAdd
           <div className={styles.mediaShade} />
           <div className={styles.mediaBadges}>
             {p.isPopular && <span className={`badge ${styles.popular}`}>Popüler</span>}
-            {sl && <span className="badge" style={{ background: sl.solid, color: "white" }}>{sl.text}</span>}
+            {sl && <span className={`badge ${SOLID_BADGE[sl.tone]}`}>{sl.text}</span>}
           </div>
         </div>
       ) : (
@@ -61,7 +68,7 @@ function ProductCard({ product: p, categoryIcon, priority = false, onOpen, onAdd
           {!p.image && (
             <>
               {p.isPopular && <span className={`badge ${styles.popular}`}>Popüler</span>}
-              {sl && <span className="badge" style={{ background: sl.bg, color: sl.fg }}>{sl.text}</span>}
+              {sl && <Badge tone={sl.tone}>{sl.text}</Badge>}
             </>
           )}
         </div>

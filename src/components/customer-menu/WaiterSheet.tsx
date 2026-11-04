@@ -1,8 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
-import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import MenuSheet from "./MenuSheet";
 import SheetHeader from "./SheetHeader";
 import { WAITER_REASONS } from "./constants";
 import styles from "./customer-menu.module.css";
@@ -29,7 +29,7 @@ export default function WaiterSheet({ error, onClose, onSubmit, sending }: Props
   const handleSubmit = () => onSubmit(isOther ? note.trim() : reason);
 
   return (
-    <Dialog onClose={onClose} overlayStyle={{ alignItems: "flex-end" }} contentClassName={`modal-content modal-sheet ${styles.sheet}`}>
+    <MenuSheet onClose={onClose}>
       <SheetHeader title="Garson çağır" onClose={onClose} />
       <div className={styles.sheetBody}>
         <fieldset className="reason-group">
@@ -50,16 +50,15 @@ export default function WaiterSheet({ error, onClose, onSubmit, sending }: Props
               onChange={(e) => setNote(e.target.value)}
               placeholder="Açıklama yazın"
               maxLength={200}
-              className={`input ${styles.note}`}
-              style={{ marginBottom: 14 }}
+              className={`input mb-3.5 ${styles.note}`}
             />
           </>
         )}
-        <FormError message={error} style={{ marginBottom: 14 }} />
+        <FormError message={error} className="mb-3.5" />
         <button type="button" onClick={handleSubmit} disabled={!canSubmit} className={`btn btn-primary ${styles.submit}`}>
           {sending ? "Gönderiliyor…" : "Garson çağır"}
         </button>
       </div>
-    </Dialog>
+    </MenuSheet>
   );
 }

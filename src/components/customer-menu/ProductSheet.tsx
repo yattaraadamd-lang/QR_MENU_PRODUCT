@@ -2,8 +2,8 @@
 
 import { useId, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
-import Dialog from "@/components/ui/Dialog";
 import { formatTRY } from "@/lib/format";
+import MenuSheet from "./MenuSheet";
 import SheetHeader from "./SheetHeader";
 import { orderable, type Product } from "./types";
 import styles from "./customer-menu.module.css";
@@ -26,7 +26,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
   };
 
   return (
-    <Dialog onClose={onClose} overlayStyle={{ alignItems: "flex-end" }} contentClassName={`modal-content modal-sheet ${styles.sheet}`}>
+    <MenuSheet onClose={onClose}>
       <SheetHeader title={product.name} onClose={onClose} />
       <div className={styles.sheetBody}>
         {product.description && <p className={styles.lead}>{product.description}</p>}
@@ -57,6 +57,6 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
           </button>
         </div>
       </div>
-    </Dialog>
+    </MenuSheet>
   );
 }

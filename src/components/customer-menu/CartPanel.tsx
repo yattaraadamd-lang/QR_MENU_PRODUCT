@@ -119,7 +119,7 @@ export default function CartPanel(p: Props) {
             <span className={styles.totalLabel}>Toplam</span>
             <span className={styles.totalValue}>{formatTRY(p.total)}</span>
           </div>
-          <FormError message={p.error} style={{ marginBottom: 12 }} />
+          <FormError message={p.error} className="mb-3" />
           <button type="button" onClick={p.onSubmit} disabled={btn.disabled} className={`btn btn-primary ${styles.submit}`}>
             {p.submitting ? "Gönderiliyor…" : btn.label}
           </button>
