@@ -254,7 +254,11 @@
 .cartScroll { flex: 1; overflow-y: auto; margin-bottom: 12px; }
 
 /* ─── Alttan açılan sayfalar ─────────────────────────────────────────────── */
-.sheet { margin: 0; max-width: 600px; padding: 0 0 24px; border-radius: 20px 20px 0 0; }
+/* .modal-overlay (globals.css) ortalar ve 16px boşluk bırakır: sayfa ekranın altına oturmalı (alt köşeleri düz).
+   Birleşik seçici Tailwind/globals sırasına takılmaz. Ev çubuğu payı alt dolguda. */
+.sheetOverlay:global(.modal-overlay) { align-items: flex-end; padding: 0; }
+.sheet { margin: 0; max-width: 600px; padding: 0 0 max(24px, env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; }
+.sheetFlush.sheet { padding-bottom: env(safe-area-inset-bottom); }
 .sheetHead {
   position: sticky;
   top: 0;

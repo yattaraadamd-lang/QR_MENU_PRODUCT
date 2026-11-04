@@ -19,7 +19,7 @@ export default function CategoryNav({ categories, activeId, onSelect, stripRef, 
     // Mobilde yapışkan olan nav'ın kendisi (iç div'deki sticky, nav şerit kadar yüksek
     // olduğu için tutunmuyordu). Masaüstünde static; oradaki liste kendi sticky'si.
     // top: globals.css .menu-catnav (başlık yüksekliğinden türetilir)
-    <nav aria-label="Kategoriler" className="lg:w-64 flex-shrink-0 sticky lg:static menu-catnav" style={{ zIndex: 30 }}>
+    <nav aria-label="Kategoriler" className="menu-catnav sticky z-30 flex-shrink-0 lg:static lg:w-64">
       {/* sticky sarmalayıcıda: iç kutu kendi kadar yüksek sarmalayıcıda tutunamıyordu */}
       <div className="hidden lg:block sticky menu-side-panel">
         <div className={styles.sideList}>

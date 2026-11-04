@@ -1,8 +1,8 @@
 "use client";
 
 import { ChevronRight, CreditCard, Hand, Info, type LucideIcon } from "lucide-react";
-import Dialog from "@/components/ui/Dialog";
 import FormError from "@/components/ui/FormError";
+import MenuSheet from "./MenuSheet";
 import SheetHeader from "./SheetHeader";
 import type { ActiveRequests } from "./types";
 import styles from "./customer-menu.module.css";
@@ -51,7 +51,7 @@ export default function ServiceSheet({ activeRequests, sending, error, onClose, 
   ];
 
   return (
-    <Dialog onClose={onClose} overlayStyle={{ alignItems: "flex-end" }} contentClassName={`modal-content modal-sheet ${styles.sheet}`}>
+    <MenuSheet onClose={onClose}>
       <SheetHeader title="Hizmet talepleri" onClose={onClose} />
       <div className={styles.serviceList}>
         {options.map((option) => {
@@ -83,6 +83,6 @@ export default function ServiceSheet({ activeRequests, sending, error, onClose, 
         })}
         <FormError message={error} />
       </div>
-    </Dialog>
+    </MenuSheet>
   );
 }

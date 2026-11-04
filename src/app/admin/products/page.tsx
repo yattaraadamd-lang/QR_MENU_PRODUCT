@@ -274,7 +274,7 @@ export default function AdminProductsPage() {
                 </label>
               </div>
             </div>
-            <FormError message={formError} style={{ marginTop: 14 }} />
+            <FormError message={formError} className="mt-3.5" />
             <div style={{ display: "flex", gap: 10, marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border-subtle)" }}>
               <button onClick={handleSubmit} disabled={saving || !canSubmit} className="btn btn-primary" style={{ flex: 1, gap: 6 }}>
                 {saving ? <><Loader2 size={14} className="animate-spin" /> Kaydediliyor...</> : editingId ? "Güncelle" : "Ürün Ekle"}

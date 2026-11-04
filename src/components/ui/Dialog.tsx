@@ -11,7 +11,6 @@ interface DialogProps {
   contentClassName?: string;
   contentStyle?: React.CSSProperties;
   overlayClassName?: string;
-  overlayStyle?: React.CSSProperties;
   /** Görünür başlık yoksa ekran okuyucuya okunacak ad. */
   "aria-label"?: string;
 }
@@ -34,7 +33,6 @@ function OpenDialog({
   contentClassName = "modal-content",
   contentStyle,
   overlayClassName = "",
-  overlayStyle,
   "aria-label": ariaLabel,
 }: Omit<DialogProps, "open">) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -124,7 +122,6 @@ function OpenDialog({
     <dialog
       ref={ref}
       className={`modal-overlay ${overlayClassName}`.trim()}
-      style={overlayStyle}
       aria-label={ariaLabel}
     >
       <div className={contentClassName} style={contentStyle}>
