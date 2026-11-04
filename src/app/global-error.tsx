@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable no-restricted-syntax -- bu ekran globals.css'e güvenemez (aşağıda) */
 import type { RouteErrorProps } from "@/components/RouteErrorView";
 
 // Kök layout da çökerse: kendi <html>'ini taşır; globals.css yüklenmemiş olabilir, stiller satır içi

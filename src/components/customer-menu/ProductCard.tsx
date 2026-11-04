@@ -58,6 +58,7 @@ function ProductCard({ product: p, categoryIcon, priority = false, onOpen, onAdd
           </div>
         </div>
       ) : (
+        // eslint-disable-next-line no-restricted-syntax -- zemin ürün id'sinden hesaplanır
         <div aria-hidden className={`${styles.tile} ${dim}`} style={{ background: foodTile(p.id) }}>
           {categoryIcon || "🍽️"}
         </div>

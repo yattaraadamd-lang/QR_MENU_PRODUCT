@@ -50,6 +50,7 @@ export function RevealGroup({ className = "", gap = 0.08, style, ...props }: Div
     <div
       ref={ref}
       className={`reveal-group ${className}`}
+      // eslint-disable-next-line no-restricted-syntax -- CSS değişkeni prop'tan gelir
       style={{ "--reveal-gap": `${gap}s`, ...style } as React.CSSProperties}
       {...props}
     />

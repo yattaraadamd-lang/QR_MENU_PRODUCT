@@ -62,6 +62,7 @@ export default function NotificationCard({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      // eslint-disable-next-line no-restricted-syntax -- kaydırma konumu parmakla her karede değişir
       style={{
         transform: translateX > 0 ? `translateX(${translateX}px)` : undefined,
         opacity: translateX > 0 ? 1 - translateX / 250 : undefined,
