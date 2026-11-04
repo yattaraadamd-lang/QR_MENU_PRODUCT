@@ -182,12 +182,21 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.businessId = user.businessId;
         token.businessName = user.businessName;
+      }
+      // İşletme adı değişince kenar çubuğu yeniden giriş beklemesin (useSession().update()).
+      // İstemciden değer alınmaz: ad yalnız veritabanından, token'daki işletme için okunur
+      if (trigger === "update" && token.businessId) {
+        const business = await prisma.business.findUnique({
+          where: { id: token.businessId as string },
+          select: { name: true },
+        });
+        if (business) token.businessName = business.name;
       }
       return token;
     },

@@ -169,7 +169,8 @@ export const updateBusinessSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   phone: z.string().max(30).optional().nullable(),
-  email: emailSchema.optional().nullable().or(z.literal("")),
+  // Ayarlar formu sunucu mesajını gösterir: "a@b" tarayıcı doğrulamasından geçer, burada takılır
+  email: z.string().email("Geçerli bir e-posta adresi girin.").optional().nullable().or(z.literal("")),
   logo: httpUrlSchema.optional().nullable().or(z.literal("")),
 });
 
