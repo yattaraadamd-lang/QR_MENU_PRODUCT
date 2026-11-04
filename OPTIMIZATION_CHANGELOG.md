@@ -41,6 +41,8 @@
   - Kalan bakiye kontrolünde `Decimal` hassasiyeti ve açık bilgilendirici hata mesajları sağlandı.
 
 ### 2.2 Sipariş İptalinde Stok Geri İade Mekanizması
+> **Kaldırıldı (2026-11-04):** Sipariş stok ayırmadığı için geri verilecek bir şey yoktu; bitmiş ürün başka bir siparişin iptaliyle yeniden satışa açılıyordu. Ürünü stoğa yalnız admin geri alır.
+
 - **Dosya:** `src/lib/services/order-cancellation.service.ts`
 - **İyileştirmeler:**
   - Sipariş garson tarafından iptal/red edildiğinde, iptal nedeni `OUT_OF_STOCK` **haricindeki** bir nedense (örn. müşteri vazgeçti, yanlış sipariş vb.) ilgili ürünün `stockStatus` durumu otomatik olarak `IN_STOCK` değerine geri çekildi.
