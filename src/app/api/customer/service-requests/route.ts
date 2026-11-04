@@ -265,7 +265,8 @@ async function createServiceRequest(request: NextRequest) {
         }
 
         const products = await prisma.product.findMany({
-          where: { id: { in: productIds }, businessId, isAvailable: true, isDeleted: false },
+          // Görünür ve stokta: isAvailable stok bilgisi taşımaz, sipariş ucuyla aynı kontrol
+          where: { id: { in: productIds }, businessId, isAvailable: true, stockStatus: "IN_STOCK", isDeleted: false },
         });
         
         if (products.length === 0) {

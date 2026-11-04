@@ -40,7 +40,7 @@ export const orderable = (p: Product) => p.isAvailable && p.stockStatus === "IN_
 
 /** Stok rozeti: metin ve ton (renkler temada) */
 export function stockLabel(p: Product): { text: string; tone: "danger" | "warning" } | null {
-  if (!p.isAvailable || p.stockStatus === "OUT_OF_STOCK") return { text: "Stokta Yok", tone: "danger" };
+  if (p.stockStatus === "OUT_OF_STOCK") return { text: "Stokta Yok", tone: "danger" };
   if (p.stockStatus === "TEMPORARILY_UNAVAILABLE") return { text: "Geçici Yok", tone: "warning" };
   return null;
 }

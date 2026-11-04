@@ -52,7 +52,8 @@ export async function getPublicMenu(businessId: string, tableNumber: string): Pr
 
   // ✅ PERF: Kategoriler, popüler ürünler ve oturum sorgularını paralel çalıştır
   const [categories, popularProducts, activeTableSession] = await Promise.all([
-    // Kategoriler ve ürünler — silinen ürünleri gösterme
+    // Kategoriler ve ürünler. isAvailable görünürlüktür: kapalı ürün menüde hiç yer almaz.
+    // Stoksuz ürün görünür kalır ("Stokta Yok" rozeti, sipariş verilemez)
     prisma.category.findMany({
       where: { businessId, isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -61,7 +62,7 @@ export async function getPublicMenu(businessId: string, tableNumber: string): Pr
         name: true,
         icon: true,
         products: {
-          where: { isDeleted: false },
+          where: { isDeleted: false, isAvailable: true },
           orderBy: { sortOrder: "asc" },
           select: {
             id: true,
@@ -110,7 +111,8 @@ export async function getPublicMenu(businessId: string, tableNumber: string): Pr
   const body = JSON.stringify({
     business,
     table,
-    categories,
+    // Tüm ürünleri gizli kategori boş başlık olarak görünmesin
+    categories: categories.filter((category) => category.products.length > 0),
     popularProducts,
     tableSessionActive: !!activeTableSession,
     // 🔒 SECURITY: Kimliksiz uç — iç masa oturumu ID'si döndürülmez (istemci kullanmıyor)

@@ -258,10 +258,8 @@ export async function cancelOrderAndSyncState(
             id: { in: outOfStockProductIds },
             isDeleted: false,
           },
-          data: {
-            stockStatus: "OUT_OF_STOCK",
-            isAvailable: false,
-          },
+          // Yalnız stok: isAvailable görünürlüktür, ürün menüde "Stokta Yok" olarak kalır
+          data: { stockStatus: "OUT_OF_STOCK" },
         });
 
         // Güncellenen sayı uyuşmalı
@@ -330,10 +328,8 @@ export async function cancelOrderAndSyncState(
                   isDeleted: false,
                   stockStatus: "OUT_OF_STOCK",
                 },
-                data: {
-                  stockStatus: "IN_STOCK",
-                  isAvailable: true,
-                },
+                // Yalnız stok: admin'in gizlediği ürün iptal yüzünden menüye dönmesin
+                data: { stockStatus: "IN_STOCK" },
               });
               stockRestoredIds = idsToRestore;
             }
@@ -524,7 +520,6 @@ export async function cancelOrderAndSyncState(
         businessId,
         productIds: updatedPids,
         stockStatus: "OUT_OF_STOCK",
-        isAvailable: false,
         sourceOrderId: orderId,
       });
     }
@@ -535,7 +530,6 @@ export async function cancelOrderAndSyncState(
         businessId,
         productIds: result.stockRestoredProductIds,
         stockStatus: "IN_STOCK",
-        isAvailable: true,
         sourceOrderId: orderId,
         restored: true,
       });

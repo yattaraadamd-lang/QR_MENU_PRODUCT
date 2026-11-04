@@ -86,7 +86,7 @@ export function useCart(businessId: string, tableNumber: string) {
       return p && orderable(p) ? [{ ...i, product: p }] : [];
     });
     commit(next);
-    if (next.length < prev.length) toast.error("Stokta tükenen ürünler sepetinizden çıkarıldı.");
+    if (next.length < prev.length) toast.error("Artık mevcut olmayan ürünler sepetinizden çıkarıldı.");
   }, [commit]);
 
   const total = useMemo(() => items.reduce((s, i) => s + Number(i.product.price) * i.quantity, 0), [items]);
