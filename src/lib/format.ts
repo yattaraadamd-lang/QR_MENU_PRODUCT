@@ -7,6 +7,12 @@ const DATE_TIME = new Intl.DateTimeFormat("tr-TR", {
   hour: "2-digit",
   minute: "2-digit",
 });
+const DATE = new Intl.DateTimeFormat("tr-TR", { year: "numeric", month: "2-digit", day: "2-digit" });
+
+/** "03.11.2026" */
+export function formatDate(value: string | Date): string {
+  return DATE.format(typeof value === "string" ? new Date(value) : value);
+}
 
 /**
  * Yerel takvim günü "2026-11-03" (input[type=date] biçimi). toISOString() UTC'ye çevirir:

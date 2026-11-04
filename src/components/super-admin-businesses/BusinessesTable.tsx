@@ -1,6 +1,7 @@
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ScrollRegion from "@/components/ui/ScrollRegion";
+import TruncatedText from "@/components/ui/TruncatedText";
 import type { BusinessDTO } from "./types";
 
 interface BusinessesTableProps {
@@ -29,11 +30,15 @@ export default function BusinessesTable({ businesses, busyId, onToggle }: Busine
           {businesses.map((business) => (
             <tr key={business.id}>
               <td>
-                <p className="font-semibold text-fg">{business.name}</p>
-                <p className="text-xs text-fg-secondary">{business.phone || "-"}</p>
+                <TruncatedText text={business.name} className="font-semibold text-fg" />
+                <TruncatedText text={business.phone || "-"} className="text-xs text-fg-secondary" />
               </td>
-              <td className="text-fg-secondary">{business.slug}</td>
-              <td>{business.email || "-"}</td>
+              <td className="text-fg-secondary">
+                <TruncatedText text={business.slug} width="sm" />
+              </td>
+              <td>
+                <TruncatedText text={business.email || "-"} />
+              </td>
               <td className="tabular-nums">{business._count?.tables ?? 0}</td>
               <td>{business.businessSubscriptions?.[0]?.plan?.name || "Bilinmiyor"}</td>
               <td>

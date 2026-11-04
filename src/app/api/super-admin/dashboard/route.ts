@@ -19,8 +19,9 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       prisma.business.count(),
       prisma.business.count({ where: { isActive: true } }),
-      prisma.user.count({ where: { role: "ADMIN" } }),
-      prisma.user.count({ where: { role: "WAITER" } }),
+      // Silinmiş personel sayılmaz (kota sayımı da böyle: subscription-guard)
+      prisma.user.count({ where: { role: "ADMIN", deletedAt: null } }),
+      prisma.user.count({ where: { role: "WAITER", deletedAt: null } }),
       prisma.order.count(),
       prisma.businessSubscription.findMany({
         where: { status: "ACTIVE" },
