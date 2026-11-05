@@ -49,7 +49,9 @@ jobs:
         run: node maturity-audit/tests/route-guards.mjs
 
       - name: Secret scan (tracked files)
-        run: node maturity-audit/tests/secret-scan.mjs
+        run: |
+          node maturity-audit/tests/secret-scan.mjs --self-test
+          node maturity-audit/tests/secret-scan.mjs
 
       - name: SEO regression check (robots/sitemap/noindex)
         run: node maturity-audit/tests/seo-static.mjs
@@ -93,6 +95,26 @@ jobs:
           else
             echo "✅ No obvious hardcoded secrets found"
           fi
+
+  # Bu olayın commit'lerine eklenen sırlar (PR'da PR'ın commit'leri, main'de gelen commit'ler).
+  # Rapor, yorum ve artifact üretilmez: repo herkese açık, sonuç yalnız bu işin logunda ve maskeli.
+  gitleaks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
   # Migration geçmişi tek başına şemayı kurabiliyor mu? Eskiden tablolar db push ile
   # oluştuğu için boş veritabanında migrate deploy yarıda kırılıyordu ve bunu hiçbir adım
