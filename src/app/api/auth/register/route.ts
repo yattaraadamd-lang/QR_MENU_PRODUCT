@@ -44,7 +44,7 @@ const COMMON_PASSWORDS = [
 // ✅ Zod strict schema
 const registerSchema = z.object({
   name: z.string().trim().min(2, "İsim en az 2 karakter olmalıdır").max(100, "İsim en fazla 100 karakter olabilir"),
-  email: z.string().email("Geçerli bir e-posta adresi giriniz").max(255),
+  email: z.string().email("Geçerli bir e-posta adresi giriniz").max(254),
   password: z.string()
     .min(12, "Şifre en az 12 karakter olmalıdır")
     .max(72, "Şifre en fazla 72 karakter olabilir"),

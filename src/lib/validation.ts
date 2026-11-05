@@ -14,7 +14,9 @@ import { ApiError, hasUnstorableChars } from "@/lib/api/handler";
 
 // ✅ Demo string ID'leri de kabul eder: prod-turk-kahvesi, cat-yiyecek, gerçek CUID'ler
 export const cuidSchema = z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/, "Geçersiz ID formatı");
-export const emailSchema = z.string().email();
+// Giriş e-postayı küçük harfle arar: büyük harfli kayıt hesabı açılamaz hale getirirdi.
+// 254: RFC 5321 üst sınırı; auth.ts daha uzun e-postayı denemeden reddeder.
+export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 export const positiveIntSchema = z.number().int().positive();
 export const nonNegativeIntSchema = z.number().int().min(0);
 export const priceSchema = z.number().positive().multipleOf(0.01);

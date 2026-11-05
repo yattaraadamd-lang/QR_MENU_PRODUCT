@@ -15,6 +15,8 @@ interface RateLimitEntry {
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
 
+const MAX_IP_LENGTH = 45;
+
 // Cleanup expired entries every 5 minutes
 if (typeof setInterval !== "undefined") {
   setInterval(() => {
@@ -148,20 +150,23 @@ export const UNIFIED_RATE_LIMITS = {
  * her istekte farklı sahte IP gönderilerek rate limit atlatılabiliyordu.
  * - cf-connecting-ip: Render önündeki Cloudflare her zaman üzerine yazar
  * - X-Forwarded-For: güvenilir proxy'nin eklediği EN SONDAKİ değer kullanılır
+ *
+ * Sonuç rate limit anahtarına girer ve pencere boyunca bellekte kalır; IPv6 en fazla 45
+ * karakterdir, daha uzun başlık değeri kırpılır.
  */
 export function getClientIp(request: Request): string {
   const cfConnectingIp = request.headers.get("cf-connecting-ip");
   if (cfConnectingIp) {
-    return cfConnectingIp.trim();
+    return cfConnectingIp.trim().slice(0, MAX_IP_LENGTH);
   }
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     const hops = forwarded.split(",").map((ip) => ip.trim()).filter(Boolean);
-    if (hops.length > 0) return hops[hops.length - 1];
+    if (hops.length > 0) return hops[hops.length - 1].slice(0, MAX_IP_LENGTH);
   }
   const realIp = request.headers.get("x-real-ip");
   if (realIp) {
-    return realIp.trim();
+    return realIp.trim().slice(0, MAX_IP_LENGTH);
   }
   return "127.0.0.1";
 }

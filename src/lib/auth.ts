@@ -6,6 +6,9 @@ import { prisma } from "./prisma";
 import { checkRateLimit, getClientIp, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
 import { createAuditLog, auditRequestContext, AuditActions } from "./services/audit-log.service";
 
+const MAX_LOGIN_EMAIL_LENGTH = 254;
+const MAX_LOGIN_PASSWORD_LENGTH = 1024;
+
 /**
  * Kilitlenmeyi pencere başına bir kez kaydeder: kilitliyken gelen her deneme audit
  * tablosuna satır yazarsa saldırgan veritabanını doldurabilir. Hedef hesap varsa
@@ -68,6 +71,15 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        // E-posta rate limit anahtarına girip pencere boyunca bellekte kalır, parola bcrypt'e
+        // gider: sınır aşan girdi kimliksiz istekle sunucuyu şişirmeden önce elenir.
+        if (
+          credentials.email.length > MAX_LOGIN_EMAIL_LENGTH ||
+          credentials.password.length > MAX_LOGIN_PASSWORD_LENGTH
+        ) {
           return null;
         }
 
