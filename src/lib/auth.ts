@@ -1,13 +1,39 @@
 import { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "./prisma";
 import { checkRateLimit, getClientIp, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
 import { createAuditLog, auditRequestContext, AuditActions } from "./services/audit-log.service";
+import { logger as appLogger } from "./logger";
+import { isSessionCurrent, SESSION_IDLE_SECONDS, SESSION_REVOKED } from "./session-policy";
 
 const MAX_LOGIN_EMAIL_LENGTH = 254;
 const MAX_LOGIN_PASSWORD_LENGTH = 1024;
+
+/**
+ * Oturum artık geçerli değilse fırlatır; NextAuth çerezi siler ve boş oturum döner.
+ * Veritabanı okunamazsa oturum sonlandırılmaz (her fırlatılan hata çerezi siler, kısa bir
+ * kesinti herkesi çıkarırdı): yetki denetimi auth-guard'ın kendi okumasıyla sürer, o da
+ * okuyamazsa istek 500 döner.
+ */
+async function assertSessionCurrent(token: JWT) {
+  if (!token.id) throw new Error(SESSION_REVOKED);
+
+  let user;
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: token.id },
+      select: { sessionVersion: true, isActive: true, deletedAt: true },
+    });
+  } catch (error) {
+    appLogger.error({ err: error }, "[Auth] Oturum sürümü okunamadı");
+    return;
+  }
+
+  if (!isSessionCurrent(token, user)) throw new Error(SESSION_REVOKED);
+}
 
 /**
  * Kilitlenmeyi pencere başına bir kez kaydeder: kilitliyken gelen her deneme audit
@@ -178,6 +204,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           businessId: user.businessId,
           businessName: user.business.name,
+          sessionVersion: user.sessionVersion,
         };
         } catch (error) {
           // Re-throw rate limit errors so NextAuth surfaces them
@@ -200,7 +227,13 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.businessId = user.businessId;
         token.businessName = user.businessName;
+        token.sv = user.sessionVersion;
+        token.authTime = Math.floor(Date.now() / 1000);
+        return token;
       }
+
+      await assertSessionCurrent(token);
+
       // İşletme adı değişince kenar çubuğu yeniden giriş beklemesin (useSession().update()).
       // İstemciden değer alınmaz: ad yalnız veritabanından, token'daki işletme için okunur
       if (trigger === "update" && token.businessId) {
@@ -226,6 +259,7 @@ export const authOptions: NextAuthOptions = {
         userId: token.id,
         businessId: token.businessId,
         role: token.role,
+        sv: token.sv,
         iat: Math.floor(Date.now() / 1000),
       };
       
@@ -249,12 +283,30 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  events: {
+    // Çıkış, kullanıcının bütün cihazlardaki oturumlarını kapatır. Yalnız güncel sürümü taşıyan
+    // token artırabilir: iptal edilmiş eski bir çerezle yeni oturumlar tekrar tekrar düşürülemez.
+    async signOut({ token }) {
+      if (!token?.id || typeof token.sv !== "number") return;
+      await prisma.user.updateMany({
+        where: { id: token.id, sessionVersion: token.sv },
+        data: { sessionVersion: { increment: 1 } },
+      });
+    },
+  },
+  logger: {
+    // İptal edilmiş oturum beklenen bir durum: bekleyen her istek log'a hata satırı yazmasın
+    error(code, metadata) {
+      if (code === "JWT_SESSION_ERROR" && (metadata as Error)?.message === SESSION_REVOKED) return;
+      appLogger.error(metadata instanceof Error ? { code, err: metadata } : { code, metadata }, "[next-auth] Hata");
+    },
+  },
   pages: {
     signIn: "/auth/signin",
   },
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // ✅ SECURITY: 8 hour max session age
+    maxAge: SESSION_IDLE_SECONDS,
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

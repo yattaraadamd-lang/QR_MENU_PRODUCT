@@ -38,7 +38,8 @@ export async function ensureSuperAdmin(
   };
   return db.user.upsert({
     where: { email },
-    update: fields,
+    // Parola değiştiği için eski parolayla açılmış oturumlar da kapanır
+    update: { ...fields, sessionVersion: { increment: 1 } },
     create: { email, name: "Süper Admin", ...fields },
   });
 }

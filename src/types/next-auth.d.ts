@@ -6,6 +6,7 @@ declare module "next-auth" {
     role: string;
     businessId: string;
     businessName: string;
+    sessionVersion: number;
   }
 
   interface Session {
@@ -28,5 +29,9 @@ declare module "next-auth/jwt" {
     role: string;
     businessId: string;
     businessName: string;
+    /** Girişteki User.sessionVersion; farklıysa oturum iptal edilmiştir */
+    sv: number;
+    /** Giriş anı (Unix saniye). Oturum yenilenince değişmez */
+    authTime: number;
   }
 }

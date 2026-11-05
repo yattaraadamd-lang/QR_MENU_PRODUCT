@@ -64,9 +64,14 @@ async function handlePut(
     }
   }
 
-  // ✅ SECURITY: Şifre değişiyorsa hash'lenir — düz metin asla veritabanına yazılmaz
+  // ✅ SECURITY: Şifre değişiyorsa hash'lenir — düz metin asla veritabanına yazılmaz.
+  // Şifre değişimi ve pasifleştirme açık oturumları da kapatır: elinde eski çerez olan kalamaz.
   const { password, ...rest } = input;
-  const data = password ? { ...rest, password: await bcrypt.hash(password, 12) } : rest;
+  const data = {
+    ...rest,
+    ...(password && { password: await bcrypt.hash(password, 12) }),
+    ...((password || rest.isActive === false) && { sessionVersion: { increment: 1 } }),
+  };
 
   // ✅ Update staff with validated data
   const updatedStaff = await prisma.user.update({
