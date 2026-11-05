@@ -163,8 +163,9 @@ export const authOptions: NextAuthOptions = {
 
           if (!user || !user.isActive || user.deletedAt) {
             // ✅ SECURITY: Constant-time-ish behavior — still hash when the account is
-            // missing or inactive, so response time doesn't reveal which accounts exist
-            await bcrypt.hash(credentials.password, 10);
+            // missing or inactive, so response time doesn't reveal which accounts exist.
+            // Maliyet hesaplardakiyle aynı (12): 10 olunca kayıtsız e-posta belirgin hızlı dönüyordu
+            await bcrypt.hash(credentials.password, 12);
             createAuditLog({
               ...auditContext,
               businessId: user?.businessId,

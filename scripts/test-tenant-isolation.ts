@@ -12,7 +12,7 @@
 
 import { hashDeviceKey, generateDeviceKey } from "../src/lib/security/device-block";
 import { checkPlanQuota } from "../src/lib/services/subscription-guard.service";
-import { cuidSchema, emailSchema, priceSchema, createTableSchema, createOrderSchema } from "../src/lib/validation";
+import { cuidSchema, emailSchema, priceSchema, createTableSchema, createOrderSchema, updateStaffSchema } from "../src/lib/validation";
 import { createLogger } from "../src/lib/logger";
 import { isSessionCurrent, SESSION_ABSOLUTE_SECONDS } from "../src/lib/session-policy";
 import { checkRateLimit, getClientIp, resetRateLimit } from "../src/lib/unified-rate-limit";
@@ -148,6 +148,12 @@ async function runTests() {
     assert(ipOf("x-forwarded-for", `1.1.1.1, ${"x".repeat(4000)}`).length === 45, "x-forwarded-for rate limit anahtarına kırpılarak girer");
     assert(ipOf("x-real-ip", "x".repeat(4000)).length === 45, "x-real-ip rate limit anahtarına kırpılarak girer");
     assert(ipOf("cf-connecting-ip", " 2001:db8::1 ") === "2001:db8::1", "Normal IP değişmez");
+
+    const staffPassword = (password: string) => updateStaffSchema.safeParse({ password }).success;
+    assert(staffPassword("Garson2026Parola"), "Personel parolası: harf + rakam kabul edilir");
+    assert(!staffPassword("aaaaaaaaaaaa"), "Personel parolası: yalnız harf reddedilir");
+    assert(!staffPassword("111111111111"), "Personel parolası: yalnız rakam reddedilir");
+    assert(!staffPassword("Kisa1"), "Personel parolası: 12 karakterden kısa reddedilir");
   } catch (err: any) {
     assert(false, "Girdi sınırı testleri hata verdi", err.message);
   }

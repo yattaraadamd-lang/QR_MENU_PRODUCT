@@ -147,17 +147,26 @@ export const updateServiceRequestSchema = z.object({
 // User/Staff Schemas
 // ============================================================================
 
+// Kayıt ve garson kaydıyla aynı politika: 12-72 karakter (bcrypt 72 bayttan sonrasını yok sayar),
+// en az 1 harf + 1 rakam
+const staffPasswordSchema = z
+  .string()
+  .min(12, "Şifre en az 12 karakter olmalıdır")
+  .max(72, "Şifre en fazla 72 karakter olabilir")
+  .regex(/[a-zA-Z]/, "Şifre en az 1 harf içermelidir")
+  .regex(/[0-9]/, "Şifre en az 1 rakam içermelidir");
+
 export const createStaffSchema = z.object({
   name: z.string().min(1).max(100),
   email: emailSchema,
-  password: z.string().min(12, "Şifre en az 12 karakter olmalıdır").max(72, "Şifre en fazla 72 karakter olabilir"),
+  password: staffPasswordSchema,
   role: z.enum(["ADMIN", "WAITER"]),
 });
 
 export const updateStaffSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   email: emailSchema.optional(),
-  password: z.string().min(12, "Şifre en az 12 karakter olmalıdır").max(72, "Şifre en fazla 72 karakter olabilir").optional(),
+  password: staffPasswordSchema.optional(),
   isActive: z.boolean().optional(),
 });
 
