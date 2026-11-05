@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
         seenAt: true,
         resolvedAt: true,
         completedAt: true,
-        table: true,
+        // Masanın QR token'ı garsona dönmez
+        table: { select: { tableNumber: true, tableName: true } },
         customerSession: {
           select: { id: true, authorizationStatus: true },
         },

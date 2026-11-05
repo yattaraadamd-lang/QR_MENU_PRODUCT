@@ -70,23 +70,15 @@ async function handlePut(
 
   // ── Tek transaction içinde talep güncelle + masa durumu hesapla ────
   const result = await prisma.$transaction(async (tx) => {
-    // Talep kaydını güncelle (zaten terminal değilse)
-    let updatedRequest;
-    if (alreadyTerminal) {
-      // İdempotent: mevcut kaydı olduğu gibi döndür
-      updatedRequest = await tx.serviceRequest.findFirst({
-        where: { id: params.id },
-        include: { table: true },
-      });
-    } else {
-      updatedRequest = await tx.serviceRequest.update({
+    // Talep kaydını güncelle (zaten terminal değilse; öyleyse idempotent: kayda dokunulmaz)
+    if (!alreadyTerminal) {
+      await tx.serviceRequest.update({
         where: { id: params.id },
         data: {
           status: status as RequestStatus,
           ...(status === "COMPLETED" && { completedAt: new Date() }),
           ...(status === "CANCELLED" && { resolvedAt: new Date() }),
         },
-        include: { table: true },
       });
 
       // ── ORDER_REQUEST iptal: bağlı CustomerSession'ı VIEW_ONLY yap ──
@@ -120,7 +112,7 @@ async function handlePut(
       });
     }
 
-    return { updatedRequest, calculatedTableStatus };
+    return { calculatedTableStatus };
   });
 
   // ── Socket.IO bildirimleri (transaction sonrası) ──────────────────
@@ -144,10 +136,14 @@ async function handlePut(
     });
   }
 
+  // Kaydın tamamı dönmez: masanın QR token'ı ve talebin idempotency anahtarı garsona gitmesin
   return NextResponse.json({
     message: alreadyTerminal
       ? "Talep zaten bu durumda"
       : "Talep durumu güncellendi",
-    serviceRequest: result.updatedRequest,
+    serviceRequest: {
+      id: serviceRequest.id,
+      status: alreadyTerminal ? serviceRequest.status : status,
+    },
   });
 }
