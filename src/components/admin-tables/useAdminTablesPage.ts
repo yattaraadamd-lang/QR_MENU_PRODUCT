@@ -19,7 +19,8 @@ type AdminDialog =
   | { readonly kind: "none" }
   | { readonly kind: "create" }
   | { readonly kind: "qr"; readonly qr: TableQrDTO }
-  | { readonly kind: "delete"; readonly table: TableDTO };
+  | { readonly kind: "delete"; readonly table: TableDTO }
+  | { readonly kind: "history"; readonly table: TableDTO };
 
 const NO_DIALOG: AdminDialog = { kind: "none" };
 
@@ -65,6 +66,7 @@ export function useAdminTablesPage() {
     qrPendingId,
     openCreate: () => setDialog({ kind: "create" }),
     openDelete: (table: TableDTO) => setDialog({ kind: "delete", table }),
+    openHistory: (table: TableDTO) => setDialog({ kind: "history", table }),
     showQr,
     closeDialog,
     afterMutation,

@@ -6,7 +6,8 @@
  *    commit etmemişken openTable çağrılır. İndeks varsa openTable eklemede bekler, P2002 alır
  *    ve kazananın oturumunu döndürür; indeks yoksa ikinci bir oturum açar ve test kırılır.
  * 2. Aynı masaya 20 paralel openTable: hepsi başarılı, tek ACTIVE oturum, tek adisyon
- * 3. Aynı masaya iki paralel bekleyen ORDER_REQUEST: ikincisi P2002 ile reddedilir
+ * 3. Aynı oturumdan iki paralel bekleyen ORDER_REQUEST: ikincisi P2002 ile reddedilir;
+ *    farklı oturumlar aynı masada birlikte bekleyebilir (talep masayı kilitlemez)
  *
  * Kendi işletmesini ve masalarını oluşturur, sonunda siler.
  */
@@ -15,6 +16,7 @@ import { prisma } from "../src/lib/prisma";
 import { openTable } from "../src/lib/services/table-flow.service";
 
 const RUN_ID = `ci-concurrency-${Date.now()}`;
+const CAUSE = { source: "SYSTEM", reason: "TABLE_OPENED" } as const;
 
 let passedCount = 0;
 let failedCount = 0;
@@ -50,7 +52,7 @@ async function testLostRace(businessId: string, tableId: string) {
   );
 
   await inserted;
-  const contender = openTable(tableId, businessId);
+  const contender = openTable(tableId, businessId, CAUSE);
   await sleep(500); // rakip findFirst'ü geçip eklemede indekse takılsın
   release();
 
@@ -65,7 +67,7 @@ async function testLostRace(businessId: string, tableId: string) {
 async function runTests(businessId: string, tableId: string) {
   console.log("\n📦 Suite 2: Aynı masaya 20 paralel openTable");
   const results = await Promise.allSettled(
-    Array.from({ length: 20 }, () => openTable(tableId, businessId))
+    Array.from({ length: 20 }, () => openTable(tableId, businessId, CAUSE))
   );
   const errors = results.flatMap((r) => (r.status === "rejected" ? [String(r.reason?.message ?? r.reason)] : []));
   const opened = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
@@ -79,26 +81,36 @@ async function runTests(businessId: string, tableId: string) {
   assert(activeSessions === 1, "Masada tek ACTIVE oturum var", `bulunan: ${activeSessions}`);
   assert(bills === 1, "Tek adisyon oluştu", `bulunan: ${bills}`);
 
-  console.log("\n📦 Suite 3: Aynı masaya iki paralel bekleyen sipariş talebi");
-  const attempts = await Promise.allSettled(
-    [1, 2].map((n) =>
-      prisma.serviceRequest.create({
-        data: {
-          businessId,
-          tableId,
-          requestType: "ORDER_REQUEST",
-          status: "PENDING",
-          idempotencyKey: `${RUN_ID}-${n}`,
-        },
+  console.log("\n📦 Suite 3: Bekleyen sipariş talebi oturum başına tek, masa başına serbest");
+  const [deviceA, deviceB] = await Promise.all(
+    ["a", "b"].map((device) =>
+      prisma.customerSession.create({
+        data: { businessId, tableId, sessionToken: `${RUN_ID}-${device}`, expiresAt: new Date(Date.now() + 60_000) },
       })
     )
   );
+  const pendingRequest = (customerSessionId: string, key: string) =>
+    prisma.serviceRequest.create({
+      data: {
+        businessId,
+        tableId,
+        customerSessionId,
+        requestType: "ORDER_REQUEST",
+        status: "PENDING",
+        idempotencyKey: `${RUN_ID}-${key}`,
+      },
+    });
+  const attempts = await Promise.allSettled([pendingRequest(deviceA.id, "a1"), pendingRequest(deviceA.id, "a2")]);
   const created = attempts.filter((a) => a.status === "fulfilled").length;
   const uniqueViolations = attempts.filter(
     (a) => a.status === "rejected" && (a.reason as { code?: string })?.code === "P2002"
   ).length;
-  assert(created === 1 && uniqueViolations === 1, "İkinci talep P2002 ile reddedildi",
+  assert(created === 1 && uniqueViolations === 1, "Aynı oturumun ikinci talebi P2002 ile reddedildi",
     `oluşan: ${created}, P2002: ${uniqueViolations}`);
+  await pendingRequest(deviceB.id, "b1").then(
+    () => assert(true, "Başka cihaz aynı masada talep gönderebildi"),
+    (error) => assert(false, "Başka cihaz aynı masada talep gönderebildi", String(error?.code ?? error))
+  );
 }
 
 // Test kendi kayıtlarını yazıp siler; yalnız yerel/CI Postgres'te çalışır. DATABASE_URL

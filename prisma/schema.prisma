@@ -40,6 +40,7 @@ model Business {
   bills                 Bill[]
   customerSessions      CustomerSession[]
   productModifiers      ProductModifier[]
+  tableEvents           TableEvent[]
 
   @@map("businesses")
 }
@@ -152,6 +153,7 @@ model Table {
   tableSessions    TableSession[]
   bills            Bill[]
   customerSessions CustomerSession[]
+  events           TableEvent[]
 
   @@unique([businessId, tableNumber])
   @@index([businessId, status])
@@ -168,6 +170,36 @@ enum TableStatus {
   WAITING_WAITER
   PAYMENT_REQUESTED
   CLEANING_NEEDED
+}
+
+// ─── Masa Olay Kaydı ─────────────────────────────────────────────────────────
+// Durum değişikliğiyle aynı transaction'da yazılır (yalnız ekleme): kim, neden, hangi kanıtla.
+// Kişi alanları ilişki değil: personel ya da müşteri oturumu silinse de geçmiş kalır.
+model TableEvent {
+  id                String           @id @default(cuid())
+  businessId        String
+  tableId           String
+  fromStatus        TableStatus
+  toStatus          TableStatus
+  source            TableEventSource
+  // TableEventReason (lib/services/table-events.service.ts)
+  reason            String
+  actorUserId       String?
+  customerSessionId String?
+  createdAt         DateTime         @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  table    Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@index([tableId, createdAt])
+  @@index([businessId, createdAt])
+  @@map("table_events")
+}
+
+enum TableEventSource {
+  CUSTOMER
+  STAFF
+  SYSTEM
 }
 
 // ─── Sipariş ─────────────────────────────────────────────────────────────────

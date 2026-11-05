@@ -14,6 +14,8 @@ import type { RequestStatus, ServiceRequestDTO } from "./types";
 interface RequestCardProps {
   request: ServiceRequestDTO;
   now: number;
+  /** Bu masada bekleyen sipariş talebi sayısı: birden fazlaysa garson uyarılır */
+  tableOrderRequests: number;
   busy: boolean;
   onStatus: (request: ServiceRequestDTO, status: RequestStatus) => void;
   onOpenTable: (request: ServiceRequestDTO, code: string) => Promise<boolean>;
@@ -21,7 +23,7 @@ interface RequestCardProps {
 }
 
 /** Talep kartı: tür, masa, zaman, durum; sipariş talebinde kodla masa açma, diğerlerinde işleme al/tamamla/iptal */
-export default function RequestCard({ request, now, busy, onStatus, onOpenTable, onRejectOrder }: RequestCardProps) {
+export default function RequestCard({ request, now, tableOrderRequests, busy, onStatus, onOpenTable, onRejectOrder }: RequestCardProps) {
   const type = requestTypeMeta(request.requestType);
   const status = requestStatusMeta(request.status);
   const isPending = request.status === "PENDING";
@@ -60,7 +62,14 @@ export default function RequestCard({ request, now, busy, onStatus, onOpenTable,
       )}
 
       {isOrder && isPending && !expired && (
-        <OrderRequestActions request={request} busy={busy} onOpen={onOpenTable} onReject={onRejectOrder} />
+        <>
+          {tableOrderRequests > 1 && (
+            <Alert tone="warning" size="sm" className="mt-2">
+              Bu masada {tableOrderRequests} talep var. Masadaki müşterinin söylediği kodu girin; masa o müşteriye açılır, diğer talepler kapanır.
+            </Alert>
+          )}
+          <OrderRequestActions request={request} busy={busy} onOpen={onOpenTable} onReject={onRejectOrder} />
+        </>
       )}
 
       {!isOrder && isOpenRequest(request) && (

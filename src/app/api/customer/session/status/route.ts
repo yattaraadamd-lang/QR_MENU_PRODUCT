@@ -153,10 +153,24 @@ export async function GET(request: NextRequest) {
         requestType: "ORDER_REQUEST",
         status: { in: ["PENDING", "SEEN"] },
       },
-      select: { status: true, createdAt: true },
+      select: { id: true, status: true, createdAt: true, expiresAt: true },
       orderBy: { createdAt: "desc" },
     });
-    if (pendingOrderRequest) {
+
+    // Süresi dolan talep cihazı "onay bekliyor"da bırakmasın: yeni talep gönderebilsin
+    const requestExpired = !!pendingOrderRequest?.expiresAt && pendingOrderRequest.expiresAt < new Date();
+    const requestLive = !!pendingOrderRequest && !requestExpired;
+    if (session.authorizationStatus === "PENDING" && !requestLive) {
+      await prisma.$transaction([
+        ...(pendingOrderRequest
+          ? [prisma.serviceRequest.update({ where: { id: pendingOrderRequest.id }, data: { status: "CANCELLED" } })]
+          : []),
+        prisma.customerSession.update({ where: { id: session.id }, data: { authorizationStatus: "VIEW_ONLY" } }),
+      ]);
+      session.authorizationStatus = "VIEW_ONLY";
+    }
+
+    if (pendingOrderRequest && requestLive) {
       orderRequestStatus = pendingOrderRequest.status;
       if (isDemoBusiness(session.businessId)) {
         const elapsed = Date.now() - pendingOrderRequest.createdAt.getTime();

@@ -106,10 +106,11 @@ async function handlePut(
     // Masa durumunu yeniden hesapla (COMPLETED veya CANCELLED ise)
     let calculatedTableStatus: TableStatus | null = null;
     if (status === "COMPLETED" || status === "CANCELLED") {
-      calculatedTableStatus = await recalculateTableStatus(tx, {
-        businessId,
-        tableId: serviceRequest.tableId,
-      });
+      calculatedTableStatus = await recalculateTableStatus(
+        tx,
+        { businessId, tableId: serviceRequest.tableId },
+        { source: "STAFF", reason: "REQUEST_RESOLVED", actorUserId: session.user.id }
+      );
     }
 
     return { calculatedTableStatus };

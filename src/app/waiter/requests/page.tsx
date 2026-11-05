@@ -48,6 +48,7 @@ export default function WaiterRequestsPage() {
               key={request.id}
               request={request}
               now={now}
+              tableOrderRequests={page.orderRequestsByTable.get(request.tableId) ?? 0}
               busy={page.busyId === request.id}
               onStatus={page.updateStatus}
               onOpenTable={page.openTable}

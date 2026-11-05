@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { writeTableStatus, type TableChangeCause } from "@/lib/services/table-events.service";
 
 export class OrderRequestApprovalError extends Error {
   constructor(public readonly code: "ALREADY_HANDLED" | "TABLE_ALREADY_HAS_SESSION") {
@@ -25,7 +26,7 @@ interface ApprovableRequest {
  *
  * Eşzamanlı onayda ikinci oturumu kısmi unique indeks reddeder (P2002); çağıran bunu ele alır.
  */
-export async function approveOrderRequest(request: ApprovableRequest) {
+export async function approveOrderRequest(request: ApprovableRequest, cause: TableChangeCause) {
   const { id: requestId, businessId, tableId, customerSessionId, table } = request;
 
   const result = await prisma.$transaction(async (tx) => {
@@ -66,10 +67,7 @@ export async function approveOrderRequest(request: ApprovableRequest) {
     });
 
     // 4. Masa durumunu OCCUPIED yap
-    await tx.table.update({
-      where: { id: tableId },
-      data: { status: "OCCUPIED" },
-    });
+    await writeTableStatus(tx, { businessId, tableId }, "OCCUPIED", { ...cause, customerSessionId });
 
     // 5. Talebi oluşturan CustomerSession'ı AUTHORIZED yap
     await tx.customerSession.update({

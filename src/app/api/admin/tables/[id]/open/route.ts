@@ -42,12 +42,13 @@ async function handlePost(
 
   // ✅ TableSession + Bill + Table.status tek transaction'da; aktif oturum varsa (eşzamanlı
   // açılışta kazananınki dahil) yenisi oluşturulmaz
-  const { tableSession, isNew } = await openTable(params.id, businessId);
+  const cause = { source: "STAFF", reason: "TABLE_OPENED", actorUserId: authResult.session.userId } as const;
+  const { tableSession, isNew } = await openTable(params.id, businessId, cause);
 
   if (!isNew) {
     // Session zaten var — masa zaten açık; siparişi süren masa "dolu"ya düşmesin, durum hesaplanır
     const status = await prisma.$transaction((tx) =>
-      recalculateTableStatus(tx, { businessId, tableId: params.id })
+      recalculateTableStatus(tx, { businessId, tableId: params.id }, cause)
     );
     return NextResponse.json(
       {

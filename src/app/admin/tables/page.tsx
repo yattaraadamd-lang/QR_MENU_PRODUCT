@@ -14,6 +14,7 @@ import QueryError from "@/components/ui/QueryError";
 const CreateTableDialog = lazy(() => import("@/components/admin-tables/CreateTableDialog"));
 const TableQrDialog = lazy(() => import("@/components/admin-tables/TableQrDialog"));
 const DeleteTableDialog = lazy(() => import("@/components/admin-tables/DeleteTableDialog"));
+const TableHistoryDialog = lazy(() => import("@/components/admin-tables/TableHistoryDialog"));
 
 export default function AdminTablesPage() {
   const page = useAdminTablesPage();
@@ -62,6 +63,7 @@ export default function AdminTablesPage() {
               onOpen={page.detail.open}
               onShowQr={page.showQr}
               onDelete={page.openDelete}
+              onHistory={page.openHistory}
               qrPending={page.qrPendingId === table.id}
             />
           ))}
@@ -76,6 +78,7 @@ export default function AdminTablesPage() {
         {dialog.kind === "delete" && (
           <DeleteTableDialog table={dialog.table} onClose={page.closeDialog} onDeleted={page.afterMutation} />
         )}
+        {dialog.kind === "history" && <TableHistoryDialog table={dialog.table} onClose={page.closeDialog} />}
       </Suspense>
     </div>
   );

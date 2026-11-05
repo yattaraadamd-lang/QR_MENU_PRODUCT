@@ -138,6 +138,10 @@ export const UNIFIED_RATE_LIMITS = {
     maxRequests: 1,
     windowMs: 60 * 1000, // 1 payment request per 60 seconds
   },
+  ORDER_REQUEST_TABLE_IP: {
+    maxRequests: 3,
+    windowMs: 15 * 60 * 1000, // aynı ağdan aynı masaya; masada birden fazla kişi olabilir
+  },
   ORDER_REQUEST_CREATE: {
     maxRequests: 1,
     windowMs: 60 * 1000, // 60 seconds

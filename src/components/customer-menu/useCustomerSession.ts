@@ -228,6 +228,12 @@ export function useCustomerSession(businessId: string) {
         toast.success("Masanız açıldı! Siparişinizi gönderebilirsiniz. ✅");
       } else if (result.status === "REVOKED") {
         setStatus("REVOKED");
+      } else if (result.status === "VIEW_ONLY") {
+        // Talebin süresi doldu: müşteri yeniden gönderebilir (sepet duruyor)
+        setStatus("VIEW_ONLY");
+        setVerificationCode(null);
+        setDemoAutoApprove(false);
+        toast.info("Talebinizin süresi doldu. Siparişinizi yeniden gönderebilirsiniz.");
       } else if (typeof result.demoAutoApproveInMs === "number") {
         // Demo: garson onaylamazsa sistem onaylar; sonucu bir sonraki yoklama gösterir
         setDemoAutoApprove(true);

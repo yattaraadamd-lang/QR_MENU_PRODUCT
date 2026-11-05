@@ -7,6 +7,13 @@ import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
 import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
 import { openTable, recalculateTableStatus, updateBillAfterOrder } from "@/lib/services/table-flow.service";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
+import type { TableEventReason } from "@/lib/services/table-events.service";
+
+const ORDER_EVENT_REASON: Partial<Record<OrderStatus, TableEventReason>> = {
+  ACCEPTED: "ORDER_ACCEPTED",
+  PREPARING: "ORDER_PREPARING",
+  SERVED: "ORDER_SERVED",
+};
 
 // PUT /api/waiter/orders/[id]/status - Sipariş durumu güncelle
 export const PUT = withApiHandler("PUT /api/waiter/orders/[id]/status", handlePut);
@@ -125,7 +132,11 @@ async function handlePut(
   // açılır; eşzamanlı açılışta ikinci bir oturum oluşmaz, kazananınki döner
   let tableSessionId = order.tableSessionId;
   if (order.status === "PENDING") {
-    const { tableSession } = await openTable(order.tableId, businessId);
+    const { tableSession } = await openTable(order.tableId, businessId, {
+      source: "STAFF",
+      reason: "TABLE_OPENED",
+      actorUserId: authResult.session.userId,
+    });
     tableSessionId = tableSession.id;
   }
 
@@ -168,7 +179,11 @@ async function handlePut(
       await updateBillAfterOrder(tx, tableSessionId);
     }
 
-    const newTableStatus = await recalculateTableStatus(tx, { businessId, tableId: order.tableId });
+    const newTableStatus = await recalculateTableStatus(
+      tx,
+      { businessId, tableId: order.tableId },
+      { source: "STAFF", reason: ORDER_EVENT_REASON[status] ?? "MANUAL_STATUS", actorUserId: authResult.session.userId }
+    );
     return { updatedOrder, newTableStatus };
   });
 

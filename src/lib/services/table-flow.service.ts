@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/prisma";
 import type { BillPaymentStatus, PaymentStatus, PrismaClient, RequestStatus, TableStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { writeTableStatus, type TableChangeCause, type TableEventReason } from "@/lib/services/table-events.service";
 import { BILLABLE_ORDER_STATUSES, computeClosedTableStatus, computeOpenTableStatus } from "@/lib/services/table-status";
 
 // Transaction client tipi
@@ -26,16 +27,16 @@ type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transa
  * table_sessions_unique_active_per_table indeksi reddeder (P2002) ve o transaction
  * geri alınır. Bir kez yeniden denenince kazananın oturumu isNew: false ile döner.
  */
-export async function openTable(tableId: string, businessId: string) {
+export async function openTable(tableId: string, businessId: string, cause: TableChangeCause) {
   try {
-    return await openTableOnce(tableId, businessId);
+    return await openTableOnce(tableId, businessId, cause);
   } catch (error) {
     if ((error as { code?: string })?.code !== "P2002") throw error;
-    return openTableOnce(tableId, businessId);
+    return openTableOnce(tableId, businessId, cause);
   }
 }
 
-async function openTableOnce(tableId: string, businessId: string) {
+async function openTableOnce(tableId: string, businessId: string, cause: TableChangeCause) {
   return prisma.$transaction(async (tx) => {
     // Masa kontrolü
     const table = await tx.table.findFirst({
@@ -76,11 +77,7 @@ async function openTableOnce(tableId: string, businessId: string) {
       },
     });
 
-    // Masa durumunu OCCUPIED yap
-    await tx.table.update({
-      where: { id: tableId },
-      data: { status: "OCCUPIED" },
-    });
+    await writeTableStatus(tx, { businessId, tableId }, "OCCUPIED", cause);
 
     return { tableSession: { ...tableSession, bill }, bill, isNew: true };
   });
@@ -170,7 +167,8 @@ export async function updateBillAfterOrder(tx: TxClient, tableSessionId: string)
 export async function requestPayment(
   tableId: string,
   businessId: string,
-  note: string | null = null
+  note: string | null = null,
+  customerSessionId: string | null = null
 ) {
   return prisma.$transaction(async (tx) => {
     // Masa kontrolü
@@ -262,7 +260,7 @@ export async function requestPayment(
       },
     });
 
-    await recalculateTableStatus(tx, { businessId, tableId });
+    await recalculateTableStatus(tx, { businessId, tableId }, { source: "CUSTOMER", reason: "PAYMENT_REQUESTED", customerSessionId });
 
     // Bildirim
     const message = `${table.tableName || "Masa " + table.tableNumber} ödeme istiyor (₺${remainingDue.toFixed(2)})`;
@@ -328,7 +326,7 @@ export async function closeTable(
   businessId: string,
   /** null: sistem kapattı (ör. boşta kalan demo masası) */
   closedById: string | null,
-  options: { forceClose?: boolean; closeReason?: string } = {}
+  options: { forceClose?: boolean; closeReason?: string; eventReason?: TableEventReason } = {}
 ) {
   const { forceClose = false, closeReason } = options;
 
@@ -467,9 +465,10 @@ export async function closeTable(
     }
 
     // 3. Masa EMPTY yap (qrToken korunur)
-    await tx.table.update({
-      where: { id: tableSession.tableId },
-      data: { status: "EMPTY" },
+    await writeTableStatus(tx, { businessId, tableId: tableSession.tableId }, "EMPTY", {
+      source: closedById ? "STAFF" : "SYSTEM",
+      reason: options.eventReason ?? (forceClose ? "TABLE_FORCE_CLOSED" : "TABLE_CLOSED"),
+      actorUserId: closedById,
     });
 
     // 4. CustomerSession kayıtlarını kapat ve yetkilerini iptal et
@@ -527,7 +526,8 @@ const OPEN_PAYMENT_STATUSES: PaymentStatus[] = ["PENDING", "AWAITING_ADMIN_APPRO
  */
 export async function recalculateTableStatus(
   tx: TxClient,
-  opts: { businessId: string; tableId: string }
+  opts: { businessId: string; tableId: string },
+  cause: TableChangeCause
 ): Promise<TableStatus> {
   const { businessId, tableId } = opts;
 
@@ -572,8 +572,5 @@ export async function recalculateTableStatus(
     computed = computeClosedTableStatus(table.status, openBill > 0);
   }
 
-  if (table.status !== computed) {
-    await tx.table.update({ where: { id: tableId }, data: { status: computed } });
-  }
-  return computed;
+  return writeTableStatus(tx, { businessId, tableId }, computed, cause);
 }

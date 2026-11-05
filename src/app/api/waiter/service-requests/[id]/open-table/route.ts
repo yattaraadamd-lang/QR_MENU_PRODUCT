@@ -12,7 +12,7 @@ import { approveOrderRequest, OrderRequestApprovalError } from "@/lib/services/o
  * Atomik garson onayı: ORDER_REQUEST'i onaylayıp masayı açar.
  * Tek transaction içinde:
  *  - Talep doğrulanır (ORDER_REQUEST, PENDING, süresi geçmemiş, aktif customerSession bağlı)
- *  - Doğrulama kodu kontrol edilir
+ *  - Kod, masanın bekleyen taleplerinden kodu söyleyen müşterininkini seçer
  *  - Masa için başka aktif TableSession olmadığı doğrulanır
  *  - TableSession + Bill oluşturulur, masa OCCUPIED yapılır
  *  - Talebi oluşturan CustomerSession AUTHORIZED yapılır
@@ -47,19 +47,16 @@ async function handlePost(
     const authenticatedBusinessId = getBusinessId(session);
 
     // ─── Talebi bul ve doğrula
-    const serviceRequest = await prisma.serviceRequest.findFirst({
+    const opened = await prisma.serviceRequest.findFirst({
       where: { id: requestId, businessId: authenticatedBusinessId },
-      include: {
-        table: true,
-        customerSession: true,
-      },
+      include: { table: true, customerSession: true },
     });
 
-    if (!serviceRequest) {
+    if (!opened) {
       return NextResponse.json({ error: "Talep bulunamadı" }, { status: 404 });
     }
 
-    if (serviceRequest.requestType !== "ORDER_REQUEST") {
+    if (opened.requestType !== "ORDER_REQUEST") {
       return NextResponse.json(
         { error: "Bu talep türü ile masa açılamaz. Yalnız ORDER_REQUEST onaylanabilir." },
         { status: 400 }
@@ -67,7 +64,8 @@ async function handlePost(
     }
 
     // ─── Rate-limit & Doğrulama kodu kontrolü
-    const rl = await checkRateLimit(`open_table_code:${requestId}`, {
+    // Sınır masa başına: kod, masanın tüm bekleyen talepleriyle karşılaştırılır
+    const rl = await checkRateLimit(`open_table_code:${opened.tableId}`, {
       maxRequests: 5,
       windowMs: 5 * 60 * 1000,
     });
@@ -78,11 +76,27 @@ async function handlePost(
       );
     }
 
-    if (serviceRequest.verificationCode && serviceRequest.verificationCode !== verificationCode) {
-      return NextResponse.json(
-        { error: "Doğrulama kodu yanlış.", code: "INVALID_VERIFICATION_CODE" },
-        { status: 400 }
-      );
+    // Masada birden fazla talep olabilir: garson hangi kartı açmış olursa olsun onay, kodu söyleyen
+    // müşterinin talebine gider. Kod masanın hiçbir talebine uymuyorsa reddedilir.
+    let serviceRequest = opened;
+    if (opened.verificationCode && opened.verificationCode !== verificationCode) {
+      const matching = await prisma.serviceRequest.findFirst({
+        where: {
+          tableId: opened.tableId,
+          businessId: authenticatedBusinessId,
+          requestType: "ORDER_REQUEST",
+          status: { in: ["PENDING", "SEEN"] },
+          verificationCode,
+        },
+        include: { table: true, customerSession: true },
+      });
+      if (!matching) {
+        return NextResponse.json(
+          { error: "Doğrulama kodu yanlış.", code: "INVALID_VERIFICATION_CODE" },
+          { status: 400 }
+        );
+      }
+      serviceRequest = matching;
     }
 
     // ─── Zaten tamamlanmışsa idempotent yanıt
@@ -111,7 +125,7 @@ async function handlePost(
     // Süresi geçmiş mi?
     if (serviceRequest.expiresAt && serviceRequest.expiresAt < new Date()) {
       await prisma.serviceRequest.update({
-        where: { id: requestId },
+        where: { id: serviceRequest.id },
         data: { status: "CANCELLED" },
       });
       return NextResponse.json(
@@ -136,13 +150,16 @@ async function handlePost(
     }
 
     // ─── Atomik onay + bildirimler (ortak servis)
-    const result = await approveOrderRequest({
-      id: requestId,
-      businessId: authenticatedBusinessId,
-      tableId: serviceRequest.tableId,
-      customerSessionId: serviceRequest.customerSessionId,
-      table: serviceRequest.table,
-    });
+    const result = await approveOrderRequest(
+      {
+        id: serviceRequest.id,
+        businessId: authenticatedBusinessId,
+        tableId: serviceRequest.tableId,
+        customerSessionId: serviceRequest.customerSessionId,
+        table: serviceRequest.table,
+      },
+      { source: "STAFF", reason: "ORDER_REQUEST_APPROVED", actorUserId: session.user.id }
+    );
 
     return NextResponse.json(
       {
