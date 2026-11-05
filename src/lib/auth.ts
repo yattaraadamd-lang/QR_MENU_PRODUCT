@@ -19,7 +19,7 @@ const MAX_LOGIN_PASSWORD_LENGTH = 1024;
  * okuyamazsa istek 500 döner.
  */
 async function assertSessionCurrent(token: JWT) {
-  if (!token.id) throw new Error(SESSION_REVOKED);
+  if (typeof token.id !== "string") throw new Error(SESSION_REVOKED);
 
   let user;
   try {
@@ -307,7 +307,7 @@ export const authOptions: NextAuthOptions = {
     // İptal edilmiş oturum beklenen bir durum: bekleyen her istek log'a hata satırı yazmasın
     error(code, metadata) {
       if (code === "JWT_SESSION_ERROR" && (metadata as Error)?.message === SESSION_REVOKED) return;
-      appLogger.error(metadata instanceof Error ? { code, err: metadata } : { code, metadata }, "[next-auth] Hata");
+      appLogger.error({ code, err: metadata instanceof Error ? metadata : metadata.error }, "[next-auth] Hata");
     },
   },
   pages: {
