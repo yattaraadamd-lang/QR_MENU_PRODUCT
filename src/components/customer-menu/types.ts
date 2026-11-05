@@ -28,6 +28,8 @@ export type CanonicalSessionStatus = {
   businessId?: string;
   tableId?: string;
   orderRequestStatus?: string | null;
+  /** Yalnız demoda dolu: sistem onayına kalan süre */
+  demoAutoApproveInMs?: number | null;
   code?: string;
 };
 

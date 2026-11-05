@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ServiceRequestType, RequestStatus, TableStatus } from "@prisma/client";
+import { ServiceRequestType, RequestStatus } from "@prisma/client";
+import { recalculateTableStatus } from "@/lib/services/table-flow.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { validateViewSession, validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
@@ -504,35 +505,23 @@ async function createServiceRequest(request: NextRequest) {
 
     const combinedNote = [reason, note].filter(Boolean).join(" — ") || null;
 
-    const serviceRequest = await prisma.serviceRequest.create({
-      data: {
-        businessId,
-        tableId,
-        customerSessionId: customerSession.id,
-        requestType: requestType as ServiceRequestType,
-        reason: reason || null,
-        note: combinedNote,
-        status: RequestStatus.PENDING,
-      },
-      include: { table: true },
-    });
-
-    // ✅ Masa durumunu güncelle — SADECE masa zaten dolu ise
-    let tableStatus = table.status;
-    if (table.status !== TableStatus.EMPTY) {
-      if (requestType === "CALL_WAITER") {
-        tableStatus = TableStatus.WAITING_WAITER;
-      } else if (requestType === "PAYMENT_REQUEST") {
-        tableStatus = TableStatus.PAYMENT_REQUESTED;
-      }
-    }
-
-    if (tableStatus !== table.status) {
-      await prisma.table.update({
-        where: { id: tableId },
-        data: { status: tableStatus },
+    // Talep bir sinyaldir: masa durumunu müşteri yazmaz, kayıtlardan hesaplanır
+    const serviceRequest = await prisma.$transaction(async (tx) => {
+      const created = await tx.serviceRequest.create({
+        data: {
+          businessId,
+          tableId,
+          customerSessionId: customerSession.id,
+          requestType: requestType as ServiceRequestType,
+          reason: reason || null,
+          note: combinedNote,
+          status: RequestStatus.PENDING,
+        },
+        include: { table: true },
       });
-    }
+      await recalculateTableStatus(tx, { businessId, tableId });
+      return created;
+    });
 
     // Bildirim türü ve ses belirle
     let notificationType: any = "SERVICE_REQUEST";

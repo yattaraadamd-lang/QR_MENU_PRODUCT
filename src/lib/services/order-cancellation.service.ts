@@ -16,7 +16,8 @@ import { prisma } from "@/lib/prisma";
 import { OrderStatus, OrderCancelReasonCode, TableStatus } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { deriveTableStatusAfterOrderChange } from "@/lib/services/table-flow.service";
+import { recalculateTableStatus } from "@/lib/services/table-flow.service";
+import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";
 import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import { getRequestLogger } from "@/lib/logger";
@@ -295,7 +296,7 @@ export async function cancelOrderAndSyncState(
           const payableOrders = await tx.order.findMany({
             where: {
               tableSessionId,
-              status: { notIn: ["CANCELLED", "REJECTED"] },
+              status: { in: BILLABLE_ORDER_STATUSES },
             },
             select: { totalPrice: true },
           });
@@ -374,9 +375,8 @@ export async function cancelOrderAndSyncState(
       }
 
       // ── 6. Masa durumunu belirle ─────────────────────────────────────
-      const newTableStatus = await deriveTableStatusAfterOrderChange(tx, {
+      const newTableStatus = await recalculateTableStatus(tx, {
         tableId: order.tableId,
-        tableSessionId,
         businessId,
       });
 

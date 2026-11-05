@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
-import { emitToBusinessRoom } from "@/lib/socket-server";
-
 import { checkRateLimit } from "@/lib/unified-rate-limit";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
 import { openTableRequestSchema } from "@/lib/validation";
+import { approveOrderRequest, OrderRequestApprovalError } from "@/lib/services/order-request-approval.service";
 
 /**
  * POST /api/waiter/service-requests/[id]/open-table
@@ -136,121 +135,14 @@ async function handlePost(
       );
     }
 
-    // ─── ATOMİK TRANSACTION
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Talebi kilitle ve tekrar kontrol et
-      const lockedRequest = await tx.serviceRequest.findUnique({
-        where: { id: requestId },
-      });
-
-      if (!lockedRequest || lockedRequest.status !== "PENDING" && lockedRequest.status !== "SEEN") {
-        throw new Error("ALREADY_HANDLED");
-      }
-
-      // 2. Masa için başka aktif TableSession olmadığını doğrula
-      const existingActiveSession = await tx.tableSession.findFirst({
-        where: { tableId: serviceRequest.tableId, businessId: authenticatedBusinessId, status: "ACTIVE" },
-      });
-
-      if (existingActiveSession) {
-        throw new Error("TABLE_ALREADY_HAS_SESSION");
-      }
-
-      // 3. TableSession + Bill oluştur
-      const tableSession = await tx.tableSession.create({
-        data: {
-          businessId: authenticatedBusinessId,
-          tableId: serviceRequest.tableId,
-          status: "ACTIVE",
-        },
-      });
-
-      const bill = await tx.bill.create({
-        data: {
-          businessId: authenticatedBusinessId,
-          tableId: serviceRequest.tableId,
-          tableSessionId: tableSession.id,
-          totalAmount: 0,
-          paidAmount: 0,
-          remainingAmount: 0,
-          paymentStatus: "UNPAID",
-          status: "OPEN",
-        },
-      });
-
-      // 4. Masa durumunu OCCUPIED yap
-      await tx.table.update({
-        where: { id: serviceRequest.tableId },
-        data: { status: "OCCUPIED" },
-      });
-
-      // 5. Talebi oluşturan CustomerSession'ı AUTHORIZED yap
-      await tx.customerSession.update({
-        where: { id: serviceRequest.customerSessionId! },
-        data: {
-          authorizationStatus: "AUTHORIZED",
-          tableSessionId: tableSession.id,
-          authorizedAt: new Date(),
-        },
-      });
-
-      // 6. Aynı masadaki diğer CustomerSession'ların eski yetkilerini REVOKED yap
-      await tx.customerSession.updateMany({
-        where: {
-          tableId: serviceRequest.tableId,
-          businessId: authenticatedBusinessId,
-          status: "ACTIVE",
-          id: { not: serviceRequest.customerSessionId! },
-          authorizationStatus: { in: ["AUTHORIZED", "PENDING"] },
-        },
-        data: { authorizationStatus: "REVOKED" },
-      });
-
-      // 7. Diğer bekleyen ORDER_REQUEST kayıtlarını iptal et
-      await tx.serviceRequest.updateMany({
-        where: {
-          tableId: serviceRequest.tableId,
-          requestType: "ORDER_REQUEST",
-          status: { in: ["PENDING", "SEEN"] },
-          id: { not: requestId },
-        },
-        data: { status: "CANCELLED" },
-      });
-
-      // 8. Onaylanan talebi COMPLETED yap
-      await tx.serviceRequest.update({
-        where: { id: requestId },
-        data: {
-          status: "COMPLETED",
-          completedAt: new Date(),
-        },
-      });
-
-      return { tableSession: { ...tableSession, bill }, bill };
+    // ─── Atomik onay + bildirimler (ortak servis)
+    const result = await approveOrderRequest({
+      id: requestId,
+      businessId: authenticatedBusinessId,
+      tableId: serviceRequest.tableId,
+      customerSessionId: serviceRequest.customerSessionId,
+      table: serviceRequest.table,
     });
-
-    // ─── Socket.IO bildirimleri
-    try {
-      // Garson ekranlarını güncelle
-      emitToBusinessRoom(authenticatedBusinessId, "table_opened", {
-        tableId: serviceRequest.tableId,
-        tableNumber: serviceRequest.table.tableNumber,
-        tableName: serviceRequest.table.tableName,
-        tableSessionId: result.tableSession.id,
-        requestId,
-        message: `${serviceRequest.table.tableName || "Masa " + serviceRequest.table.tableNumber} açıldı`,
-      });
-
-      // Müşteri oturumunu güncelle
-      emitToBusinessRoom(authenticatedBusinessId, "session_authorized", {
-        tableId: serviceRequest.tableId,
-        customerSessionId: serviceRequest.customerSessionId,
-        tableSessionId: result.tableSession.id,
-        authorizationStatus: "AUTHORIZED",
-      });
-    } catch (e) {
-      console.log("Socket emit hatası:", e);
-    }
 
     return NextResponse.json(
       {
@@ -267,13 +159,13 @@ async function handlePost(
     );
   } catch (error: any) {
     if (error instanceof ApiError) throw error;
-    if (error?.message === "ALREADY_HANDLED") {
+    if (error instanceof OrderRequestApprovalError && error.code === "ALREADY_HANDLED") {
       return NextResponse.json(
         { error: "Bu talep zaten başka bir garson tarafından işlenmiş.", code: "OPEN_REQUEST_ALREADY_HANDLED" },
         { status: 409 }
       );
     }
-    if (error?.message === "TABLE_ALREADY_HAS_SESSION") {
+    if (error instanceof OrderRequestApprovalError && error.code === "TABLE_ALREADY_HAS_SESSION") {
       return NextResponse.json(
         { error: "Bu masa için zaten aktif bir oturum var.", code: "TABLE_ALREADY_CLAIMED" },
         { status: 409 }

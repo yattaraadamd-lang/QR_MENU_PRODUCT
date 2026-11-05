@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { withApiHandler } from "@/lib/api/handler";
+import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,8 @@ async function handleGet(request: NextRequest, context: { params: Promise<{ sess
       tableSession: {
         include: {
           orders: {
-            // ✅ Sadece ödenebilir durumdaki siparişler — REJECTED ve CANCELLED hariç
-            where: { status: { notIn: ["CANCELLED", "REJECTED"] } },
+            // ✅ Sadece ödenebilir durumdaki siparişler: liste adisyon toplamıyla aynı kümeyi gösterir
+            where: { status: { in: BILLABLE_ORDER_STATUSES } },
             include: { items: { include: { product: true } }, waiter: { select: { name: true } } },
             orderBy: { createdAt: "asc" },
           },

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
 import { updateOrderStatusRequestSchema, isValidCuid } from "@/lib/validation";
-import { OrderStatus, TableStatus } from "@prisma/client";
+import { OrderStatus } from "@prisma/client";
 import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
 import { cancelOrderAndSyncState, OrderCancellationError } from "@/lib/services/order-cancellation.service";
-import { openTable } from "@/lib/services/table-flow.service";
+import { openTable, recalculateTableStatus, updateBillAfterOrder } from "@/lib/services/table-flow.service";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
 
 // PUT /api/waiter/orders/[id]/status - Sipariş durumu güncelle
@@ -121,113 +121,56 @@ async function handlePut(
     );
   }
 
-  // ✅ PENDING -> ACCEPTED: TableSession ve Bill oluştur
-  if (order.status === "PENDING" && status === "ACCEPTED") {
-    // Aktif oturum yoksa oturum + adisyon tek transaction'da açılır; eşzamanlı
-    // açılışta ikinci bir oturum oluşmaz, kazananınki döner
+  // ✅ Garson onayı siparişi adisyona taşır. Aktif oturum yoksa oturum + adisyon tek transaction'da
+  // açılır; eşzamanlı açılışta ikinci bir oturum oluşmaz, kazananınki döner
+  let tableSessionId = order.tableSessionId;
+  if (order.status === "PENDING") {
     const { tableSession } = await openTable(order.tableId, businessId);
-
-    if (tableSession) {
-      await prisma.order.update({
-        where: { id: params.id },
-        data: { tableSessionId: tableSession.id },
-      });
-
-      if (tableSession.bill) {
-        // ✅ Kümülatif toplama YOK — her zaman DB'den sıfırdan hesapla
-        const sessionOrders = await prisma.order.findMany({
-          where: {
-            tableSessionId: tableSession.id,
-            status: { notIn: ["CANCELLED", "REJECTED"] },
-          },
-          select: { totalPrice: true },
-        });
-        const newTotal = sessionOrders.reduce(
-          (sum, o) => sum + Number(o.totalPrice),
-          0
-        );
-        const remaining = Math.max(
-          0,
-          newTotal - Number(tableSession.bill.paidAmount)
-        );
-
-        await prisma.bill.update({
-          where: { id: tableSession.bill.id },
-          data: {
-            totalAmount: newTotal,
-            remainingAmount: remaining,
-          },
-        });
-      }
-    }
-
+    tableSessionId = tableSession.id;
   }
 
-  // ✅ Build update data
-  const updateData: any = {
-    status,
-    waiterId: authResult.session.userId,
-  };
-
-  // ✅ Update order
-  const updatedOrder = await prisma.order.update({
-    where: { id: params.id },
-    data: updateData,
-    select: {
-      id: true,
-      totalPrice: true,
-      status: true,
-      note: true,
-      cancelReason: true,
-      createdAt: true,
-      items: {
-        select: {
-          id: true,
-          productName: true,
-          quantity: true,
-          unitPrice: true,
-          totalPrice: true,
+  // ✅ Sipariş, adisyon ve masa durumu birlikte değişir
+  const { updatedOrder, newTableStatus } = await prisma.$transaction(async (tx) => {
+    const updatedOrder = await tx.order.update({
+      where: { id: params.id },
+      data: {
+        status,
+        waiterId: authResult.session.userId,
+        tableSessionId,
+      },
+      select: {
+        id: true,
+        totalPrice: true,
+        status: true,
+        note: true,
+        cancelReason: true,
+        createdAt: true,
+        items: {
+          select: {
+            id: true,
+            productName: true,
+            quantity: true,
+            unitPrice: true,
+            totalPrice: true,
+          },
+        },
+        table: {
+          select: {
+            tableNumber: true,
+            tableName: true,
+          },
         },
       },
-      table: {
-        select: {
-          tableNumber: true,
-          tableName: true,
-        },
-      },
-    },
-  });
-
-  // ✅ Diğer aktif siparişleri kontrol et (tableSessionId bazlı)
-  const sessionIdForQuery = order.tableSessionId;
-  const otherActiveOrders = sessionIdForQuery
-    ? await prisma.order.count({
-        where: {
-          tableSessionId: sessionIdForQuery,
-          id: { not: params.id },
-          status: { in: ["PENDING", "ACCEPTED", "PREPARING"] },
-        },
-      })
-    : 0;
-
-  let newTableStatus: TableStatus | null = null;
-
-  if (status === "ACCEPTED") {
-    newTableStatus = TableStatus.HAS_ORDER;
-  } else if (status === "PREPARING") {
-    newTableStatus = TableStatus.PREPARING;
-  } else if (status === "SERVED") {
-    if (otherActiveOrders === 0) {
-      newTableStatus = TableStatus.SERVED;
-    }
-  }
-
-  if (newTableStatus) {
-    await prisma.table.update({
-      where: { id: order.tableId },
-      data: { status: newTableStatus },
     });
-  }
+
+    // ✅ Kümülatif toplama YOK — her zaman DB'den sıfırdan hesaplanır
+    if (tableSessionId) {
+      await updateBillAfterOrder(tx, tableSessionId);
+    }
+
+    const newTableStatus = await recalculateTableStatus(tx, { businessId, tableId: order.tableId });
+    return { updatedOrder, newTableStatus };
+  });
 
   // ✅ Socket.IO notification
   try {

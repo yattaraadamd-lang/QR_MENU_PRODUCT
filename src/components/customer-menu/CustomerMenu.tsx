@@ -141,6 +141,7 @@ export default function CustomerMenu({ businessId, tableNumber, initialMenu }: P
       status={session.status}
       hydrated={session.hydrated}
       verificationCode={session.verificationCode}
+      demoAutoApprove={session.demoAutoApprove}
       submitting={actions.submitting}
       orderNote={orderNote}
       onOrderNoteChange={setOrderNote}

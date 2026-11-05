@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
 import { TableStatus } from "@prisma/client";
-import { openTable } from "@/lib/services/table-flow.service";
+import { openTable, recalculateTableStatus } from "@/lib/services/table-flow.service";
 import { withApiHandler } from "@/lib/api/handler";
 
 // POST /api/admin/tables/[id]/open - Masayı aç (TableSession + Bill oluştur)
@@ -45,11 +45,10 @@ async function handlePost(
   const { tableSession, isNew } = await openTable(params.id, businessId);
 
   if (!isNew) {
-    // Session zaten var — masa zaten açık, sadece status güncelle
-    await prisma.table.update({
-      where: { id: params.id },
-      data: { status: TableStatus.OCCUPIED },
-    });
+    // Session zaten var — masa zaten açık; siparişi süren masa "dolu"ya düşmesin, durum hesaplanır
+    const status = await prisma.$transaction((tx) =>
+      recalculateTableStatus(tx, { businessId, tableId: params.id })
+    );
     return NextResponse.json(
       {
         message: "Masa zaten açık",
@@ -57,7 +56,7 @@ async function handlePost(
           id: table.id,
           tableNumber: table.tableNumber,
           tableName: table.tableName,
-          status: "OCCUPIED",
+          status,
         },
       },
       { status: 200 }
