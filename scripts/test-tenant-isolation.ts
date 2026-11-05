@@ -15,7 +15,7 @@ import { checkPlanQuota } from "../src/lib/services/subscription-guard.service";
 import { cuidSchema, emailSchema, priceSchema, createTableSchema, createOrderSchema } from "../src/lib/validation";
 import { createLogger } from "../src/lib/logger";
 import { isSessionCurrent, SESSION_ABSOLUTE_SECONDS } from "../src/lib/session-policy";
-import { getClientIp } from "../src/lib/unified-rate-limit";
+import { checkRateLimit, getClientIp, resetRateLimit } from "../src/lib/unified-rate-limit";
 import { Prisma } from "@prisma/client";
 
 let passedCount = 0;
@@ -171,6 +171,19 @@ async function runTests() {
     assert(!isSessionCurrent(claims, { ...user, deletedAt: new Date(0) }, now), "Silinmiş kullanıcı geçersiz");
   } catch (err: any) {
     assert(false, "Oturum geçerliliği testleri hata verdi", err.message);
+  }
+
+  // ── Test Suite 7: Giriş limiti sıfırlama ─────────────────────────────
+  console.log("\n📦 Suite 7: Rate limit sıfırlama");
+  try {
+    const key = "test_reset_key";
+    const config = { maxRequests: 1, windowMs: 60_000 };
+    assert((await checkRateLimit(key, config)).allowed, "İlk istek geçer");
+    assert(!(await checkRateLimit(key, config)).allowed, "Limit dolunca reddedilir");
+    resetRateLimit(key);
+    assert((await checkRateLimit(key, config)).allowed, "Sıfırlama sonrası yeniden geçer");
+  } catch (err: any) {
+    assert(false, "Rate limit testleri hata verdi", err.message);
   }
 
   // ── Summary ──────────────────────────────────────────────────────────

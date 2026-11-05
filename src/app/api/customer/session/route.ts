@@ -179,6 +179,16 @@ async function createSession(request: NextRequest) {
       }
     }
 
+    // ─── 🔒 SECURITY: IP başına sınır
+    // QR token tahmin denemelerini ve (QR istemeyen) demo akışının sınırsız satır üretmesini keser.
+    // Kafe Wi-Fi'ında müşteriler aynı IP'yi paylaşır; limit bu yüzden geniş tutuldu ve geçerli
+    // token'la gelen sayfa yenilemeleri (yukarıda döndü) sayılmaz.
+    const rl = await rateLimit({
+      ...UNIFIED_RATE_LIMITS.CUSTOMER_SESSION_CREATE,
+      identifier: `customer_session_${getClientIp(request)}`,
+    });
+    if (!rl.success) return createRateLimitResponse(rl);
+
     // ✅ E2E FIX: Demo business special handling
     // For demo-business-id, auto-create or reuse pre-authorized session (tek cihaz)
     if (businessId === "demo-business-id") {
@@ -354,14 +364,6 @@ async function createSession(request: NextRequest) {
         return res;
       }
     }
-
-    // ─── 🔒 SECURITY: QR token tahmin denemelerine karşı IP başına sınır
-    // Kafe Wi-Fi'ında müşteriler aynı IP'yi paylaşır; limit bu yüzden geniş tutuldu.
-    const rl = await rateLimit({
-      ...UNIFIED_RATE_LIMITS.CUSTOMER_SESSION_CREATE,
-      identifier: `customer_session_${getClientIp(request)}`,
-    });
-    if (!rl.success) return createRateLimitResponse(rl);
 
     // ─── Yeni session oluşturmak için qrToken ZORUNLU (normal businesses)
     const qrExpired = !!table.qrTokenExpiresAt && table.qrTokenExpiresAt < new Date();

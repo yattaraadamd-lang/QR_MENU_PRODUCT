@@ -4,7 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "./prisma";
-import { checkRateLimit, getClientIp, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
+import { checkRateLimit, getClientIp, resetRateLimit, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
 import { createAuditLog, auditRequestContext, AuditActions } from "./services/audit-log.service";
 import { logger as appLogger } from "./logger";
 import { isSessionCurrent, SESSION_IDLE_SECONDS, SESSION_REVOKED } from "./session-policy";
@@ -41,7 +41,7 @@ async function assertSessionCurrent(token: JWT) {
  * kayda bağlanır; girilen e-posta metni hiçbir zaman saklanmaz.
  */
 async function logLoginLockout(
-  scope: "email" | "ip",
+  scope: "email" | "pair" | "ip",
   key: string,
   resetAt: number,
   email: string,
@@ -55,7 +55,7 @@ async function logLoginLockout(
     if (!once.allowed) return;
 
     const target =
-      scope === "email"
+      scope !== "ip"
         ? await prisma.user.findUnique({ where: { email }, select: { id: true, businessId: true } })
         : null;
 
@@ -78,7 +78,7 @@ async function logLoginLockout(
  * Rate limiting is now integrated directly into the authorize callback using
  * the in-memory sliding-window limiter from unified-rate-limit.ts.
  *
- * Current: In-memory rate limiting (5 attempts / 15 min per email).
+ * Current: In-memory rate limiting (bkz. authorize: IP, e-posta + IP, e-posta).
  *          Single-instance protection only — does not share state across processes.
  *
  * For stronger protection at scale, consider:
@@ -118,27 +118,33 @@ export const authOptions: NextAuthOptions = {
           );
           const headers = new Headers(headerEntries);
           const auditContext = auditRequestContext(headers);
+          const clientIp = getClientIp({ headers } as Request);
+          const loginPairKey = `login:${normalizedEmail}:${clientIp}`;
 
-          // ✅ P0 FIX: Rate limit login attempts by email AND by IP
-          // (yalnız e-posta limiti, tek IP'den çok sayıda hesabın denenmesini engellemez)
+          // ✅ P0 FIX: Rate limit login attempts
+          // - IP: tek adresten çok sayıda hesabın denenmesi (password spraying)
+          // - E-posta + IP: bir hesaba parola denemesi. Limit e-postanın kendisine bağlı olsaydı
+          //   başka adresten birkaç yanlış denemeyle hesabın sahibi kilitlenebilirdi
+          // - E-posta: birçok adresten aynı hesaba deneme; bu yüzden geniş
+          // Sıra önemli: reddedilen deneme sonraki sayaçları artırmaz, yani tek adres e-posta
+          // sayacını en fazla çift limiti kadar yükseltir.
           // FAIL-CLOSED: if checkRateLimit throws, deny the attempt
           try {
-            const clientIp = getClientIp({ headers } as Request);
-            const emailKey = `login:${normalizedEmail}`;
-            const ipKey = `login_ip:${clientIp}`;
+            const checks = [
+              { scope: "ip", key: `login_ip:${clientIp}`, limit: UNIFIED_RATE_LIMITS.LOGIN_IP },
+              { scope: "pair", key: loginPairKey, limit: UNIFIED_RATE_LIMITS.LOGIN },
+              { scope: "email", key: `login_email:${normalizedEmail}`, limit: UNIFIED_RATE_LIMITS.LOGIN_EMAIL },
+            ] as const;
 
-            const [rlEmail, rlIp] = await Promise.all([
-              checkRateLimit(emailKey, UNIFIED_RATE_LIMITS.LOGIN),
-              checkRateLimit(ipKey, UNIFIED_RATE_LIMITS.LOGIN_IP),
-            ]);
-            const rl = !rlEmail.allowed ? rlEmail : rlIp;
-            if (!rl.allowed) {
-              const scope = !rlEmail.allowed ? "email" : "ip";
-              void logLoginLockout(scope, scope === "email" ? emailKey : ipKey, rl.resetAt, normalizedEmail, auditContext);
-              const waitMinutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60000));
-              throw new Error(
-                `Çok fazla giriş denemesi. Lütfen ${waitMinutes} dakika sonra tekrar deneyin.`
-              );
+            for (const { scope, key, limit } of checks) {
+              const rl = await checkRateLimit(key, limit);
+              if (!rl.allowed) {
+                void logLoginLockout(scope, key, rl.resetAt, normalizedEmail, auditContext);
+                const waitMinutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60000));
+                throw new Error(
+                  `Çok fazla giriş denemesi. Lütfen ${waitMinutes} dakika sonra tekrar deneyin.`
+                );
+              }
             }
           } catch (rateLimitError: any) {
             // If the error is our rate limit message, re-throw it
@@ -186,6 +192,9 @@ export const authOptions: NextAuthOptions = {
             });
             return null;
           }
+
+          // Çıkış tüm cihazları kapatır; ortak hesabı kullanan tabletler yeniden girerken takılmasın
+          resetRateLimit(loginPairKey);
 
           createAuditLog({
             ...auditContext,

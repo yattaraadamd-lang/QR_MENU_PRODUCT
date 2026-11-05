@@ -81,13 +81,22 @@ export async function checkRateLimit(
   };
 }
 
+/** Sayacı sıfırlar: başarılı giriş sonrası meşru kullanıcının hakkı geri gelsin diye */
+export function resetRateLimit(identifier: string): void {
+  rateLimitStore.delete(identifier);
+}
+
 /**
  * Standardized presets for system rate limits (including aliases for legacy code)
  */
 export const UNIFIED_RATE_LIMITS = {
   LOGIN: {
     maxRequests: 5,
-    windowMs: 15 * 60 * 1000, // 5 tries per 15 min
+    windowMs: 15 * 60 * 1000, // e-posta + IP çifti başına: parola deneme
+  },
+  LOGIN_EMAIL: {
+    maxRequests: 50,
+    windowMs: 15 * 60 * 1000, // e-posta başına: dağıtık deneme. Geniş: başkasını kilitlemek zor olsun
   },
   REGISTER: {
     maxRequests: 3,
