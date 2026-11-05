@@ -25,6 +25,8 @@ async function createServiceRequest(request: NextRequest) {
   // Alan tipleri, not/sebep uzunlukları ve önizleme kalemleri şemada doğrulanır; bozuk
   // gövde / yanlış tip 400 olur (withApiHandler). Catch bloğu idempotencyKey'i buradan okur.
   const requestBody = await parseJson(request, customerServiceRequestCreateSchema);
+  // Catch bloğundaki idempotency araması da yalnız bu oturumun kayıtlarına bakar
+  let customerSessionId: string | null = null;
 
   try {
     const { businessId, tableId, requestType, note, reason, idempotencyKey, items, orderNote } = requestBody;
@@ -107,6 +109,7 @@ async function createServiceRequest(request: NextRequest) {
         { status: 403 }
       );
     }
+    customerSessionId = customerSession.id;
 
     // ✅ RATE LIMIT
     const sessionToken = request.headers.get("x-session-token")!;
@@ -197,10 +200,11 @@ async function createServiceRequest(request: NextRequest) {
         );
       }
 
-      // İdempotency check
+      // İdempotency check: yalnız bu oturumun talebi. Anahtar tek başına aranırsa başka
+      // müşterinin (başka işletmenin) talebi ve doğrulama kodu dönebilir
       if (idempotencyKey) {
-        const existingByKey = await prisma.serviceRequest.findUnique({
-          where: { idempotencyKey },
+        const existingByKey = await prisma.serviceRequest.findFirst({
+          where: { idempotencyKey, businessId, customerSessionId: customerSession.id },
         });
         if (existingByKey) {
           return NextResponse.json(
@@ -634,14 +638,14 @@ async function createServiceRequest(request: NextRequest) {
 
     // ✅ Idempotency key unique constraint violation
     if (error?.code === "P2002" && error?.meta?.target?.includes("idempotencyKey")) {
-      // Mevcut kaydı bul ve döndür - requestBody'den gelen key kullan
+      // Bu oturumun kaydı varsa döndür; anahtar başka oturuma aitse aşağıdaki genel 409 döner
       const attemptedKey = requestBody?.idempotencyKey;
-      if (attemptedKey) {
+      if (attemptedKey && customerSessionId) {
         try {
-          const existingRequest = await prisma.serviceRequest.findUnique({
-            where: { idempotencyKey: attemptedKey },
+          const existingRequest = await prisma.serviceRequest.findFirst({
+            where: { idempotencyKey: attemptedKey, customerSessionId },
           });
-          
+
           if (existingRequest) {
             return NextResponse.json(
               {

@@ -7,12 +7,15 @@
  * 3. Audit Log Redaction & Privacy Hashing
  * 4. Input Validation (Zod Schemas)
  * 5. Tenant Isolation Helpers & Scopes
+ * 6. Login Input Limits & Session Revocation
  */
 
 import { hashDeviceKey, generateDeviceKey } from "../src/lib/security/device-block";
 import { checkPlanQuota } from "../src/lib/services/subscription-guard.service";
-import { cuidSchema, priceSchema, createTableSchema, createOrderSchema } from "../src/lib/validation";
+import { cuidSchema, emailSchema, priceSchema, createTableSchema, createOrderSchema, updateStaffSchema } from "../src/lib/validation";
 import { createLogger } from "../src/lib/logger";
+import { isSessionCurrent, SESSION_ABSOLUTE_SECONDS } from "../src/lib/session-policy";
+import { checkRateLimit, getClientIp, resetRateLimit } from "../src/lib/unified-rate-limit";
 import { Prisma } from "@prisma/client";
 
 let passedCount = 0;
@@ -131,6 +134,62 @@ async function runTests() {
     assert(last().err.message === "beklenmeyen" && typeof last().err.stack === "string", "Generic error keeps message and stack");
   } catch (err: any) {
     assert(false, "Log redaction tests threw error", err.message);
+  }
+
+  // ── Test Suite 5: Giriş girdisi sınırları ────────────────────────────
+  console.log("\n📦 Suite 5: E-posta ve IP girdi sınırları");
+  try {
+    assert(emailSchema.safeParse("Garson@Ornek.COM ").data === "garson@ornek.com", "E-posta küçük harfe çevrilir, boşluk kırpılır");
+    assert(emailSchema.safeParse(`${"a".repeat(241)}@ornek.com.tr`).success, "254 karakterlik e-posta kabul edilir");
+    assert(!emailSchema.safeParse(`${"a".repeat(242)}@ornek.com.tr`).success, "255 karakterlik e-posta reddedilir");
+
+    const ipOf = (name: string, value: string) => getClientIp(new Request("http://x", { headers: { [name]: value } }));
+    assert(ipOf("cf-connecting-ip", "x".repeat(4000)).length === 45, "cf-connecting-ip rate limit anahtarına kırpılarak girer");
+    assert(ipOf("x-forwarded-for", `1.1.1.1, ${"x".repeat(4000)}`).length === 45, "x-forwarded-for rate limit anahtarına kırpılarak girer");
+    assert(ipOf("x-real-ip", "x".repeat(4000)).length === 45, "x-real-ip rate limit anahtarına kırpılarak girer");
+    assert(ipOf("cf-connecting-ip", " 2001:db8::1 ") === "2001:db8::1", "Normal IP değişmez");
+
+    const staffPassword = (password: string) => updateStaffSchema.safeParse({ password }).success;
+    assert(staffPassword("Garson2026Parola"), "Personel parolası: harf + rakam kabul edilir");
+    assert(!staffPassword("aaaaaaaaaaaa"), "Personel parolası: yalnız harf reddedilir");
+    assert(!staffPassword("111111111111"), "Personel parolası: yalnız rakam reddedilir");
+    assert(!staffPassword("Kisa1"), "Personel parolası: 12 karakterden kısa reddedilir");
+  } catch (err: any) {
+    assert(false, "Girdi sınırı testleri hata verdi", err.message);
+  }
+
+  // ── Test Suite 6: Oturum iptali ──────────────────────────────────────
+  console.log("\n📦 Suite 6: Oturum geçerliliği");
+  try {
+    const now = 1_800_000_000;
+    const user = { sessionVersion: 3, isActive: true, deletedAt: null };
+    const claims = { sv: 3, authTime: now - 60 };
+
+    assert(isSessionCurrent(claims, user, now), "Güncel sürüm ve taze giriş geçerli");
+    assert(!isSessionCurrent({ ...claims, sv: 2 }, user, now), "Eski sürüm (parola değişimi, çıkış) geçersiz");
+    assert(!isSessionCurrent({ authTime: claims.authTime }, user, now), "Sürüm alanı olmayan eski token geçersiz");
+    assert(!isSessionCurrent({ sv: 3 }, user, now), "Giriş zamanı olmayan token geçersiz");
+    assert(!isSessionCurrent({ ...claims, sv: "3" }, user, now), "Sürüm sayı değilse geçersiz");
+    assert(isSessionCurrent({ sv: 3, authTime: now - SESSION_ABSOLUTE_SECONDS }, user, now), "Mutlak süre sınırında hâlâ geçerli");
+    assert(!isSessionCurrent({ sv: 3, authTime: now - SESSION_ABSOLUTE_SECONDS - 1 }, user, now), "Mutlak süre dolunca etkin oturum da düşer");
+    assert(!isSessionCurrent(claims, null, now), "Silinen kayıt geçersiz");
+    assert(!isSessionCurrent(claims, { ...user, isActive: false }, now), "Pasif kullanıcı geçersiz");
+    assert(!isSessionCurrent(claims, { ...user, deletedAt: new Date(0) }, now), "Silinmiş kullanıcı geçersiz");
+  } catch (err: any) {
+    assert(false, "Oturum geçerliliği testleri hata verdi", err.message);
+  }
+
+  // ── Test Suite 7: Giriş limiti sıfırlama ─────────────────────────────
+  console.log("\n📦 Suite 7: Rate limit sıfırlama");
+  try {
+    const key = "test_reset_key";
+    const config = { maxRequests: 1, windowMs: 60_000 };
+    assert((await checkRateLimit(key, config)).allowed, "İlk istek geçer");
+    assert(!(await checkRateLimit(key, config)).allowed, "Limit dolunca reddedilir");
+    resetRateLimit(key);
+    assert((await checkRateLimit(key, config)).allowed, "Sıfırlama sonrası yeniden geçer");
+  } catch (err: any) {
+    assert(false, "Rate limit testleri hata verdi", err.message);
   }
 
   // ── Summary ──────────────────────────────────────────────────────────

@@ -14,15 +14,12 @@ export async function GET(
     
     const business = await prisma.business.findUnique({
       where: { slug: params.slug, isActive: true },
+      // Kimliksiz uç: e-posta ve telefon kayıtta işletme sahibinin giriş bilgisiyle aynı olabilir
       select: {
-        id: true,
         name: true,
         slug: true,
         description: true,
         logo: true,
-        address: true,
-        phone: true,
-        email: true,
       },
     });
 

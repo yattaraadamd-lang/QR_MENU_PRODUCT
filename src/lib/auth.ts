@@ -1,10 +1,39 @@
 import { NextAuthOptions } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma } from "./prisma";
-import { checkRateLimit, getClientIp, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
+import { checkRateLimit, getClientIp, resetRateLimit, UNIFIED_RATE_LIMITS } from "./unified-rate-limit";
 import { createAuditLog, auditRequestContext, AuditActions } from "./services/audit-log.service";
+import { logger as appLogger } from "./logger";
+import { isSessionCurrent, SESSION_IDLE_SECONDS, SESSION_REVOKED } from "./session-policy";
+
+const MAX_LOGIN_EMAIL_LENGTH = 254;
+const MAX_LOGIN_PASSWORD_LENGTH = 1024;
+
+/**
+ * Oturum artık geçerli değilse fırlatır; NextAuth çerezi siler ve boş oturum döner.
+ * Veritabanı okunamazsa oturum sonlandırılmaz (her fırlatılan hata çerezi siler, kısa bir
+ * kesinti herkesi çıkarırdı): yetki denetimi auth-guard'ın kendi okumasıyla sürer, o da
+ * okuyamazsa istek 500 döner.
+ */
+async function assertSessionCurrent(token: JWT) {
+  if (typeof token.id !== "string") throw new Error(SESSION_REVOKED);
+
+  let user;
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: token.id },
+      select: { sessionVersion: true, isActive: true, deletedAt: true },
+    });
+  } catch (error) {
+    appLogger.error({ err: error }, "[Auth] Oturum sürümü okunamadı");
+    return;
+  }
+
+  if (!isSessionCurrent(token, user)) throw new Error(SESSION_REVOKED);
+}
 
 /**
  * Kilitlenmeyi pencere başına bir kez kaydeder: kilitliyken gelen her deneme audit
@@ -12,7 +41,7 @@ import { createAuditLog, auditRequestContext, AuditActions } from "./services/au
  * kayda bağlanır; girilen e-posta metni hiçbir zaman saklanmaz.
  */
 async function logLoginLockout(
-  scope: "email" | "ip",
+  scope: "email" | "pair" | "ip",
   key: string,
   resetAt: number,
   email: string,
@@ -26,7 +55,7 @@ async function logLoginLockout(
     if (!once.allowed) return;
 
     const target =
-      scope === "email"
+      scope !== "ip"
         ? await prisma.user.findUnique({ where: { email }, select: { id: true, businessId: true } })
         : null;
 
@@ -49,7 +78,7 @@ async function logLoginLockout(
  * Rate limiting is now integrated directly into the authorize callback using
  * the in-memory sliding-window limiter from unified-rate-limit.ts.
  *
- * Current: In-memory rate limiting (5 attempts / 15 min per email).
+ * Current: In-memory rate limiting (bkz. authorize: IP, e-posta + IP, e-posta).
  *          Single-instance protection only — does not share state across processes.
  *
  * For stronger protection at scale, consider:
@@ -71,6 +100,15 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // E-posta rate limit anahtarına girip pencere boyunca bellekte kalır, parola bcrypt'e
+        // gider: sınır aşan girdi kimliksiz istekle sunucuyu şişirmeden önce elenir.
+        if (
+          credentials.email.length > MAX_LOGIN_EMAIL_LENGTH ||
+          credentials.password.length > MAX_LOGIN_PASSWORD_LENGTH
+        ) {
+          return null;
+        }
+
         try {
           // ✅ SECURITY: Email normalization
           const normalizedEmail = credentials.email.trim().toLowerCase();
@@ -80,27 +118,33 @@ export const authOptions: NextAuthOptions = {
           );
           const headers = new Headers(headerEntries);
           const auditContext = auditRequestContext(headers);
+          const clientIp = getClientIp({ headers } as Request);
+          const loginPairKey = `login:${normalizedEmail}:${clientIp}`;
 
-          // ✅ P0 FIX: Rate limit login attempts by email AND by IP
-          // (yalnız e-posta limiti, tek IP'den çok sayıda hesabın denenmesini engellemez)
+          // ✅ P0 FIX: Rate limit login attempts
+          // - IP: tek adresten çok sayıda hesabın denenmesi (password spraying)
+          // - E-posta + IP: bir hesaba parola denemesi. Limit e-postanın kendisine bağlı olsaydı
+          //   başka adresten birkaç yanlış denemeyle hesabın sahibi kilitlenebilirdi
+          // - E-posta: birçok adresten aynı hesaba deneme; bu yüzden geniş
+          // Sıra önemli: reddedilen deneme sonraki sayaçları artırmaz, yani tek adres e-posta
+          // sayacını en fazla çift limiti kadar yükseltir.
           // FAIL-CLOSED: if checkRateLimit throws, deny the attempt
           try {
-            const clientIp = getClientIp({ headers } as Request);
-            const emailKey = `login:${normalizedEmail}`;
-            const ipKey = `login_ip:${clientIp}`;
+            const checks = [
+              { scope: "ip", key: `login_ip:${clientIp}`, limit: UNIFIED_RATE_LIMITS.LOGIN_IP },
+              { scope: "pair", key: loginPairKey, limit: UNIFIED_RATE_LIMITS.LOGIN },
+              { scope: "email", key: `login_email:${normalizedEmail}`, limit: UNIFIED_RATE_LIMITS.LOGIN_EMAIL },
+            ] as const;
 
-            const [rlEmail, rlIp] = await Promise.all([
-              checkRateLimit(emailKey, UNIFIED_RATE_LIMITS.LOGIN),
-              checkRateLimit(ipKey, UNIFIED_RATE_LIMITS.LOGIN_IP),
-            ]);
-            const rl = !rlEmail.allowed ? rlEmail : rlIp;
-            if (!rl.allowed) {
-              const scope = !rlEmail.allowed ? "email" : "ip";
-              void logLoginLockout(scope, scope === "email" ? emailKey : ipKey, rl.resetAt, normalizedEmail, auditContext);
-              const waitMinutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60000));
-              throw new Error(
-                `Çok fazla giriş denemesi. Lütfen ${waitMinutes} dakika sonra tekrar deneyin.`
-              );
+            for (const { scope, key, limit } of checks) {
+              const rl = await checkRateLimit(key, limit);
+              if (!rl.allowed) {
+                void logLoginLockout(scope, key, rl.resetAt, normalizedEmail, auditContext);
+                const waitMinutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60000));
+                throw new Error(
+                  `Çok fazla giriş denemesi. Lütfen ${waitMinutes} dakika sonra tekrar deneyin.`
+                );
+              }
             }
           } catch (rateLimitError: any) {
             // If the error is our rate limit message, re-throw it
@@ -119,8 +163,9 @@ export const authOptions: NextAuthOptions = {
 
           if (!user || !user.isActive || user.deletedAt) {
             // ✅ SECURITY: Constant-time-ish behavior — still hash when the account is
-            // missing or inactive, so response time doesn't reveal which accounts exist
-            await bcrypt.hash(credentials.password, 10);
+            // missing or inactive, so response time doesn't reveal which accounts exist.
+            // Maliyet hesaplardakiyle aynı (12): 10 olunca kayıtsız e-posta belirgin hızlı dönüyordu
+            await bcrypt.hash(credentials.password, 12);
             createAuditLog({
               ...auditContext,
               businessId: user?.businessId,
@@ -149,6 +194,9 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          // Çıkış tüm cihazları kapatır; ortak hesabı kullanan tabletler yeniden girerken takılmasın
+          resetRateLimit(loginPairKey);
+
           createAuditLog({
             ...auditContext,
             businessId: user.businessId,
@@ -166,6 +214,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           businessId: user.businessId,
           businessName: user.business.name,
+          sessionVersion: user.sessionVersion,
         };
         } catch (error) {
           // Re-throw rate limit errors so NextAuth surfaces them
@@ -188,7 +237,13 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.businessId = user.businessId;
         token.businessName = user.businessName;
+        token.sv = user.sessionVersion;
+        token.authTime = Math.floor(Date.now() / 1000);
+        return token;
       }
+
+      await assertSessionCurrent(token);
+
       // İşletme adı değişince kenar çubuğu yeniden giriş beklemesin (useSession().update()).
       // İstemciden değer alınmaz: ad yalnız veritabanından, token'daki işletme için okunur
       if (trigger === "update" && token.businessId) {
@@ -214,6 +269,7 @@ export const authOptions: NextAuthOptions = {
         userId: token.id,
         businessId: token.businessId,
         role: token.role,
+        sv: token.sv,
         iat: Math.floor(Date.now() / 1000),
       };
       
@@ -237,12 +293,30 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  events: {
+    // Çıkış, kullanıcının bütün cihazlardaki oturumlarını kapatır. Yalnız güncel sürümü taşıyan
+    // token artırabilir: iptal edilmiş eski bir çerezle yeni oturumlar tekrar tekrar düşürülemez.
+    async signOut({ token }) {
+      if (!token?.id || typeof token.sv !== "number") return;
+      await prisma.user.updateMany({
+        where: { id: token.id, sessionVersion: token.sv },
+        data: { sessionVersion: { increment: 1 } },
+      });
+    },
+  },
+  logger: {
+    // İptal edilmiş oturum beklenen bir durum: bekleyen her istek log'a hata satırı yazmasın
+    error(code, metadata) {
+      if (code === "JWT_SESSION_ERROR" && (metadata as Error)?.message === SESSION_REVOKED) return;
+      appLogger.error({ code, err: metadata instanceof Error ? metadata : metadata.error }, "[next-auth] Hata");
+    },
+  },
   pages: {
     signIn: "/auth/signin",
   },
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // ✅ SECURITY: 8 hour max session age
+    maxAge: SESSION_IDLE_SECONDS,
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

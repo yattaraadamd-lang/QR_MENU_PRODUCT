@@ -19,15 +19,14 @@ export async function GET(request: NextRequest) {
         totalAmount: { gt: 0 },
         remainingAmount: { gt: 0 }
       },
-      include: {
-        table: true,
-        tableSession: {
-          include: {
-            orders: {
-              where: { status: { not: "CANCELLED" } }
-            }
-          }
-        }
+      // Ekran bu alanları kullanır (components/pending-payments/types.ts). Garson da erişebildiği
+      // için masanın QR token'ı dönmez.
+      select: {
+        id: true,
+        totalAmount: true,
+        paidAmount: true,
+        remainingAmount: true,
+        table: { select: { tableNumber: true, tableName: true } },
       },
       orderBy: { updatedAt: "desc" },
     });

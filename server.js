@@ -57,11 +57,23 @@ if (!dev) {
 // Render ve benzeri platform'larda hostname "0.0.0.0" olmalı
 const hostname = dev ? "localhost" : "0.0.0.0";
 
+// Uygulamada dosya yükleme ucu yok (görseller URL); 1 MB bütün JSON gövdeleri için bol.
+// Content-Length'siz (chunked) gövdeleri next.config.mjs'teki middlewareClientMaxBodySize sınırlar.
+const MAX_BODY_BYTES = 1024 * 1024;
+
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
   const httpServer = createServer((req, res) => {
+    // Gövde belleğe alınmadan bildirilen boyut denetlenir. Okunmayan gövde yüzünden bağlantı
+    // kesilir; istemci 413 yerine bağlantı hatası görebilir.
+    if (Number(req.headers["content-length"] ?? 0) > MAX_BODY_BYTES) {
+      res.writeHead(413, { "Content-Type": "application/json", Connection: "close" });
+      res.end('{"error":"İstek gövdesi çok büyük.","code":"PAYLOAD_TOO_LARGE"}', () => req.destroy());
+      return;
+    }
+
     // Kapanırken keep-alive bağlantı yanıttan sonra kapansın; yeni istek yeni instance'a gider
     if (global.__serverShuttingDown) res.setHeader("Connection", "close");
     const parsedUrl = parse(req.url, true);

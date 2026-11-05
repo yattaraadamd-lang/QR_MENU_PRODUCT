@@ -20,7 +20,6 @@ export async function getPublicMenu(businessId: string, tableNumber: string): Pr
         name: true,
         description: true,
         logo: true,
-        phone: true,
         isActive: true,
       },
     }),

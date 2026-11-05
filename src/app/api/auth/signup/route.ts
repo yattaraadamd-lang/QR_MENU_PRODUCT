@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const signupSchema = z.object({
   businessName: z.string().trim().min(2, "İşletme adı en az 2 karakter olmalı").max(100),
   name: z.string().trim().min(2, "Ad soyad en az 2 karakter olmalı").max(100),
-  email: z.string().trim().toLowerCase().email("Geçerli bir e-posta girin"),
+  email: z.string().trim().toLowerCase().email("Geçerli bir e-posta girin").max(254),
   // Garson kaydıyla aynı politika: 12-72 karakter, en az 1 harf + 1 rakam
   password: z
     .string()

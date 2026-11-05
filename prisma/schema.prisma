@@ -55,6 +55,8 @@ model User {
   role       UserRole  @default(WAITER)
   isActive   Boolean   @default(true)
   deletedAt  DateTime?
+  // Artırıldığında kullanıcının açık oturumları geçersiz olur (bkz. lib/session-policy.ts)
+  sessionVersion Int   @default(0)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 

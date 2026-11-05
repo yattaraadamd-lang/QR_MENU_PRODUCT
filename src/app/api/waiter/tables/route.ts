@@ -7,6 +7,10 @@ import { waiterTableStatusSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
+// Garson ekranı bu alanları kullanır (components/tables/types.ts). Liste açıkça yazılır: masanın
+// QR token'ı ve talebin doğrulama kodu garsona dönmemeli, kod müşteriden sorulur.
+const TABLE_SELECT = { id: true, tableNumber: true, tableName: true, status: true } as const;
+
 // GET /api/waiter/tables — Masaları adisyon bilgisiyle getir
 export async function GET(request: NextRequest) {
   try {
@@ -17,31 +21,41 @@ export async function GET(request: NextRequest) {
     const tables = await prisma.table.findMany({
       where: { businessId, isDeleted: false },
       orderBy: { tableNumber: "asc" },
-      include: {
+      select: {
+        ...TABLE_SELECT,
         orders: {
           where: { status: { in: ["PENDING", "ACCEPTED", "PREPARING"] } },
           orderBy: { createdAt: "desc" },
+          select: { id: true, status: true },
         },
         serviceRequests: {
           where: { status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] } },
           orderBy: { createdAt: "desc" },
+          select: { id: true, status: true, requestType: true },
         },
         tableSessions: {
           where: { status: "ACTIVE" },
           take: 1,
-          include: {
-            bill: true,
+          select: {
+            id: true,
+            startedAt: true,
+            bill: {
+              select: { id: true, totalAmount: true, paidAmount: true, remainingAmount: true, paymentStatus: true },
+            },
           },
         },
       },
     });
 
     // Her masaya aktif oturum ve adisyon bilgisini ekle
-    const enriched = tables.map(t => ({
-      ...t,
-      activeSession: t.tableSessions[0] || null,
-      bill: t.tableSessions[0]?.bill || null,
-    }));
+    const enriched = tables.map(({ tableSessions, ...t }) => {
+      const active = tableSessions[0];
+      return {
+        ...t,
+        activeSession: active ? { id: active.id, startedAt: active.startedAt } : null,
+        bill: active?.bill ?? null,
+      };
+    });
 
     return NextResponse.json({ tables: enriched });
   } catch (e) {
@@ -67,6 +81,10 @@ async function handlePut(request: NextRequest) {
   const table = await prisma.table.findFirst({ where: { id: tableId, businessId } });
   if (!table) return NextResponse.json({ error: "Masa bulunamadı" }, { status: 404 });
 
-  const updated = await prisma.table.update({ where: { id: tableId }, data: { status: status as TableStatus } });
+  const updated = await prisma.table.update({
+    where: { id: tableId },
+    data: { status: status as TableStatus },
+    select: TABLE_SELECT,
+  });
   return NextResponse.json({ message: "Masa durumu güncellendi", table: updated });
 }

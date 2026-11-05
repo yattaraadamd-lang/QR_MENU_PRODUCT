@@ -14,7 +14,9 @@ import { ApiError, hasUnstorableChars } from "@/lib/api/handler";
 
 // ✅ Demo string ID'leri de kabul eder: prod-turk-kahvesi, cat-yiyecek, gerçek CUID'ler
 export const cuidSchema = z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/, "Geçersiz ID formatı");
-export const emailSchema = z.string().email();
+// Giriş e-postayı küçük harfle arar: büyük harfli kayıt hesabı açılamaz hale getirirdi.
+// 254: RFC 5321 üst sınırı; auth.ts daha uzun e-postayı denemeden reddeder.
+export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 export const positiveIntSchema = z.number().int().positive();
 export const nonNegativeIntSchema = z.number().int().min(0);
 export const priceSchema = z.number().positive().multipleOf(0.01);
@@ -145,17 +147,26 @@ export const updateServiceRequestSchema = z.object({
 // User/Staff Schemas
 // ============================================================================
 
+// Kayıt ve garson kaydıyla aynı politika: 12-72 karakter (bcrypt 72 bayttan sonrasını yok sayar),
+// en az 1 harf + 1 rakam
+const staffPasswordSchema = z
+  .string()
+  .min(12, "Şifre en az 12 karakter olmalıdır")
+  .max(72, "Şifre en fazla 72 karakter olabilir")
+  .regex(/[a-zA-Z]/, "Şifre en az 1 harf içermelidir")
+  .regex(/[0-9]/, "Şifre en az 1 rakam içermelidir");
+
 export const createStaffSchema = z.object({
   name: z.string().min(1).max(100),
   email: emailSchema,
-  password: z.string().min(12, "Şifre en az 12 karakter olmalıdır").max(72, "Şifre en fazla 72 karakter olabilir"),
+  password: staffPasswordSchema,
   role: z.enum(["ADMIN", "WAITER"]),
 });
 
 export const updateStaffSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   email: emailSchema.optional(),
-  password: z.string().min(12, "Şifre en az 12 karakter olmalıdır").max(72, "Şifre en fazla 72 karakter olabilir").optional(),
+  password: staffPasswordSchema.optional(),
   isActive: z.boolean().optional(),
 });
 

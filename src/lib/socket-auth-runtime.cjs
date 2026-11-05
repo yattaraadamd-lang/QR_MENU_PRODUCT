@@ -116,6 +116,7 @@ async function authenticateSocket(socket, next) {
         role: true,
         isActive: true,
         deletedAt: true,
+        sessionVersion: true,
         business: { select: { isActive: true } },
       },
     });
@@ -126,6 +127,11 @@ async function authenticateSocket(socket, next) {
 
     if (!user.isActive || user.deletedAt) {
       return next(createSocketError("User account is disabled", "USER_DISABLED"));
+    }
+
+    // Parola değişimi veya çıkıştan önce alınmış token ile yeniden bağlanılamaz
+    if (decoded.sv !== user.sessionVersion) {
+      return next(createSocketError("Session revoked", "SESSION_REVOKED"));
     }
 
     // 🔒 SECURITY: Askıya alınan işletmenin personeli canlı sipariş/ödeme akışını dinleyemez

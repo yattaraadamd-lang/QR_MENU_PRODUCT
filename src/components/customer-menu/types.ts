@@ -13,7 +13,7 @@ export type Product = {
 
 export type Category = { id: string; name: string; icon: string | null; products: Product[] };
 export type CartItem = { product: Product; quantity: number; customerNote?: string };
-export type Business = { id: string; name: string; description: string | null; logo: string | null; phone: string | null };
+export type Business = { id: string; name: string; description: string | null; logo: string | null };
 export type TableInfo = { id: string; tableNumber: string; tableName: string | null };
 export type MenuResponse = { business: Business; table: TableInfo; categories: Category[] };
 
