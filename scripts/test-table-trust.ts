@@ -408,6 +408,19 @@ async function main() {
     const seatedStatus = await call(statusRoute.GET, customerRequest("/api/customer/session/status", { method: "GET", token: seated.token }));
     assert(seatedStatus.body.authorizationStatus === "AUTHORIZED", "Masadaki onaylı müşteri etkilenmez", seatedStatus.body);
     assert((await tableStatus(qrTable.id)) === "OCCUPIED", "Masa durumu değişmez");
+
+    console.log("\n📦 Suite 14: Yavaş veritabanı transaction'ı düşürmez");
+    // Prisma varsayılanı 5 sn: canlıda yavaş anlarda sipariş onayı P2028 ile 500 dönüyordu
+    const slowResult = await prisma
+      .$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_sleep(5.5)`;
+        return tx.table.count({ where: { businessId: business.id } });
+      })
+      .then(
+        (count) => ({ ok: true, detail: count }),
+        (error: { code?: string; message?: string }) => ({ ok: false, detail: error.code ?? error.message })
+      );
+    assert(slowResult.ok, "5 sn'yi aşan transaction tamamlanır", slowResult.detail);
   } finally {
     const businessIds = [business.id, demo.id];
     await prisma.payment.deleteMany({ where: { businessId: { in: businessIds } } });
