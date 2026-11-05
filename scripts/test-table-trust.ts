@@ -11,6 +11,7 @@
 import { NextRequest } from "next/server";
 
 const RUN_ID = `ci-trust-${Date.now()}`;
+const STAFF = { source: "STAFF", reason: "ORDER_REQUEST_APPROVED", actorUserId: "test-staff" } as const;
 const DEMO_ID = `${RUN_ID}-demo`;
 
 // src/lib/demo.ts değeri modül yüklenirken okur: işleyiciler aşağıda bundan sonra yüklenir
@@ -63,6 +64,7 @@ async function main() {
   const { createDirectAdminPayment } = await import("../src/lib/services/payment.service");
   const { cancelOrderAndSyncState } = await import("../src/lib/services/order-cancellation.service");
   const { approveOrderRequest } = await import("../src/lib/services/order-request-approval.service");
+  const { rotateTableQr } = await import("../src/lib/services/table-qr.service");
   const sessionRoute = await import("../src/app/api/customer/session/route");
   const statusRoute = await import("../src/app/api/customer/session/status/route");
   const ordersRoute = await import("../src/app/api/customer/orders/route");
@@ -115,13 +117,16 @@ async function main() {
       where: { tableId: table.id, status: "ACTIVE" },
       orderBy: { createdAt: "desc" },
     });
-    const { tableSession } = await approveOrderRequest({
-      id: requested.body.serviceRequest.id,
-      businessId: table.businessId,
-      tableId: table.id,
-      customerSessionId: customerSession.id,
-      table,
-    });
+    const { tableSession } = await approveOrderRequest(
+      {
+        id: requested.body.serviceRequest.id,
+        businessId: table.businessId,
+        tableId: table.id,
+        customerSessionId: customerSession.id,
+        table,
+      },
+      STAFF
+    );
     return { token, customerSession, tableSession };
   };
 
@@ -211,7 +216,7 @@ async function main() {
     await prisma.order.update({ where: { id: placed.body.order.id }, data: { status: "ACCEPTED" } });
     await prisma.$transaction(async (tx) => {
       await flow.updateBillAfterOrder(tx, customer.tableSession.id);
-      await flow.recalculateTableStatus(tx, { businessId: business.id, tableId: orderTable.id });
+      await flow.recalculateTableStatus(tx, { businessId: business.id, tableId: orderTable.id }, STAFF);
     });
     assert(Number((await billOf(customer.tableSession.id)).totalAmount) === 300, "Garson onayı adisyona yazar");
     assert((await tableStatus(orderTable.id)) === "HAS_ORDER", "Garson onayı masayı 'sipariş var' yapar");
@@ -235,7 +240,7 @@ async function main() {
     const callTable = await newTable(business.id);
     const caller = await approvedCustomer(callTable);
     await createOrder({ businessId: business.id, tableId: callTable.id, tableSessionId: caller.tableSession.id, status: "PREPARING", totalPrice: 100 });
-    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: callTable.id }));
+    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: callTable.id }, STAFF));
     const called = await call(
       requestsRoute.POST,
       customerRequest("/api/customer/service-requests", {
@@ -246,20 +251,20 @@ async function main() {
     assert(called.status === 201, "Çağrı oluşur", called);
     assert((await tableStatus(callTable.id)) === "PREPARING", "Masa 'hazırlanıyor' kalır");
     await prisma.order.updateMany({ where: { tableId: callTable.id }, data: { status: "SERVED" } });
-    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: callTable.id }));
+    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: callTable.id }, STAFF));
     assert((await tableStatus(callTable.id)) === "WAITING_WAITER", "Sipariş bitince açık çağrı görünür");
     await prisma.serviceRequest.updateMany({ where: { tableId: callTable.id, requestType: "CALL_WAITER" }, data: { status: "COMPLETED" } });
-    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: callTable.id }));
+    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: callTable.id }, STAFF));
     assert((await tableStatus(callTable.id)) === "SERVED", "Çağrı kapanınca durum kendiliğinden döner");
 
     console.log("\n📦 Suite 7: Sipariş geçmişi boş masayı doldurmaz");
     const historyTable = await newTable(business.id);
-    const past = await flow.openTable(historyTable.id, business.id);
+    const past = await flow.openTable(historyTable.id, business.id, STAFF);
     await createOrder({ businessId: business.id, tableId: historyTable.id, tableSessionId: past.tableSession.id, status: "SERVED", totalPrice: 100 });
     await prisma.$transaction((tx) => flow.updateBillAfterOrder(tx, past.tableSession.id));
     await flow.closeTable(past.tableSession.id, business.id, null, { forceClose: true, closeReason: "test" });
     assert((await tableStatus(historyTable.id)) === "EMPTY", "Kapanan masa boş");
-    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: historyTable.id }));
+    await prisma.$transaction((tx) => flow.recalculateTableStatus(tx, { businessId: business.id, tableId: historyTable.id }, STAFF));
     assert((await tableStatus(historyTable.id)) === "EMPTY", "Talep kapanınca (yeniden hesap) masa boş kalır");
 
     console.log("\n📦 Suite 8: Reddedilen sipariş ve hesabın kapanması");
@@ -295,6 +300,114 @@ async function main() {
     const closedOrder = await prisma.order.findUniqueOrThrow({ where: { id: straggler.id } });
     assert(closedOrder.status === "CANCELLED" && closedOrder.paymentStatus === "CANCELLED", "Hesap kapanırken bekleyen sipariş iptal olur", closedOrder.status);
     assert((await tableStatus(payTable.id)) === "EMPTY", "Tam ödeme masayı boşaltır");
+
+    console.log("\n📦 Suite 9: Talep masayı kilitlemez");
+    const queueTable = await newTable(business.id);
+    const troll = await scan(queueTable, `${RUN_ID}-troll`);
+    const guest = await scan(queueTable, `${RUN_ID}-guest`);
+    const trollAsk = await sendOrderRequest(queueTable, troll.body.sessionToken);
+    const guestAsk = await sendOrderRequest(queueTable, guest.body.sessionToken);
+    assert(trollAsk.status === 201, "İlk cihaz talep gönderir", trollAsk);
+    assert(guestAsk.status === 201, "Başka cihaz, ilk talep beklerken de talep gönderebilir", guestAsk);
+    assert((await tableStatus(queueTable.id)) === "EMPTY", "İki talep de masayı doldurmaz");
+    const repeat = await prisma.serviceRequest.count({ where: { tableId: queueTable.id, status: "PENDING" } });
+    assert(repeat === 2, "Masada iki bekleyen talep var", repeat);
+
+    const guestSession = await prisma.customerSession.findFirstOrThrow({
+      where: { tableId: queueTable.id, serviceRequests: { some: { id: guestAsk.body.serviceRequest.id } } },
+    });
+    await approveOrderRequest(
+      { id: guestAsk.body.serviceRequest.id, businessId: business.id, tableId: queueTable.id, customerSessionId: guestSession.id, table: queueTable },
+      STAFF
+    );
+    const sessionsAfter = await prisma.customerSession.findMany({
+      where: { tableId: queueTable.id },
+      select: { id: true, authorizationStatus: true },
+    });
+    assert(sessionsAfter.find((s) => s.id === guestSession.id)?.authorizationStatus === "AUTHORIZED", "Onaylanan cihaz yetki alır");
+    assert(sessionsAfter.filter((s) => s.authorizationStatus === "AUTHORIZED").length === 1, "Masada tek yetkili cihaz kalır", sessionsAfter);
+    const trollRequest = await prisma.serviceRequest.findUniqueOrThrow({ where: { id: trollAsk.body.serviceRequest.id } });
+    assert(trollRequest.status === "CANCELLED", "Diğer talep kapanır", trollRequest.status);
+    const trollRetry = await sendOrderRequest(queueTable, troll.body.sessionToken);
+    assert(trollRetry.status === 403 || trollRetry.status === 409, "Masa açıkken diğer cihaz yeni talep gönderemez", trollRetry);
+
+    console.log("\n📦 Suite 10: Aynı ağdan talep yağmuru sınırlı");
+    const floodTable = await newTable(business.id);
+    const floodResults = [];
+    for (let i = 0; i < 4; i++) {
+      const device = await scan(floodTable, `${RUN_ID}-flood-${i}`);
+      floodResults.push((await sendOrderRequest(floodTable, device.body.sessionToken)).status);
+    }
+    assert(floodResults.slice(0, 3).every((s) => s === 201), "Aynı ağdan masa başına 3 talep geçer", floodResults);
+    assert(floodResults[3] === 429, "Dördüncü talep sınıra takılır", floodResults);
+    const otherTable = await newTable(business.id);
+    const otherDevice = await scan(otherTable, `${RUN_ID}-other`);
+    const otherAsk = await sendOrderRequest(otherTable, otherDevice.body.sessionToken);
+    assert(otherAsk.status === 201, "Sınır masa başına: aynı ağdan başka masa etkilenmez", otherAsk);
+
+    console.log("\n📦 Suite 11: Süresi dolan talep cihazı kilitlemez");
+    const expiryTable = await newTable(business.id);
+    const expiring = await scan(expiryTable, `${RUN_ID}-expiry`);
+    const expiringAsk = await sendOrderRequest(expiryTable, expiring.body.sessionToken);
+    await prisma.serviceRequest.update({
+      where: { id: expiringAsk.body.serviceRequest.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    });
+    const expiredStatus = await call(statusRoute.GET, customerRequest("/api/customer/session/status", { method: "GET", token: expiring.body.sessionToken }));
+    assert(expiredStatus.body.authorizationStatus === "VIEW_ONLY", "Durum ucu cihazı yeniden görüntülemeye döndürür", expiredStatus.body);
+    assert(expiredStatus.body.orderRequestStatus === null, "Bekleyen talep görünmez", expiredStatus.body);
+    const expiredRequest = await prisma.serviceRequest.findUniqueOrThrow({ where: { id: expiringAsk.body.serviceRequest.id } });
+    assert(expiredRequest.status === "CANCELLED", "Süresi dolan talep kapanır", expiredRequest.status);
+
+    console.log("\n📦 Suite 12: Masa olay kaydı");
+    const eventTable = await newTable(business.id);
+    const eventCustomer = await approvedCustomer(eventTable);
+    const calledBack = await call(
+      requestsRoute.POST,
+      customerRequest("/api/customer/service-requests", {
+        token: eventCustomer.token,
+        body: { businessId: business.id, tableId: eventTable.id, requestType: "CALL_WAITER" },
+      })
+    );
+    assert(calledBack.status === 201, "Garson çağrısı oluşur", calledBack);
+    await flow.closeTable(eventCustomer.tableSession.id, business.id, "test-staff", { forceClose: true, closeReason: "test" });
+    const events = await prisma.tableEvent.findMany({ where: { tableId: eventTable.id }, orderBy: { createdAt: "asc" } });
+    const trail = events.map((e) => `${e.fromStatus}>${e.toStatus}:${e.source}:${e.reason}`);
+    assert(
+      JSON.stringify(trail) === JSON.stringify([
+        "EMPTY>OCCUPIED:STAFF:ORDER_REQUEST_APPROVED",
+        "OCCUPIED>WAITING_WAITER:CUSTOMER:WAITER_CALLED",
+        "WAITING_WAITER>EMPTY:STAFF:TABLE_FORCE_CLOSED",
+      ]),
+      "Her durum değişikliği kim ve neden bilgisiyle yazılır",
+      trail
+    );
+    assert(events[0].actorUserId === "test-staff" && events[0].customerSessionId === eventCustomer.customerSession.id, "Onay olayı personeli ve cihazı tutar", events[0]);
+    assert(events[1].customerSessionId === eventCustomer.customerSession.id, "Müşteri olayı cihazı tutar", events[1]);
+
+    const quietEvents = await prisma.tableEvent.count({ where: { tableId: quietTable.id } });
+    assert(quietEvents === 0, "QR okutma ve talep olay yazmaz (durum değişmedi)", quietEvents);
+    const demoEvents = await prisma.tableEvent.findMany({ where: { tableId: demoTable.id }, orderBy: { createdAt: "asc" } });
+    assert(demoEvents.map((e) => e.reason).join() === "ORDER_REQUEST_AUTO_APPROVED,DEMO_IDLE_RELEASE", "Demo olayları sistem kaynaklıdır", demoEvents.map((e) => e.reason));
+    assert(demoEvents.every((e) => e.source === "SYSTEM"), "Demo olaylarının kaynağı sistem");
+
+    console.log("\n📦 Suite 13: QR yenileme");
+    const qrTable = await newTable(business.id);
+    const seated = await approvedCustomer(qrTable);
+    const photoViewer = await scan(qrTable, `${RUN_ID}-photo`);
+    const oldToken = qrTable.qrToken;
+    const rotated = await rotateTableQr(qrTable.id, business.id);
+    assert(rotated.qrToken !== oldToken, "Yeni token üretilir");
+    assert(rotated.closedSessions === 1, "Onaysız oturum kapanır", rotated.closedSessions);
+    const stale = await scan(qrTable, `${RUN_ID}-photo2`, oldToken);
+    assert(stale.body.sessionToken == null, "Eski QR ile oturum açılamaz", stale.body);
+    const fresh = await scan(qrTable, `${RUN_ID}-fresh`, rotated.qrToken);
+    assert(fresh.body.authorizationStatus === "VIEW_ONLY", "Yeni QR çalışır", fresh.body);
+    const photoStatus = await call(statusRoute.GET, customerRequest("/api/customer/session/status", { method: "GET", token: photoViewer.body.sessionToken }));
+    assert(photoStatus.status !== 200, "Eski QR'la açılmış oturum kapanır", photoStatus);
+    const seatedStatus = await call(statusRoute.GET, customerRequest("/api/customer/session/status", { method: "GET", token: seated.token }));
+    assert(seatedStatus.body.authorizationStatus === "AUTHORIZED", "Masadaki onaylı müşteri etkilenmez", seatedStatus.body);
+    assert((await tableStatus(qrTable.id)) === "OCCUPIED", "Masa durumu değişmez");
   } finally {
     const businessIds = [business.id, demo.id];
     await prisma.payment.deleteMany({ where: { businessId: { in: businessIds } } });

@@ -30,6 +30,7 @@ export async function releaseIdleDemoTable(tableId: string, businessId: string):
   await closeTable(active.id, businessId, null, {
     forceClose: true,
     closeReason: "Demo masası boşta kaldı",
+    eventReason: "DEMO_IDLE_RELEASE",
   });
   return true;
 }

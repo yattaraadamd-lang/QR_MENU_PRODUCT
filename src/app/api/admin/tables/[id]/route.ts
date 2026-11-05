@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { updateTableSchema, isValidCuid } from "@/lib/validation";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { writeTableStatus } from "@/lib/services/table-events.service";
 
 // PUT /api/admin/tables/[id] - Masa güncelle
 export const PUT = withApiHandler("PUT /api/admin/tables/[id]", handlePut);
@@ -64,16 +65,26 @@ async function handlePut(
   }
 
   // ✅ Update table with validated data
-  const table = await prisma.table.update({
-    where: { id: params.id },
-    data: input,
-    select: {
-      id: true,
-      tableNumber: true,
-      tableName: true,
-      status: true,
-      isActive: true,
-    },
+  const { status, ...fields } = input;
+  const table = await prisma.$transaction(async (tx) => {
+    if (status) {
+      await writeTableStatus(tx, { businessId, tableId: params.id }, status, {
+        source: "STAFF",
+        reason: "MANUAL_STATUS",
+        actorUserId: authResult.session.userId,
+      });
+    }
+    return tx.table.update({
+      where: { id: params.id },
+      data: fields,
+      select: {
+        id: true,
+        tableNumber: true,
+        tableName: true,
+        status: true,
+        isActive: true,
+      },
+    });
   });
 
   return NextResponse.json({ message: "Masa güncellendi", table });

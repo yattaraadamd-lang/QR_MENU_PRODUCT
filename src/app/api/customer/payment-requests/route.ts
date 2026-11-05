@@ -56,7 +56,7 @@ async function createPaymentRequest(request: NextRequest) {
     }
 
     // ✅ Merkezi table-flow.service kullanarak transaction ile ödeme talebi oluştur
-    const result = await requestPayment(tableId, businessId, note || null);
+    const result = await requestPayment(tableId, businessId, note || null, customerSession.id);
 
     // Socket.IO bildirimi (transaction dışında)
     try {

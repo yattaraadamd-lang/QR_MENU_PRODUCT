@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { PaymentStatus, PaymentMethod, BillStatus, BillPaymentStatus, TableStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
+import { writeTableStatus } from "@/lib/services/table-events.service";
 import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";
 
 export class PaymentError extends Error {
@@ -406,9 +407,10 @@ export async function processAdminPayment(input: ProcessAdminPaymentInput): Prom
           },
         });
 
-        await tx.table.update({
-          where: { id: bill.tableId },
-          data: { status: "EMPTY" },
+        await writeTableStatus(tx, { businessId, tableId: bill.tableId }, "EMPTY", {
+          source: "STAFF",
+          reason: "PAYMENT_COMPLETED",
+          actorUserId: adminId,
         });
 
         await tx.customerSession.updateMany({

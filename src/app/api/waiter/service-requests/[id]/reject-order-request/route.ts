@@ -103,10 +103,11 @@ async function handlePost(
     }
 
     // 4. Masa durumunu yeniden hesapla
-    const newTableStatus = await recalculateTableStatus(tx, {
-      businessId: authenticatedBusinessId,
-      tableId: serviceRequest.tableId,
-    });
+    const newTableStatus = await recalculateTableStatus(
+      tx,
+      { businessId: authenticatedBusinessId, tableId: serviceRequest.tableId },
+      { source: "STAFF", reason: "ORDER_REQUEST_REJECTED", actorUserId: userId }
+    );
 
     return { updatedRequest, newTableStatus };
   });

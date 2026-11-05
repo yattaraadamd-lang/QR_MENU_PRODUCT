@@ -4,7 +4,7 @@ import { ServiceRequestType, RequestStatus } from "@prisma/client";
 import { recalculateTableStatus } from "@/lib/services/table-flow.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { validateViewSession, validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
-import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
+import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/unified-rate-limit";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
@@ -234,26 +234,18 @@ async function createServiceRequest(request: NextRequest) {
         data: { status: "CANCELLED" },
       });
 
-      // Tek cihaz kuralı: masa için başka bir cihazın bekleyen talebi varsa yenisini kabul etme
-      const otherPending = await prisma.serviceRequest.findFirst({
-        where: {
-          tableId,
-          businessId,
-          requestType: "ORDER_REQUEST",
-          status: { in: ["PENDING", "SEEN"] },
-          expiresAt: { gt: new Date() },
-          customerSessionId: { not: customerSession.id },
-        },
-        select: { id: true },
-      });
-
-      if (otherPending) {
+      // Talep masayı kilitlemez: bir masada birden fazla cihaz bekleyebilir, garson kodu söyleyeni
+      // onaylar. Oturum değiştirerek garsonu talep yağmuruna tutmayı IP + masa sınırı keser
+      // (kafe Wi-Fi'ı paylaşılır, o yüzden masa başına). Yanıtı bekleyen talebi olan cihaz buraya gelmez.
+      const tableIpLimit = await checkRateLimit(
+        `order_req_table_ip:${tableId}:${getClientIp(request)}`,
+        RATE_LIMITS.ORDER_REQUEST_TABLE_IP
+      );
+      if (!tableIpLimit.allowed) {
+        const waitMinutes = Math.ceil((tableIpLimit.resetAt - Date.now()) / 60000);
         return NextResponse.json(
-          {
-            error: "Bu masa için başka bir cihazın bekleyen sipariş talebi var. Garson onayından sonra o cihaz sipariş verebilir.",
-            code: "TABLE_REQUEST_PENDING",
-          },
-          { status: 409 }
+          { error: `Bu masadan çok fazla talep gönderildi. ${waitMinutes} dakika sonra tekrar deneyin.`, code: "RATE_LIMITED" },
+          { status: 429 }
         );
       }
 
@@ -339,21 +331,6 @@ async function createServiceRequest(request: NextRequest) {
           throw new Error("ORDER_REQUEST_PENDING");
         }
 
-        const otherPendingCheck = await tx.serviceRequest.findFirst({
-          where: {
-            tableId,
-            businessId,
-            requestType: "ORDER_REQUEST",
-            status: { in: ["PENDING", "SEEN"] },
-            expiresAt: { gt: new Date() },
-            customerSessionId: { not: customerSession.id },
-          },
-          select: { id: true },
-        });
-
-        if (otherPendingCheck) {
-          throw new Error("TABLE_REQUEST_PENDING");
-        }
 
         // 2. ServiceRequest oluştur
         const newRequest = await tx.serviceRequest.create({
@@ -393,9 +370,9 @@ async function createServiceRequest(request: NextRequest) {
 
         return newRequest;
       }).catch((error) => {
-        // Eşzamanlı ikinci talep (çift tıklama ya da aynı masadan ikinci cihaz): yukarıdaki
-        // kontroller ikisinde de boş görür; ikinci kaydı masa başına tek bekleyen sipariş
-        // talebi indeksi ya da aynı idempotencyKey reddeder
+        // Eşzamanlı ikinci talep (çift tıklama): yukarıdaki kontroller ikisinde de boş görür;
+        // ikinci kaydı oturum başına tek bekleyen sipariş talebi indeksi ya da aynı
+        // idempotencyKey reddeder
         if (error?.code === "P2002") return null;
         throw error;
       });
@@ -403,14 +380,13 @@ async function createServiceRequest(request: NextRequest) {
       if (!serviceRequest) {
         const winner = await prisma.serviceRequest.findFirst({
           where: {
-            tableId,
-            businessId,
+            customerSessionId: customerSession.id,
             requestType: "ORDER_REQUEST",
             status: { in: ["PENDING", "SEEN"] },
           },
         });
 
-        if (winner && winner.customerSessionId === customerSession.id) {
+        if (winner) {
           return NextResponse.json(
             {
               message: "Bekleyen sipariş talebiniz var. Garson onayı bekleniyor.",
@@ -427,12 +403,7 @@ async function createServiceRequest(request: NextRequest) {
         }
 
         return NextResponse.json(
-          winner
-            ? {
-                error: "Bu masa için başka bir cihazın bekleyen sipariş talebi var. Garson onayından sonra o cihaz sipariş verebilir.",
-                code: "TABLE_REQUEST_PENDING",
-              }
-            : { error: "Bu masa için zaten bekleyen bir talep var.", code: "DUPLICATE_REQUEST" },
+          { error: "Bu masa için zaten bekleyen bir talep var.", code: "DUPLICATE_REQUEST" },
           { status: 409 }
         );
       }
@@ -519,7 +490,11 @@ async function createServiceRequest(request: NextRequest) {
         },
         include: { table: true },
       });
-      await recalculateTableStatus(tx, { businessId, tableId });
+      await recalculateTableStatus(tx, { businessId, tableId }, {
+        source: "CUSTOMER",
+        reason: "WAITER_CALLED",
+        customerSessionId: customerSession.id,
+      });
       return created;
     });
 
@@ -592,15 +567,6 @@ async function createServiceRequest(request: NextRequest) {
         {
           error: "Bekleyen sipariş talebiniz var. Garson onayı bekleniyor.",
           code: "ORDER_REQUEST_PENDING",
-        },
-        { status: 409 }
-      );
-    }
-    if (error.message === "TABLE_REQUEST_PENDING") {
-      return NextResponse.json(
-        {
-          error: "Bu masa için başka bir cihazın bekleyen sipariş talebi var. Garson onayından sonra o cihaz sipariş verebilir.",
-          code: "TABLE_REQUEST_PENDING",
         },
         { status: 409 }
       );

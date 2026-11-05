@@ -375,10 +375,11 @@ export async function cancelOrderAndSyncState(
       }
 
       // ── 6. Masa durumunu belirle ─────────────────────────────────────
-      const newTableStatus = await recalculateTableStatus(tx, {
-        tableId: order.tableId,
-        businessId,
-      });
+      const newTableStatus = await recalculateTableStatus(
+        tx,
+        { tableId: order.tableId, businessId },
+        { source: "STAFF", reason: "ORDER_CANCELLED", actorUserId: actorId }
+      );
 
       // ── 7. Güncellenen siparişi döndür ───────────────────────────────
       const updatedOrder = await tx.order.findUnique({

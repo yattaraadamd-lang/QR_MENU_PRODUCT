@@ -25,7 +25,15 @@ export function useWaiterRequestsPage() {
   useBusinessSocket(REQUEST_SOCKET_EVENTS, query.refresh);
   const actions = useRequestActions(query.refresh);
 
+  const orderRequestsByTable = new Map<string, number>();
+  for (const request of requests) {
+    if (request.requestType === "ORDER_REQUEST" && request.status === "PENDING") {
+      orderRequestsByTable.set(request.tableId, (orderRequestsByTable.get(request.tableId) ?? 0) + 1);
+    }
+  }
+
   return {
+    orderRequestsByTable,
     filter,
     setFilter,
     query,

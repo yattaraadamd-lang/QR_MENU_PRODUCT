@@ -9,11 +9,12 @@ interface AdminTableCardProps {
   onOpen: (table: TableDTO) => void;
   onShowQr: (table: TableDTO) => void;
   onDelete: (table: TableDTO) => void;
+  onHistory: (table: TableDTO) => void;
   qrPending: boolean;
 }
 
 /** Admin masa kartı: adisyon özeti, açık sipariş/talep sayısı, QR ve silme */
-export default function AdminTableCard({ table, onOpen, onShowQr, onDelete, qrPending }: AdminTableCardProps) {
+export default function AdminTableCard({ table, onOpen, onShowQr, onDelete, onHistory, qrPending }: AdminTableCardProps) {
   const name = tableDisplayName(table);
   const { bill, orders, serviceRequests } = table;
 
@@ -25,6 +26,9 @@ export default function AdminTableCard({ table, onOpen, onShowQr, onDelete, qrPe
         <>
           <Button variant="ghost" size="sm" className="flex-1" loading={qrPending} onClick={() => onShowQr(table)}>
             📱 QR
+          </Button>
+          <Button variant="ghost" size="sm" aria-label={`${name} geçmişi`} onClick={() => onHistory(table)}>
+            🕘
           </Button>
           <Button variant="ghost" size="sm" aria-label={`${name} sil`} onClick={() => onDelete(table)}>
             🗑️

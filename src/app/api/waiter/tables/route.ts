@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { TableStatus } from "@prisma/client";
+import { writeTableStatus } from "@/lib/services/table-events.service";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
 import { waiterTableStatusSchema } from "@/lib/validation";
 
@@ -81,10 +82,13 @@ async function handlePut(request: NextRequest) {
   const table = await prisma.table.findFirst({ where: { id: tableId, businessId } });
   if (!table) return NextResponse.json({ error: "Masa bulunamadı" }, { status: 404 });
 
-  const updated = await prisma.table.update({
-    where: { id: tableId },
-    data: { status: status as TableStatus },
-    select: TABLE_SELECT,
+  const updated = await prisma.$transaction(async (tx) => {
+    await writeTableStatus(tx, { businessId, tableId }, status as TableStatus, {
+      source: "STAFF",
+      reason: "MANUAL_STATUS",
+      actorUserId: session.user.id,
+    });
+    return tx.table.findUniqueOrThrow({ where: { id: tableId }, select: TABLE_SELECT });
   });
   return NextResponse.json({ message: "Masa durumu güncellendi", table: updated });
 }

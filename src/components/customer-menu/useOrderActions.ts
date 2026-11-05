@@ -166,8 +166,6 @@ export function useOrderActions(p: Params) {
         } else if (d.code === "TABLE_ALREADY_CLAIMED") {
           session.setStatus("TABLE_ALREADY_CLAIMED");
           showError(TABLE_CLAIMED);
-        } else if (d.code === "TABLE_REQUEST_PENDING") {
-          showError("Bu masa için başka bir cihazın bekleyen talebi var. Siparişi o cihazdan verin.");
         } else if (d.code === "ORDER_REQUEST_PENDING") {
           session.setStatus("PENDING");
           if (d.serviceRequest?.verificationCode) session.setVerificationCode(d.serviceRequest.verificationCode);

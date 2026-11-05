@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
+import { writeTableStatus } from "@/lib/services/table-events.service";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
 import { forceCloseTableSchema } from "@/lib/validation";
 
@@ -111,11 +112,10 @@ async function handlePost(
     });
 
     // 6. Table durumunu EMPTY yap
-    await tx.table.update({
-      where: { id: tableId },
-      data: {
-        status: "EMPTY",
-      },
+    await writeTableStatus(tx, { businessId, tableId }, "EMPTY", {
+      source: "STAFF",
+      reason: "TABLE_FORCE_CLOSED",
+      actorUserId: session.user.id,
     });
 
     return {

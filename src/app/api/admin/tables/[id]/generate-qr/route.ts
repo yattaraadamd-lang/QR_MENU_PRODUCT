@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
-import QRCode from "qrcode";
 import { generateQrToken } from "@/lib/qr-token";
 import { withApiHandler } from "@/lib/api/handler";
+import { renderTableQr } from "@/lib/services/table-qr.service";
 
 // POST /api/admin/tables/[id]/generate-qr - QR kod oluştur
 export const POST = withApiHandler("POST /api/admin/tables/[id]/generate-qr", handlePost);
@@ -45,24 +45,11 @@ async function handlePost(
     });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const qrUrl = `${appUrl}/qr/${qrToken}`;
-
-  // QR kod görselini oluştur (base64 data URL)
-  const qrImageData = await QRCode.toDataURL(qrUrl, {
-    width: 400,
-    margin: 2,
-    color: {
-      dark: "#000000",
-      light: "#ffffff",
-    },
-  });
-
   return NextResponse.json({
     message: "QR kod oluşturuldu",
-    qrUrl,
+    ...(await renderTableQr(qrToken)),
     qrToken,
-    qrImageData,
+    tableId: table.id,
     tableNumber: table.tableNumber,
     tableName: table.tableName,
   });

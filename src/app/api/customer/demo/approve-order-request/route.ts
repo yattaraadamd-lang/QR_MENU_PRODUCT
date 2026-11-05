@@ -46,13 +46,16 @@ async function approve(request: NextRequest) {
   }
 
   try {
-    await approveOrderRequest({
-      id: pending.id,
-      businessId: customerSession.businessId,
-      tableId: customerSession.tableId,
-      customerSessionId: customerSession.id,
-      table: customerSession.table,
-    });
+    await approveOrderRequest(
+      {
+        id: pending.id,
+        businessId: customerSession.businessId,
+        tableId: customerSession.tableId,
+        customerSessionId: customerSession.id,
+        table: customerSession.table,
+      },
+      { source: "SYSTEM", reason: "ORDER_REQUEST_AUTO_APPROVED" }
+    );
   } catch (error) {
     // Garson aynı anda onayladıysa ya da masa başka cihazdaysa durum ucu doğrusunu gösterir
     if (error instanceof OrderRequestApprovalError || (error as { code?: string })?.code === "P2002") {
