@@ -13,7 +13,7 @@ export interface DemoAccount {
   readonly password: string;
 }
 
-/** Seed'deki herkese açık demo hesapları (prisma/seed.ts) */
+/** Seed'deki herkese açık demo hesapları (prisma/demo-data.ts) */
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   { role: "admin", label: "Yönetici", email: "admin@demo.com", password: "admin123" },
   { role: "waiter", label: "Garson", email: "garson@demo.com", password: "garson123" },

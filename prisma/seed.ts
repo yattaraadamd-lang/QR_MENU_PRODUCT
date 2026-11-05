@@ -1,7 +1,5 @@
-import { PrismaClient, UserRole, TableStatus } from "@prisma/client";
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
-import { v4 as uuidv4 } from "uuid";
+import { PrismaClient } from "@prisma/client";
+import { DEMO_EMAILS, hashDemoPasswords, syncDemoBusiness } from "./demo-data";
 
 const prisma = new PrismaClient();
 
@@ -9,7 +7,7 @@ const prisma = new PrismaClient();
 function checkProductionSafety() {
   const isDemoMode = process.env.DEMO_MODE === "true";
   const isProduction = process.env.NODE_ENV === "production";
-  
+
   if (isProduction && !isDemoMode) {
     throw new Error(
       "❌ SECURITY: Demo seed cannot run in production without DEMO_MODE=true.\n" +
@@ -17,7 +15,7 @@ function checkProductionSafety() {
       "⚠️  WARNING: This will create accounts with weak passwords!"
     );
   }
-  
+
   if (isProduction && isDemoMode) {
     console.warn("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.warn("⚠️  DEMO MODE ENABLED IN PRODUCTION!");
@@ -29,264 +27,16 @@ function checkProductionSafety() {
   }
 }
 
-/**
- * Hash an invite code for storage (matches P0-01 creation flow).
- */
-function hashInviteCode(rawCode: string): string {
-  return crypto.createHash("sha256").update(rawCode).digest("hex");
-}
-
 async function main() {
-  // ✅ P0-08 FIX: Fail-fast in production
   checkProductionSafety();
 
   console.log("🌱 Seed başlatılıyor...");
 
-  // İşletme oluştur
-  const business = await prisma.business.upsert({
-    where: { slug: "demo-kafe" },
-    update: {},
-    create: {
-      id: "demo-business-id",
-      name: "Demo Kafe",
-      slug: "demo-kafe",
-      description: "QR Menü Demo İşletmesi - Kafe & Restoran",
-      phone: "+90 555 000 0000",
-      email: "demo@qrmenu.com",
-      address: "İstanbul, Türkiye",
-      isActive: true,
-    },
-  });
+  const passwordHashes = await hashDemoPasswords();
+  await prisma.$transaction((tx) => syncDemoBusiness(tx, passwordHashes), { timeout: 60_000 });
 
-  console.log("✅ İşletme oluşturuldu:", business.name);
-
-  // ✅ P0-08 FIX: Warn about weak passwords (don't log the actual passwords)
-  console.warn("⚠️  Creating users with WEAK demo passwords - development only!");
-
-  // Admin kullanıcı oluştur
-  const hashedPassword = await bcrypt.hash("admin123", 10);
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@demo.com" },
-    update: {},
-    create: {
-      businessId: business.id,
-      name: "Admin Kullanıcı",
-      email: "admin@demo.com",
-      password: hashedPassword,
-      role: UserRole.ADMIN,
-      isActive: true,
-    },
-  });
-
-  console.log("✅ Admin oluşturuldu:", admin.email);
-
-  // Garson kullanıcı oluştur
-  const waiterPassword = await bcrypt.hash("garson123", 10);
-  const waiter = await prisma.user.upsert({
-    where: { email: "garson@demo.com" },
-    update: {},
-    create: {
-      businessId: business.id,
-      name: "Demo Garson",
-      email: "garson@demo.com",
-      password: waiterPassword,
-      role: UserRole.WAITER,
-      isActive: true,
-    },
-  });
-
-  console.log("✅ Garson oluşturuldu:", waiter.email);
-
-  // Kategoriler oluştur
-  await prisma.category.upsert({
-    where: { id: "cat-sicak-icecek" },
-    update: {},
-    create: { id: "cat-sicak-icecek", businessId: business.id, name: "Sıcak İçecekler", icon: "☕", sortOrder: 1, isActive: true },
-  });
-  await prisma.category.upsert({
-    where: { id: "cat-soguk-icecek" },
-    update: {},
-    create: { id: "cat-soguk-icecek", businessId: business.id, name: "Soğuk İçecekler", icon: "🥤", sortOrder: 2, isActive: true },
-  });
-  await prisma.category.upsert({
-    where: { id: "cat-yiyecek" },
-    update: {},
-    create: { id: "cat-yiyecek", businessId: business.id, name: "Yiyecekler", icon: "🍽️", sortOrder: 3, isActive: true },
-  });
-  await prisma.category.upsert({
-    where: { id: "cat-tatli" },
-    update: {},
-    create: { id: "cat-tatli", businessId: business.id, name: "Tatlılar", icon: "🍰", sortOrder: 4, isActive: true },
-  });
-
-  console.log("✅ Kategoriler oluşturuldu");
-
-  // Ürünler oluştur
-  const products = [
-    { id: "prod-turk-kahvesi", name: "Türk Kahvesi", description: "Geleneksel Türk kahvesi", ingredients: "Kahve çekirdeği, su", allergens: null, price: 45, categoryId: "cat-sicak-icecek", isPopular: true },
-    { id: "prod-latte", name: "Latte", description: "Espresso üzerine buharla ısıtılmış süt", ingredients: "Espresso, süt", allergens: "Süt ürünleri", price: 65, categoryId: "cat-sicak-icecek", isPopular: true },
-    { id: "prod-cay", name: "Çay", description: "Demlik çay, Rize çayı", ingredients: "Çay", allergens: null, price: 15, categoryId: "cat-sicak-icecek", isPopular: true },
-    { id: "prod-cappuccino", name: "Cappuccino", description: "Espresso, buharla ısıtılmış süt ve süt köpüğü", ingredients: "Espresso, süt", allergens: "Süt ürünleri", price: 70, categoryId: "cat-sicak-icecek", isPopular: false },
-    { id: "prod-sicak-cikolata", name: "Sıcak Çikolata", description: "Gerçek çikolata ile hazırlanan sıcak çikolata", ingredients: "Çikolata, süt, şeker", allergens: "Süt ürünleri", price: 55, categoryId: "cat-sicak-icecek", isPopular: false },
-    { id: "prod-ayran", name: "Ayran", description: "Taze yapılmış soğuk ayran", ingredients: "Yoğurt, su, tuz", allergens: "Süt ürünleri", price: 20, categoryId: "cat-soguk-icecek", isPopular: true },
-    { id: "prod-limonata", name: "Limonata", description: "Taze sıkılmış ev yapımı limonata", ingredients: "Limon, su, şeker, nane", allergens: null, price: 35, categoryId: "cat-soguk-icecek", isPopular: true },
-    { id: "prod-ice-tea", name: "Ice Tea", description: "Soğuk çay, şeftali aromalı", ingredients: "Çay, şeftali aroması, şeker", allergens: null, price: 30, categoryId: "cat-soguk-icecek", isPopular: false },
-    { id: "prod-tost", name: "Tost", description: "Kaşarlı karışık tost", ingredients: "Tost ekmeği, kaşar peyniri, domates, salatalık", allergens: "Gluten, Süt ürünleri", price: 60, categoryId: "cat-yiyecek", isPopular: true },
-    { id: "prod-hamburger", name: "Hamburger", description: "El yapımı köfte, taze sebzeler ve özel sos ile", ingredients: "Dana kıyma, marul, domates, soğan, turşu, hamburger ekmeği", allergens: "Gluten", price: 120, categoryId: "cat-yiyecek", isPopular: true },
-    { id: "prod-izgara-kofte", name: "Izgara Köfte", description: "Özel baharatlarla hazırlanmış el yapımı köfte", ingredients: "Dana kıyma, soğan, maydanoz, baharatlar", allergens: "Gluten", price: 130, categoryId: "cat-yiyecek", isPopular: true },
-    { id: "prod-tavuk-sis", name: "Tavuk Şiş", description: "Marine edilmiş tavuk göğsü şiş", ingredients: "Tavuk göğsü, zeytinyağı, limon, baharatlar", allergens: null, price: 110, categoryId: "cat-yiyecek", isPopular: false },
-    { id: "prod-karisik-pizza", name: "Karışık Pizza", description: "Bol malzemeli karışık pizza", ingredients: "Un, domates sosu, mozzarella, sucuk, mantar, biber", allergens: "Gluten, Süt ürünleri", price: 150, categoryId: "cat-yiyecek", isPopular: false },
-    { id: "prod-cheesecake", name: "Cheesecake", description: "New York usulü klasik cheesecake", ingredients: "Krem peynir, bisküvi, tereyağı, şeker", allergens: "Gluten, Süt ürünleri", price: 85, categoryId: "cat-tatli", isPopular: true },
-    { id: "prod-sutlac", name: "Sütlaç", description: "Fırında pişirilmiş geleneksel sütlaç", ingredients: "Süt, pirinç, şeker, vanilya", allergens: "Süt ürünleri", price: 55, categoryId: "cat-tatli", isPopular: true },
-    { id: "prod-baklava", name: "Baklava", description: "Antep fıstıklı ev yapımı baklava", ingredients: "Yufka, tereyağı, antep fıstığı, şerbet", allergens: "Gluten, Fındık", price: 75, categoryId: "cat-tatli", isPopular: false },
-  ];
-
-  for (const product of products) {
-    await prisma.product.upsert({
-      where: { id: product.id },
-      update: {},
-      create: {
-        id: product.id,
-        businessId: business.id,
-        categoryId: product.categoryId,
-        name: product.name,
-        description: product.description,
-        ingredients: product.ingredients,
-        allergens: product.allergens,
-        price: product.price,
-        isAvailable: true,
-        isPopular: product.isPopular,
-      },
-    });
-  }
-
-  console.log("✅ Ürünler oluşturuldu (" + products.length + " adet)");
-
-  // Masalar oluştur
-  const tableNames = ["Masa 1","Masa 2","Masa 3","Masa 4","Bahçe 1","Bahçe 2","Teras 1","Teras 2","VIP 1","VIP 2"];
-  const tables: any[] = [];
-  for (let i = 0; i < tableNames.length; i++) {
-    const tableNumber = `${i + 1}`;
-    const qrToken = `qr_${business.slug}_${tableNumber}_${uuidv4().slice(0, 8)}`;
-    const table = await prisma.table.upsert({
-      where: { businessId_tableNumber: { businessId: business.id, tableNumber } },
-      update: { tableName: tableNames[i] },
-      create: { businessId: business.id, tableNumber, tableName: tableNames[i], status: TableStatus.EMPTY, qrToken },
-    });
-    tables.push(table);
-  }
-  console.log("✅ " + tableNames.length + " masa oluşturuldu");
-
-  // ✅ E2E FIX: Create demo table session and customer session for Table 1
-  // This allows E2E tests to access /menu/demo-business-id/1 without QR scanning
-  const demoTable = tables[0]; // Masa 1
-  
-  console.log("✅ Demo QR token (Masa 1): " + demoTable.qrToken);
-
-  // Create active table session for demo table
-  let demoTableSession = await prisma.tableSession.findFirst({
-    where: {
-      businessId: business.id,
-      tableId: demoTable.id,
-      status: "ACTIVE",
-    },
-  });
-
-  if (!demoTableSession) {
-    demoTableSession = await prisma.tableSession.create({
-      data: {
-        businessId: business.id,
-        tableId: demoTable.id,
-        status: "ACTIVE",
-        startedAt: new Date(),
-      },
-    });
-
-    // Create bill for table session
-    await prisma.bill.create({
-      data: {
-        businessId: business.id,
-        tableId: demoTable.id,
-        tableSessionId: demoTableSession.id,
-        status: "OPEN",
-        totalAmount: 0,
-        paidAmount: 0,
-        remainingAmount: 0,
-      },
-    });
-
-    // Update table status
-    await prisma.table.update({
-      where: { id: demoTable.id },
-      data: { status: TableStatus.OCCUPIED },
-    });
-  }
-
-  // Create pre-authorized customer session for demo
-  const demoSessionToken = crypto.randomBytes(32).toString("hex");
-  const demoSessionTokenHash = crypto.createHash("sha256").update(demoSessionToken).digest("hex");
-  
-  await prisma.customerSession.upsert({
-    where: { sessionToken: demoSessionTokenHash },
-    update: {
-      status: "ACTIVE",
-      authorizationStatus: "AUTHORIZED",
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year for demo
-      tableSessionId: demoTableSession.id,
-    },
-    create: {
-      businessId: business.id,
-      tableId: demoTable.id,
-      tableSessionId: demoTableSession.id,
-      sessionToken: demoSessionTokenHash,
-      status: "ACTIVE",
-      authorizationStatus: "AUTHORIZED", // ✅ Pre-authorized for demo
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year for demo
-      lastSeenAt: new Date(),
-      authorizedAt: new Date(),
-    },
-  });
-  console.log("✅ Demo müşteri oturumu oluşturuldu (pre-authorized)");
-  console.log("   Session Token: " + demoSessionToken);
-  console.log("   ⚠️  Bu token yalnızca bu çıktıda gösterilir, DB'de hash olarak saklanır.");
-
-  // ✅ P0-08 FIX: Generate CSPRNG invite codes and store as SHA-256 hashes
-  // Matches the P0-01 invite creation flow in /api/staff/invite
-  const rawInviteCodes: string[] = [];
-  for (let i = 0; i < 3; i++) {
-    const rawCode = `inv_${crypto.randomBytes(16).toString("hex")}`;
-    const codeHash = hashInviteCode(rawCode);
-    rawInviteCodes.push(rawCode);
-
-    const existing = await prisma.waiterInvite.findFirst({
-      where: { inviteCode: codeHash },
-    });
-
-    if (!existing) {
-      await prisma.waiterInvite.create({
-        data: {
-          businessId: business.id,
-          inviteCode: codeHash, // ✅ Store HASH, not raw code
-          isUsed: false,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        },
-      });
-    }
-  }
-
-  console.log("✅ Davet kodları oluşturuldu (hash'lenmiş — " + rawInviteCodes.length + " adet)");
-
-  console.log("\n🎉 Seed tamamlandı!");
-  console.log("─────────────────────────────────");
-  console.log("Admin: admin@demo.com");
-  console.log("Garson: garson@demo.com");
-  console.log("Şifre:  (check prisma/seed.ts source for dev password)");
-  console.log("\n📋 Garson davet kodları (hash'lenmiş olarak DB'de):");
-  rawInviteCodes.forEach((code, i) => {
-    console.log(`  Davet #${i + 1}: ${code}`);
-  });
-  console.log("  ⚠️  Bu kodlar yalnız bu çıktıda gösterilir, DB'de hash olarak saklanır.");
-  console.log("─────────────────────────────────");
+  console.log("🎉 Demo işletmesi tanımıyla eşitlendi.");
+  console.log(`Hesaplar: ${DEMO_EMAILS.join(", ")} (parolalar: prisma/demo-data.ts)`);
 }
 
 main()
