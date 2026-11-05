@@ -16,6 +16,7 @@ export function useCustomerSession(businessId: string) {
   const [status, setStatus] = useState<AuthStatus>("VIEW_ONLY");
   const [verificationCode, setVerificationCode] = useState<string | null>(null);
   const [blockedMsg, setBlockedMsg] = useState<string | null>(null);
+  const [demoAutoApprove, setDemoAutoApprove] = useState(false);
   // ✅ Canonical session hydration — UI butonu canonical durum öğrenilmeden aktif olmaz
   const [hydrated, setHydrated] = useState(false);
 
@@ -43,6 +44,7 @@ export function useCustomerSession(businessId: string) {
       businessId: data.businessId,
       tableId: data.tableId,
       orderRequestStatus: data.orderRequestStatus,
+      demoAutoApproveInMs: data.demoAutoApproveInMs,
       code: data.code,
     };
   }, []);
@@ -226,6 +228,15 @@ export function useCustomerSession(businessId: string) {
         toast.success("Masanız açıldı! Siparişinizi gönderebilirsiniz. ✅");
       } else if (result.status === "REVOKED") {
         setStatus("REVOKED");
+      } else if (typeof result.demoAutoApproveInMs === "number") {
+        // Demo: garson onaylamazsa sistem onaylar; sonucu bir sonraki yoklama gösterir
+        setDemoAutoApprove(true);
+        if (result.demoAutoApproveInMs === 0) {
+          await fetch("/api/customer/demo/approve-order-request", {
+            method: "POST",
+            headers: { "x-session-token": token },
+          });
+        }
       }
     } catch { /* network error — next poll will retry */ }
     finally { syncInFlightRef.current = false; }
@@ -272,6 +283,7 @@ export function useCustomerSession(businessId: string) {
     setStatus,
     verificationCode,
     setVerificationCode,
+    demoAutoApprove,
     blockedMsg,
     hydrated,
     ensure,

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { PaymentStatus, PaymentMethod, BillStatus, BillPaymentStatus, TableStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
+import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";
 
 export class PaymentError extends Error {
   constructor(
@@ -95,7 +96,7 @@ export async function requestWaiterApproval(input: {
       const orders = await tx.order.findMany({
         where: {
           tableSessionId: payment.tableSessionId || undefined,
-          status: { notIn: ["CANCELLED", "REJECTED"] },
+          status: { in: BILLABLE_ORDER_STATUSES },
         },
       });
 
@@ -289,7 +290,7 @@ export async function processAdminPayment(input: ProcessAdminPaymentInput): Prom
       const orders = await tx.order.findMany({
         where: {
           tableSessionId: bill.tableSessionId,
-          status: { notIn: ["CANCELLED", "REJECTED"] },
+          status: { in: BILLABLE_ORDER_STATUSES },
         },
       });
 
@@ -374,10 +375,23 @@ export async function processAdminPayment(input: ProcessAdminPaymentInput): Prom
 
       // 10. Atomic Full Payment Closures
       if (isFullyPaid) {
+        // Hesap kapanırken onay bekleyen sipariş kapalı oturumda sahipsiz kalmasın
+        await tx.order.updateMany({
+          where: { tableSessionId: bill.tableSessionId, status: "PENDING" },
+          data: {
+            status: "CANCELLED",
+            paymentStatus: "CANCELLED",
+            cancelReason: "Hesap kapandığı için onaylanmamış sipariş iptal edildi",
+            cancelReasonCode: "OTHER",
+            cancelledAt: now,
+            cancelledById: adminId,
+          },
+        });
+
         await tx.order.updateMany({
           where: {
             tableSessionId: bill.tableSessionId,
-            status: { notIn: ["CANCELLED", "REJECTED"] },
+            status: { in: BILLABLE_ORDER_STATUSES },
           },
           data: { paymentStatus: "PAID" },
         });

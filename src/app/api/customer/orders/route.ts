@@ -12,6 +12,9 @@ export const dynamic = "force-dynamic";
 // 🔒 SECURITY: Müşteriye dönen sipariş yanıtında masanın QR token'ı ve iç alanları yer almaz
 const CUSTOMER_TABLE_SELECT = { id: true, tableNumber: true, tableName: true } as const;
 
+// Bir oturumun garson onayı bekleyebilecek en fazla sipariş sayısı
+const MAX_PENDING_ORDERS_PER_SESSION = 2;
+
 // POST /api/customer/orders
 export const POST = withApiHandler("CUSTOMER_ORDER_CREATE", createOrder);
 
@@ -78,6 +81,18 @@ async function createOrder(request: NextRequest) {
           status: existingOrder.status,
         }, { status: 200 });
       }
+    }
+
+    // ✅ SPAM ÖNLEMİ: Onay kuyruğu oturum başına sınırlı. Hız sınırıyla birlikte tutulur (10 sn'de
+    // bir istek geçer), o yüzden sayımdaki yarış sınırı en fazla bir sipariş aşabilir
+    const openPendingOrders = await prisma.order.count({
+      where: { customerSessionId: customerSession.id, businessId, status: OrderStatus.PENDING },
+    });
+    if (openPendingOrders >= MAX_PENDING_ORDERS_PER_SESSION) {
+      return NextResponse.json(
+        { error: "Önceki siparişleriniz garson onayı bekliyor. Onaylandıktan sonra yeni sipariş verebilirsiniz.", code: "PENDING_ORDER_LIMIT" },
+        { status: 429 }
+      );
     }
 
     // ✅ SPAM ÖNLEMİ: Aynı ürünlerle son 30 saniyede sipariş var mı?
@@ -175,11 +190,12 @@ async function createOrder(request: NextRequest) {
       );
     }
 
-    // ✅ Transaction: Sipariş oluştur + Bill güncelle + Masa durumu güncelle
+    // ✅ Sipariş PENDING doğar: garson onaylayana kadar adisyona ve masa durumuna dokunmaz
     const order = await prisma.$transaction(async (tx) => {
       // Bill kontrolü
       const bill = await tx.bill.findFirst({
         where: { tableSessionId, status: "OPEN" },
+        select: { id: true },
       });
 
       if (!bill) {
@@ -204,31 +220,6 @@ async function createOrder(request: NextRequest) {
           table: { select: CUSTOMER_TABLE_SELECT },
         },
       });
-
-      // Bill totalAmount güncelle
-      const allOrders = await tx.order.findMany({
-        where: {
-          tableSessionId,
-          status: { notIn: ["CANCELLED", "REJECTED"] },
-        },
-      });
-
-      const newTotalAmount = allOrders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
-      const remainingAmount = Math.max(0, newTotalAmount - Number(bill.paidAmount));
-
-      await tx.bill.update({
-        where: { id: bill.id },
-        data: { totalAmount: newTotalAmount, remainingAmount },
-      });
-
-      // Masa durumunu HAS_ORDER yap
-      const currentTable = await tx.table.findUnique({ where: { id: tableId }, select: { status: true } });
-      if (currentTable && ["OCCUPIED", "SERVED", "HAS_ORDER"].includes(currentTable.status)) {
-        await tx.table.update({
-          where: { id: tableId },
-          data: { status: "HAS_ORDER" },
-        });
-      }
 
       // Bildirim oluştur
       await tx.notification.create({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashCustomerSessionToken } from "@/lib/customer-session-utils";
+import { DEMO_AUTO_APPROVE_DELAY_MS, isDemoBusiness } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
@@ -144,17 +145,23 @@ export async function GET(request: NextRequest) {
 
     // Check for pending ORDER_REQUEST (so frontend knows not to create another)
     let orderRequestStatus: string | null = null;
+    // Yalnız demoda dolu: sistem onayına kalan süre (0 → onay uçu çağrılabilir)
+    let demoAutoApproveInMs: number | null = null;
     const pendingOrderRequest = await prisma.serviceRequest.findFirst({
       where: {
         customerSessionId: session.id,
         requestType: "ORDER_REQUEST",
         status: { in: ["PENDING", "SEEN"] },
       },
-      select: { status: true },
+      select: { status: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
     if (pendingOrderRequest) {
       orderRequestStatus = pendingOrderRequest.status;
+      if (isDemoBusiness(session.businessId)) {
+        const elapsed = Date.now() - pendingOrderRequest.createdAt.getTime();
+        demoAutoApproveInMs = Math.max(0, DEMO_AUTO_APPROVE_DELAY_MS - elapsed);
+      }
     }
 
     return NextResponse.json(
@@ -166,6 +173,7 @@ export async function GET(request: NextRequest) {
         tableId: session.tableId,
         businessId: session.businessId,
         orderRequestStatus,
+        demoAutoApproveInMs,
       },
       { headers: securityHeaders }
     );

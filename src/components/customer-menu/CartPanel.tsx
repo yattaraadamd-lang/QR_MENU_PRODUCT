@@ -16,6 +16,8 @@ type Props = {
   /** Canonical oturum durumu öğrenilmeden sipariş butonu açılmaz */
   hydrated: boolean;
   verificationCode: string | null;
+  /** Demoda garson onaylamazsa sistem onaylar; ziyaretçiye söylenir */
+  demoAutoApprove: boolean;
   submitting: boolean;
   orderNote: string;
   onOrderNoteChange: (v: string) => void;
@@ -53,6 +55,9 @@ export default function CartPanel(p: Props) {
           <p className={styles.codeLabel}>Masa doğrulama kodunuz</p>
           <p className={styles.code}>{p.verificationCode}</p>
           <p className={styles.codeHint}>Garson masanıza geldiğinde bu kodu söyleyin.</p>
+          {p.demoAutoApprove && (
+            <p className={styles.codeHint} role="status">Demo: garson birazdan onaylamazsa sistem onaylayacak.</p>
+          )}
         </div>
       )}
 
