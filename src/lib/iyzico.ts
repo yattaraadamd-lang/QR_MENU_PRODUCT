@@ -140,6 +140,13 @@ export async function initializeSubscriptionCheckout(params: {
   };
 }
 
+/** Abonelik detayındaki ödeme dönemi. orderStatus: WAITING | SUCCESS | FAILED; dönem sınırları epoch ms */
+export interface IyzicoOrder {
+  orderStatus?: string;
+  startPeriod?: number;
+  endPeriod?: number;
+}
+
 export interface IyzicoSubscription {
   referenceCode: string;
   customerReferenceCode: string;
@@ -147,6 +154,7 @@ export interface IyzicoSubscription {
   subscriptionStatus: string;
   startDate?: number;
   endDate?: number;
+  orders?: IyzicoOrder[];
 }
 
 export async function retrieveSubscriptionCheckout(token: string): Promise<IyzicoSubscription> {

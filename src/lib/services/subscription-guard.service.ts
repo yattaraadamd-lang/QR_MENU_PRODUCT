@@ -5,6 +5,7 @@
  * and subscription status (ACTIVE, TRIAL vs EXPIRED, PAST_DUE, CANCELLED).
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getRequestLogger } from "@/lib/logger";
 
@@ -18,6 +19,14 @@ export interface QuotaCheckResult {
   error?: string;
 }
 
+/** Yürürlükteki abonelik. İptal edilen abonelik, ödenmiş dönemin sonuna (endsAt) kadar yürürlüktedir */
+function currentSubscriptionWhere(businessId: string, now: Date): Prisma.BusinessSubscriptionWhereInput {
+  return {
+    businessId,
+    OR: [{ status: { in: ["ACTIVE", "TRIAL", "PAST_DUE"] } }, { status: "CANCELLED", endsAt: { gt: now } }],
+  };
+}
+
 /**
  * Check whether a business is within its subscription plan limits for a given resource.
  */
@@ -26,12 +35,11 @@ export async function checkPlanQuota(
   quotaType: QuotaType
 ): Promise<QuotaCheckResult> {
   try {
+    const now = new Date();
+
     // 1. Fetch active subscription for the business
     const subscription = await prisma.businessSubscription.findFirst({
-      where: {
-        businessId,
-        status: { in: ["ACTIVE", "TRIAL", "PAST_DUE"] },
-      },
+      where: currentSubscriptionWhere(businessId, now),
       include: {
         plan: true,
       },
@@ -47,9 +55,18 @@ export async function checkPlanQuota(
       };
     }
 
-    // If no explicit subscription found, allow a generous default or fallback (grace period for development/demo)
     if (!subscription || !subscription.plan) {
-      // Default limits for businesses without an explicit plan
+      // Aboneliği bitmiş işletme ücretsiz limitlere düşmez (Kullanım Koşulları madde 5.1, 5.6)
+      const pastSubscriptions = await prisma.businessSubscription.count({ where: { businessId } });
+      if (pastSubscriptions > 0) {
+        return {
+          allowed: false,
+          status: "SUBSCRIPTION_ENDED",
+          error: "Aboneliğiniz sona erdi. Yeni ekleme yapabilmek için lütfen bir abonelik paketi seçin.",
+        };
+      }
+
+      // Hiç aboneliği olmamış eski işletmeler (seed-plans.cjs notu): varsayılan limitler
       const DEFAULT_LIMITS: Record<QuotaType, number> = {
         TABLE: 50,
         WAITER: 20,
@@ -72,7 +89,6 @@ export async function checkPlanQuota(
     }
 
     // Check expiry
-    const now = new Date();
     if (subscription.status === "TRIAL" && subscription.trialEndsAt && subscription.trialEndsAt < now) {
       return {
         allowed: false,
@@ -139,18 +155,26 @@ export async function checkPlanQuota(
  * Admin abonelik sayfası için: güncel abonelik, geçerlilik ve kaynak kullanımı.
  */
 export async function getUsageSummary(businessId: string) {
-  const subscription = await prisma.businessSubscription.findFirst({
-    where: { businessId, status: { in: ["TRIAL", "ACTIVE", "PAST_DUE"] } },
+  const now = new Date();
+  const current = await prisma.businessSubscription.findFirst({
+    where: currentSubscriptionWhere(businessId, now),
     include: { plan: true },
     orderBy: { createdAt: "desc" },
   });
+  // Yürürlükte abonelik yoksa son abonelik gösterilir: ekran "Plan yok, sınırsız" demesin
+  const subscription =
+    current ??
+    (await prisma.businessSubscription.findFirst({
+      where: { businessId },
+      include: { plan: true },
+      orderBy: { createdAt: "desc" },
+    }));
 
-  const now = new Date();
   const isValid =
-    !!subscription &&
-    subscription.status !== "PAST_DUE" &&
-    !(subscription.status === "TRIAL" && subscription.trialEndsAt && subscription.trialEndsAt < now) &&
-    !(subscription.status === "ACTIVE" && subscription.endsAt && subscription.endsAt < now);
+    !!current &&
+    current.status !== "PAST_DUE" &&
+    !(current.status === "TRIAL" && current.trialEndsAt && current.trialEndsAt < now) &&
+    !(current.status === "ACTIVE" && current.endsAt && current.endsAt < now);
 
   const [tables, waiters, products] = await Promise.all([
     getCurrentCount(businessId, "TABLE"),

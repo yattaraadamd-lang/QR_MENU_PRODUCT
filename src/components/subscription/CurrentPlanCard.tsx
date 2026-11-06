@@ -1,6 +1,6 @@
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { SUBSCRIPTION_STATUS, trialDaysLeft } from "./subscriptionModel";
+import { cancelledPlanEndDate, SUBSCRIPTION_STATUS, trialDaysLeft } from "./subscriptionModel";
 import type { SubscriptionData } from "./types";
 import UsageMeter from "./UsageMeter";
 
@@ -15,6 +15,7 @@ export default function CurrentPlanCard({ data, now, onCancel }: CurrentPlanCard
   const sub = data.subscription;
   const status = sub ? SUBSCRIPTION_STATUS[sub.status] : null;
   const daysLeft = trialDaysLeft(sub, now);
+  const endDate = cancelledPlanEndDate(sub);
 
   return (
     <section aria-labelledby="current-plan-heading" className="card max-w-3xl p-5">
@@ -27,6 +28,11 @@ export default function CurrentPlanCard({ data, now, onCancel }: CurrentPlanCard
           {daysLeft !== null && (
             <p className="mt-1 text-sm text-fg-secondary">
               Deneme süresinin bitmesine <strong>{daysLeft} gün</strong> kaldı
+            </p>
+          )}
+          {endDate && (
+            <p className="mt-1 text-sm text-fg-secondary">
+              Yenileme kapalı, yeni ödeme alınmaz. Planınız <strong>{endDate}</strong> tarihine kadar sürer.
             </p>
           )}
           {sub && !sub.isValid && (
@@ -44,7 +50,7 @@ export default function CurrentPlanCard({ data, now, onCancel }: CurrentPlanCard
         <UsageMeter label="Ürünler" usage={data.usage.products} />
       </div>
 
-      {sub?.status === "ACTIVE" && (
+      {(sub?.status === "ACTIVE" || sub?.status === "PAST_DUE") && (
         <Button variant="danger-ghost" size="sm" className="mt-5" onClick={onCancel}>
           Aboneliği iptal et
         </Button>

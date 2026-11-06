@@ -19,7 +19,7 @@ export function useSubscriptionPage() {
   const cancelPaid = async () => {
     const ok = await confirm({
       title: "Ücretli abonelik iptal edilsin mi?",
-      description: "Ücretli aboneliğiniz iptal edilecek.",
+      description: "Sonraki yenileme durur, yeni ödeme alınmaz. Planınız ödenmiş dönemin sonuna kadar sürer. Kalan günler için iade yapılmaz.",
       confirmText: "Aboneliği iptal et",
     });
     if (!ok) return;
