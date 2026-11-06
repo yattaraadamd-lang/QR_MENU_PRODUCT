@@ -28,6 +28,9 @@ const SENSITIVE_KEYS = [
   "identityNumber",
   "deviceKey",
   "rawDeviceKey",
+  // Kişisel veri: log saklama süresi hosting sağlayıcısına bağlı, bizim silme işimiz ulaşamaz
+  "email",
+  "phone",
 ];
 
 const REDACT_PATHS = [

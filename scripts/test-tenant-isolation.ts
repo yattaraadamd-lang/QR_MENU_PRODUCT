@@ -97,7 +97,7 @@ async function runTests() {
     log.child({ requestId: "req-123" }).info(
       {
         password: "parola-123",
-        user: { sessionToken: "cs_gizli", email: "a@b.c" },
+        user: { sessionToken: "cs_gizli", email: "a@b.c", phone: "+905550000000", role: "WAITER" },
         req: { headers: { cookie: "sid=gizli", "x-session-token": "cs_baslik" } },
         payment: { customer: { identityNumber: "12345678901" } },
       },
@@ -106,11 +106,11 @@ async function runTests() {
     const redacted = lines[lines.length - 1];
     assert(last().requestId === "req-123", "Log line carries bound requestId");
     assert(
-      !["parola-123", "cs_gizli", "sid=gizli", "cs_baslik", "12345678901"].some((secret) => redacted.includes(secret)),
-      "Sensitive fields are redacted (password, nested token, cookie, x-session-token, identityNumber)",
+      !["parola-123", "cs_gizli", "sid=gizli", "cs_baslik", "12345678901", "a@b.c", "+905550000000"].some((secret) => redacted.includes(secret)),
+      "Sensitive fields are redacted (password, nested token, cookie, x-session-token, identityNumber, email, phone)",
       redacted
     );
-    assert(last().user.email === "a@b.c", "Non-sensitive fields are kept");
+    assert(last().user.role === "WAITER", "Non-sensitive fields are kept");
 
     const prismaError = new Prisma.PrismaClientKnownRequestError(
       "\nInvalid `prisma.customerSession.findUnique()` invocation:\n\n{\n  where: { sessionToken: \"hash-gizli\" }\n}\n\nUnique constraint failed on the fields: (`sessionToken`)",

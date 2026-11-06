@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
-import { cancelSubscription, IyzicoError } from "@/lib/iyzico";
-import { syncIyzicoSubscription } from "@/lib/billing";
+import { IyzicoError } from "@/lib/iyzico";
+import { cancelPaidSubscription } from "@/lib/billing";
 import { withApiHandler, ApiError } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
@@ -24,10 +24,17 @@ async function handlePost() {
       return NextResponse.json({ error: "İptal edilecek ücretli abonelik yok" }, { status: 404 });
     }
 
-    await cancelSubscription(subscription.iyzicoSubscriptionRef);
-    await syncIyzicoSubscription(subscription.iyzicoSubscriptionRef);
+    const cancelled = await cancelPaidSubscription(subscription);
+    const until =
+      cancelled.endsAt && cancelled.endsAt > new Date()
+        ? cancelled.endsAt.toLocaleDateString("tr-TR", { dateStyle: "long", timeZone: "Europe/Istanbul" })
+        : null;
 
-    return NextResponse.json({ success: true, message: "Aboneliğiniz iptal edildi" });
+    return NextResponse.json({
+      success: true,
+      message: until ? `Aboneliğiniz iptal edildi. Planınız ${until} tarihine kadar sürer.` : "Aboneliğiniz iptal edildi",
+      endsAt: cancelled.endsAt,
+    });
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (error instanceof IyzicoError) {

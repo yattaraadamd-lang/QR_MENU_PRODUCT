@@ -181,3 +181,7 @@ jobs:
       # migration'da ve openTable eşzamanlı çağrılarda tek oturum bırakıyor mu
       - name: Concurrency tests (real Postgres)
         run: npm run test:db
+
+      # Abonelik sonu (iptal, ödenmiş dönem, kota) ve kişisel veri saklama işi
+      - name: Data lifecycle tests (real Postgres)
+        run: npm run test:lifecycle

@@ -161,7 +161,7 @@ async function authenticateSocket(socket, next) {
 
     // Security logging
     if (process.env.NODE_ENV === "development") {
-      console.log(`[Socket Auth] ✅ ${socket.id} authenticated as ${user.email} (${user.role}) for business ${user.businessId}`);
+      console.log(`[Socket Auth] ✅ ${socket.id} authenticated as ${user.id} (${user.role}) for business ${user.businessId}`);
     }
 
     next();

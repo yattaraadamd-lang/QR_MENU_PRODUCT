@@ -194,7 +194,7 @@ export async function authenticateSocket(
 
     // ✅ Security logging (production should use structured logging)
     if (process.env.NODE_ENV === "development") {
-      console.log(`[Socket Auth] ✅ ${socket.id} authenticated as ${user.email} (${user.role}) for business ${user.businessId}`);
+      console.log(`[Socket Auth] ✅ ${socket.id} authenticated as ${user.id} (${user.role}) for business ${user.businessId}`);
     }
 
     // ✅ TODO: Rate limit connection attempts per user/IP

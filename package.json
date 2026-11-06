@@ -10,6 +10,7 @@
     "start": "node server.js",
     "lint": "next lint",
     "lint:a11y": "eslint src --max-warnings=0",
+    "test:lifecycle": "tsx scripts/test-subscription-lifecycle.ts && tsx scripts/test-data-retention.ts",
     "test": "tsx scripts/test-tenant-isolation.ts",
     "test:security": "tsx scripts/test-tenant-isolation.ts",
     "test:db": "tsx scripts/test-table-concurrency.ts && tsx scripts/test-table-trust.ts",

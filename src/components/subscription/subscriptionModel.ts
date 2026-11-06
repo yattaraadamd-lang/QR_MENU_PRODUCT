@@ -36,6 +36,12 @@ export function trialDaysLeft(subscription: SubscriptionDTO | null, now: number)
   return Math.max(0, Math.ceil((new Date(subscription.trialEndsAt).getTime() - now) / MS_PER_DAY));
 }
 
+/** İptal edilmiş ama ödenmiş dönemi süren aboneliğin bitiş tarihi; diğer durumlarda null */
+export function cancelledPlanEndDate(subscription: SubscriptionDTO | null): string | null {
+  if (subscription?.status !== "CANCELLED" || !subscription.isValid || !subscription.endsAt) return null;
+  return new Date(subscription.endsAt).toLocaleDateString("tr-TR", { dateStyle: "long", timeZone: "Europe/Istanbul" });
+}
+
 /** Plan kartındaki düğme: mevcut plan / yakında / seç */
 export function planAction(plan: PlanDTO, subscription: SubscriptionDTO | null, checkoutStarted: boolean) {
   const isCurrent = subscription?.status === "ACTIVE" && subscription.plan?.code === plan.code;
