@@ -128,7 +128,7 @@ app.prepare().then(() => {
     
     if (dev) {
       console.log(`[Socket.IO] ✅ Authenticated connection: ${socket.id}`);
-      console.log(`  User: ${authData.email} (${authData.role})`);
+      console.log(`  User: ${authData.userId} (${authData.role})`);
       console.log(`  Business: ${authData.businessId}`);
     }
 
@@ -167,7 +167,7 @@ app.prepare().then(() => {
     socket.on("disconnect", (reason) => {
       if (dev) {
         console.log(`[Socket.IO] ${socket.id} disconnected: ${reason}`);
-        console.log(`  User: ${authData.email}`);
+        console.log(`  User: ${authData.userId}`);
       }
       
       // ✅ TODO: Audit log disconnection
