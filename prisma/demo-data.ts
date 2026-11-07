@@ -90,7 +90,12 @@ async function syncUsers(db: Prisma.TransactionClient, passwordHashes: Record<st
       isActive: true,
       deletedAt: null,
     };
-    await db.user.upsert({ where: { email: user.email }, update: fields, create: { email: user.email, ...fields } });
+    await db.user.upsert({
+      where: { email: user.email },
+      // Ziyaretçi parolayı değiştirmiş olabilir: o parolayla açılmış oturumlar da kapanır
+      update: { ...fields, sessionVersion: { increment: 1 } },
+      create: { email: user.email, ...fields },
+    });
   }
 }
 

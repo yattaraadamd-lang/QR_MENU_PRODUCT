@@ -11,7 +11,7 @@
  *
  * DATABASE_URL kabuktan verilmek zorunda: verilmezse Prisma sessizce .env'deki veritabanına bağlanırdı.
  * Süper admin parolası rastgele üretilir, yalnız --password-file dosyasına yazılır, ekrana basılmaz.
- * Korunanlar: demo ve platform işletmeleri, abonelik planları, audit_logs.
+ * Korunanlar: demo ve platform işletmeleri, abonelik planları, audit_logs, data_retention_runs.
  * Aktif iyzico aboneliği varsa durur: yerel kaydı silmek iyzico'daki tahsilatı durdurmaz.
  */
 
@@ -68,6 +68,7 @@ function deletionSteps(db: Tx) {
   const businesses = { id: { notIn: KEPT_BUSINESS_IDS } };
 
   return [
+    { table: "table_events", count: () => db.tableEvent.count(), remove: () => db.tableEvent.deleteMany() },
     { table: "payments", count: () => db.payment.count(), remove: () => db.payment.deleteMany() },
     { table: "order_items", count: () => db.orderItem.count(), remove: () => db.orderItem.deleteMany() },
     { table: "orders", count: () => db.order.count(), remove: () => db.order.deleteMany() },
