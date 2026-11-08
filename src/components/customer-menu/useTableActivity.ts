@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import { ACTIVE_REQUESTS_IDLE_POLL_MS, ACTIVE_REQUESTS_POLL_MS, LIVE_BILL_POLL_MS } from "./constants";
+import { getActiveRequests, getLiveBill } from "./customer.api";
 import type { ActiveRequests, AuthStatus, LiveBill } from "./types";
 
 type Params = {
@@ -23,19 +24,13 @@ export function useTableActivity({ businessId, tableId, token, status, onVerific
     onCodeRef.current = onVerificationCode;
   });
 
+  // İstek başarısızsa son durum ekranda kalır; sonraki yoklama yeniler
   const refreshRequests = useCallback(async () => {
     if (!tableId || !businessId) return;
-    try {
-      const headers: Record<string, string> = {};
-      if (token) headers["x-session-token"] = token;
-      const res = await fetch(`/api/customer/active-requests?tableId=${tableId}&businessId=${businessId}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setActiveRequests(data.activeRequests || {});
-        const code = data.requestDetails?.ORDER_REQUEST?.verificationCode;
-        if (code) onCodeRef.current(code);
-      }
-    } catch { /* sessiz hata */ }
+    const activity = await getActiveRequests(businessId, tableId, token);
+    if (!activity) return;
+    setActiveRequests(activity.activeRequests);
+    if (activity.verificationCode) onCodeRef.current(activity.verificationCode);
   }, [tableId, businessId, token]);
 
   // Bekleyen talep varken sonucu (garson gördü / tamamladı) hızlı göstermek için 5 sn, yokken 15 sn
@@ -46,24 +41,13 @@ export function useTableActivity({ businessId, tableId, token, status, onVerific
     !!(tableId && businessId),
   );
 
-  // ✅ FAZ 4: Canlı adisyon barı — onaylanmış sipariş toplamını periyodik çek
+  // ✅ FAZ 4: Canlı adisyon barı — onaylanmış sipariş toplamını periyodik çek.
+  // Adisyon kaydı yoksa toplam siparişlerden gelir ve ödenen tutar korunur.
   const refreshBill = useCallback(async () => {
     if (!token || status !== "AUTHORIZED") return;
-    try {
-      const res = await fetch("/api/customer/orders", { headers: { "x-session-token": token }, cache: "no-store" });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.bill) {
-        setLiveBill({ total: Number(data.bill.totalAmount) || 0, paid: Number(data.bill.paidAmount) || 0 });
-      } else if (data.orders) {
-        // Fallback: siparişlerden hesapla
-        const total = (data.orders as { status: string; totalPrice?: number | string }[]).reduce(
-          (sum, o) => (["CANCELLED", "REJECTED"].includes(o.status) ? sum : sum + Number(o.totalPrice || 0)),
-          0,
-        );
-        setLiveBill(prev => ({ ...prev, total }));
-      }
-    } catch { /* sessiz */ }
+    const bill = await getLiveBill(token);
+    if (!bill) return;
+    setLiveBill((prev) => ({ total: bill.total, paid: bill.paid ?? prev.paid }));
   }, [token, status]);
 
   // PENDING → AUTHORIZED geçişinde adisyon polling'i hemen başlar (enabled değişir)

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import { MENU_POLL_MS } from "./constants";
+import { getMenu } from "./customer.api";
 import type { Business, Category, MenuResponse, TableInfo } from "./types";
 
 /**
@@ -32,23 +33,16 @@ export function useMenuData(
 
   const fetchMenu = useCallback(async (isInitial: boolean) => {
     try {
-      const headers: Record<string, string> = {};
-      if (!isInitial && etagRef.current) headers["If-None-Match"] = etagRef.current;
-      const res = await fetch(`/api/menu/${businessId}/${tableNumber}`, { headers, cache: "no-store" });
-      if (res.status === 304) return;
-      const data = await res.json();
-      if (res.ok) {
-        etagRef.current = res.headers.get("ETag");
-        const menu: MenuResponse = { ...data, categories: data.categories || [] };
-        setBusiness(menu.business);
-        setTable(menu.table);
-        setCategories(menu.categories);
-        onDataRef.current(menu, isInitial);
-      } else if (isInitial) {
-        setError(data.error || "Menü yüklenemedi.");
+      const result = await getMenu(businessId, tableNumber, isInitial ? null : etagRef.current);
+      if (result.kind === "fresh") {
+        etagRef.current = result.etag;
+        setBusiness(result.menu.business);
+        setTable(result.menu.table);
+        setCategories(result.menu.categories);
+        onDataRef.current(result.menu, isInitial);
+      } else if (result.kind === "failed" && isInitial) {
+        setError(result.error);
       }
-    } catch {
-      if (isInitial) setError("Bağlantı hatası.");
     } finally {
       // Menü hemen gösterilir; oturum doğrulaması onData içinde arka planda sürer
       if (isInitial) setLoading(false);

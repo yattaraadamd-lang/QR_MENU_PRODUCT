@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useVisiblePolling } from "@/hooks/useVisiblePolling";
 import { PENDING_SYNC_MS } from "./constants";
-import type { AuthStatus, CanonicalSessionStatus } from "./types";
+import { approveDemoOrderRequest, createCustomerSession, getSessionStatus } from "./customer.api";
+import type { AuthStatus } from "./types";
 
 /**
  * Müşteri cihaz oturumu: masa bazlı localStorage token'ı, canonical yetki durumu
  * (VIEW_ONLY → PENDING → AUTHORIZED / REVOKED) ve garson onayı beklenirken senkron.
- * Sipariş butonu `hydrated` true olana kadar kapalı kalmalı.
+ * Sipariş butonu `hydrated` true olana kadar kapalı kalmalı. İstekler customer.api.ts'te;
+ * ağ hatası istisna değil `networkError` olarak döner.
  */
 export function useCustomerSession(businessId: string) {
   const [token, setToken] = useState<string | null>(null);
@@ -28,27 +30,6 @@ export function useCustomerSession(businessId: string) {
     statusRef.current = status;
   }, [status]);
 
-  // ✅ Canonical session status helper — tek canonical okuma noktası
-  const fetchStatus = useCallback(async (t: string): Promise<CanonicalSessionStatus> => {
-    const res = await fetch("/api/customer/session/status", {
-      method: "GET",
-      headers: { "x-session-token": t },
-      cache: "no-store",
-    });
-    const data = await res.json();
-    return {
-      ok: res.ok,
-      status: data.authorizationStatus as AuthStatus | undefined,
-      tableSessionId: data.tableSessionId,
-      customerSessionId: data.customerSessionId,
-      businessId: data.businessId,
-      tableId: data.tableId,
-      orderRequestStatus: data.orderRequestStatus,
-      demoAutoApproveInMs: data.demoAutoApproveInMs,
-      code: data.code,
-    };
-  }, []);
-
   /**
    * QR tarama kanıtıyla (sessionStorage qr_token) oturum oluşturur ya da tazeler. Ağ hatası
    * ayrıca bildirilir: taze okutmada çağıran kayıtlı token'la devam edebilsin.
@@ -65,31 +46,24 @@ export function useCustomerSession(businessId: string) {
       return { token: null };
     }
 
-    try {
-      const sr = await fetch("/api/customer/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, tableId, qrToken, existingToken: existingToken || undefined }),
-      });
-      const sd = await sr.json();
-      if (sr.ok && sd.sessionToken) {
-        localStorage.setItem(storageKey, sd.sessionToken);
-        // Eski global anahtarları temizle
-        localStorage.removeItem("qr_session_token");
-        sessionStorage.removeItem("qr_session_token");
-        sessionStorage.removeItem("qr_order_blocked_msg");
-        setToken(sd.sessionToken);
-        setBlockedMsg(null);
-        if (sd.authorizationStatus) setStatus(sd.authorizationStatus as AuthStatus);
-        setHydrated(true);
-        return { token: sd.sessionToken };
-      }
-      setBlockedMsg(sd.message || sd.error || "Sipariş vermek için masadaki QR kodu tekrar okutun.");
+    const result = await createCustomerSession({ businessId, tableId, qrToken, existingToken: existingToken || undefined });
+    if (result.kind === "networkError") return { token: null, networkError: true };
+    if (result.kind === "rejected") {
+      setBlockedMsg(result.message || "Sipariş vermek için masadaki QR kodu tekrar okutun.");
       setHydrated(true);
       return { token: null };
-    } catch {
-      return { token: null, networkError: true };
     }
+
+    localStorage.setItem(storageKey, result.sessionToken);
+    // Eski global anahtarları temizle
+    localStorage.removeItem("qr_session_token");
+    sessionStorage.removeItem("qr_session_token");
+    sessionStorage.removeItem("qr_order_blocked_msg");
+    setToken(result.sessionToken);
+    setBlockedMsg(null);
+    if (result.status) setStatus(result.status);
+    setHydrated(true);
+    return { token: result.sessionToken };
   }, [businessId]);
 
   const ensure = useCallback(async (tableId: string): Promise<string | null> => {
@@ -103,36 +77,30 @@ export function useCustomerSession(businessId: string) {
     const existingToken = stored || oldStored;
 
     if (existingToken) {
-      // ✅ FIX: Token doğrulamayı canonical status endpoint ile yap (URL query değil header)
-      try {
-        const checkRes = await fetch("/api/customer/session/status", {
-          headers: { "x-session-token": existingToken },
-          cache: "no-store",
-        });
-        const checkData = await checkRes.json();
-        if (checkData.valid) {
-          // Route-table eşleşme kontrolü
-          if (checkData.businessId !== businessId || checkData.tableId !== tableId) {
-            // Başka masaya ait token — kullanma
-            localStorage.removeItem(storageKey);
-          } else {
-            // Yeni anahtara taşı
-            localStorage.setItem(storageKey, existingToken);
-            sessionStorage.removeItem("qr_session_token");
-            localStorage.removeItem("qr_session_token");
-
-            setToken(existingToken);
-            setBlockedMsg(null);
-            if (checkData.authorizationStatus) setStatus(checkData.authorizationStatus as AuthStatus);
-            setHydrated(true);
-            return existingToken;
-          }
-        } else if (checkData.code === "SESSION_REVOKED") {
-          setStatus("REVOKED");
+      // Token canonical durum ucuyla doğrulanır (URL sorgusu değil başlık); ağ hatasında QR yoluna geçilir
+      const check = await getSessionStatus(existingToken);
+      if (check.valid) {
+        // Route-table eşleşme kontrolü
+        if (check.businessId !== businessId || check.tableId !== tableId) {
+          // Başka masaya ait token — kullanma
           localStorage.removeItem(storageKey);
+        } else {
+          // Yeni anahtara taşı
+          localStorage.setItem(storageKey, existingToken);
+          sessionStorage.removeItem("qr_session_token");
+          localStorage.removeItem("qr_session_token");
+
+          setToken(existingToken);
+          setBlockedMsg(null);
+          if (check.status) setStatus(check.status);
           setHydrated(true);
+          return existingToken;
         }
-      } catch { /* devam et */ }
+      } else if (check.code === "SESSION_REVOKED") {
+        setStatus("REVOKED");
+        localStorage.removeItem(storageKey);
+        setHydrated(true);
+      }
     }
 
     const r = await createFromQr(tableId, existingToken);
@@ -166,44 +134,38 @@ export function useCustomerSession(businessId: string) {
       return;
     }
 
-    try {
-      const canonRes = await fetch("/api/customer/session/status", {
-        headers: { "x-session-token": storedToken },
-        cache: "no-store",
-      });
-      const canonData = await canonRes.json();
-      if (canonData.valid) {
-        // Route-table eşleşme kontrolü
-        if (canonData.businessId !== businessId || canonData.tableId !== tableId) {
-          // Başka masaya ait token — kullanma
-          localStorage.removeItem(storageKey);
-          await ensure(tableId);
-          return;
-        }
-        setToken(storedToken);
-        setBlockedMsg(null);
-        sessionStorage.removeItem("qr_order_blocked_msg");
-        localStorage.setItem(storageKey, storedToken);
-        sessionStorage.removeItem("qr_session_token");
-        if (canonData.authorizationStatus) setStatus(canonData.authorizationStatus as AuthStatus);
-        // Pending ORDER_REQUEST varsa verificationCode'u koru
-        if (canonData.orderRequestStatus === "PENDING" || canonData.orderRequestStatus === "SEEN") {
-          setStatus("PENDING");
-        }
-        setHydrated(true);
-      } else if (canonData.code === "SESSION_REVOKED") {
-        setStatus("REVOKED");
-        localStorage.removeItem(storageKey);
-        setHydrated(true);
-      } else {
-        // Token geçersiz — yeni oturum oluştur
-        localStorage.removeItem(storageKey);
-        await ensure(tableId);
-      }
-    } catch {
-      // Network error — tokeni koru, odak/visibility senkronu sonra tekrar dener
+    const canon = await getSessionStatus(storedToken);
+    if (canon.networkError) {
+      // Ağ hatası — token korunur, odak/görünürlük senkronu sonra tekrar dener
       setToken(storedToken);
       setHydrated(true);
+    } else if (canon.valid) {
+      // Route-table eşleşme kontrolü
+      if (canon.businessId !== businessId || canon.tableId !== tableId) {
+        // Başka masaya ait token — kullanma
+        localStorage.removeItem(storageKey);
+        await ensure(tableId);
+        return;
+      }
+      setToken(storedToken);
+      setBlockedMsg(null);
+      sessionStorage.removeItem("qr_order_blocked_msg");
+      localStorage.setItem(storageKey, storedToken);
+      sessionStorage.removeItem("qr_session_token");
+      if (canon.status) setStatus(canon.status);
+      // Pending ORDER_REQUEST varsa verificationCode'u koru
+      if (canon.orderRequestStatus === "PENDING" || canon.orderRequestStatus === "SEEN") {
+        setStatus("PENDING");
+      }
+      setHydrated(true);
+    } else if (canon.code === "SESSION_REVOKED") {
+      setStatus("REVOKED");
+      localStorage.removeItem(storageKey);
+      setHydrated(true);
+    } else {
+      // Token geçersiz — yeni oturum oluştur
+      localStorage.removeItem(storageKey);
+      await ensure(tableId);
     }
   }, [businessId, ensure, createFromQr]);
 
@@ -215,12 +177,12 @@ export function useCustomerSession(businessId: string) {
     });
   }, [hydrateInner]);
 
-  // ✅ PENDING durumunda canonical polling
+  // ✅ PENDING durumunda canonical polling; ağ hatasında durum değişmez, sonraki yoklama yeniden dener
   const syncPending = useCallback(async () => {
     if (!token || syncInFlightRef.current) return;
     syncInFlightRef.current = true;
     try {
-      const result = await fetchStatus(token);
+      const result = await getSessionStatus(token);
       if (statusRef.current !== "PENDING") return;
       if (result.status === "AUTHORIZED") {
         setStatus("AUTHORIZED");
@@ -237,16 +199,12 @@ export function useCustomerSession(businessId: string) {
       } else if (typeof result.demoAutoApproveInMs === "number") {
         // Demo: garson onaylamazsa sistem onaylar; sonucu bir sonraki yoklama gösterir
         setDemoAutoApprove(true);
-        if (result.demoAutoApproveInMs === 0) {
-          await fetch("/api/customer/demo/approve-order-request", {
-            method: "POST",
-            headers: { "x-session-token": token },
-          });
-        }
+        if (result.demoAutoApproveInMs === 0) await approveDemoOrderRequest(token);
       }
-    } catch { /* network error — next poll will retry */ }
-    finally { syncInFlightRef.current = false; }
-  }, [token, fetchStatus]);
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, [token]);
 
   useVisiblePolling(syncPending, PENDING_SYNC_MS, status === "PENDING" && !!token);
 
@@ -254,18 +212,20 @@ export function useCustomerSession(businessId: string) {
   useEffect(() => {
     if (!token) return;
 
+    // getSessionStatus reddetmez: ağ hatasında `status` boş döner, durum değişmez
     const instantSync = () => {
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
-      fetchStatus(token)
+      void getSessionStatus(token)
         .then((result) => {
           if (result.status && result.status !== statusRef.current) {
             setStatus(result.status);
             if (result.status === "AUTHORIZED") setVerificationCode(null);
           }
         })
-        .catch(() => {})
-        .finally(() => { syncInFlightRef.current = false; });
+        .finally(() => {
+          syncInFlightRef.current = false;
+        });
     };
 
     const handleVisibility = () => {
@@ -281,7 +241,7 @@ export function useCustomerSession(businessId: string) {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("online", instantSync);
     };
-  }, [token, fetchStatus]);
+  }, [token]);
 
   return {
     token,
@@ -294,7 +254,7 @@ export function useCustomerSession(businessId: string) {
     hydrated,
     ensure,
     hydrate,
-    fetchStatus,
+    fetchStatus: getSessionStatus,
   };
 }
 

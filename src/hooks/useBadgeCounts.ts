@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { apiRequest } from "@/lib/api-client";
 import { useVisiblePolling } from "./useVisiblePolling";
 
 export interface BadgeCounts {
@@ -21,13 +22,10 @@ const EMPTY: BadgeCounts = { orders: 0, requests: 0, payments: 0, total: 0 };
 export function useBadgeCounts(intervalMs = 30000) {
   const [counts, setCounts] = useState<BadgeCounts>(EMPTY);
 
+  // Sayaçlar kritik değil: istek başarısızsa son değerler kalır, sonraki yoklama yeniler
   const refresh = useCallback(async () => {
-    try {
-      const res = await fetch("/api/badge-counts");
-      if (res.ok) setCounts(await res.json());
-    } catch {
-      // sessizce geç — badge sayaçları kritik değil
-    }
+    const result = await apiRequest<BadgeCounts>("/api/badge-counts");
+    if (result.ok) setCounts(result.data);
   }, []);
 
   useVisiblePolling(refresh, intervalMs);
