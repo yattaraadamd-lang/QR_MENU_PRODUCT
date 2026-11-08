@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { getCurrentUser } from "./auth.api";
 
 export type DemoRole = "admin" | "waiter";
 
@@ -29,15 +30,10 @@ const FALLBACK_HOME = "/admin";
 const WRONG_CREDENTIALS = "E-posta veya şifre hatalı. Bilgilerinizi kontrol edip tekrar deneyin.";
 const UNEXPECTED_ERROR = "Giriş yapılırken bir sorun oluştu. Tekrar deneyin.";
 
-interface MeResponse {
-  readonly user?: { readonly role?: string };
-}
-
 async function resolveHome(): Promise<string> {
-  const res = await fetch("/api/auth/me");
-  if (!res.ok) return FALLBACK_HOME;
-  const data = (await res.json()) as MeResponse;
-  const role = data.user?.role;
+  const result = await getCurrentUser();
+  if (!result.ok) return FALLBACK_HOME;
+  const role = result.data?.user?.role;
   return (role && ROLE_HOME[role]) || STAFF_HOME;
 }
 

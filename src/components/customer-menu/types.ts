@@ -19,20 +19,6 @@ export type MenuResponse = { business: Business; table: TableInfo; categories: C
 
 export type AuthStatus = "VIEW_ONLY" | "PENDING" | "AUTHORIZED" | "REVOKED" | "TABLE_ALREADY_CLAIMED";
 
-/** /api/customer/session/status yanıtının kullanılan alanları */
-export type CanonicalSessionStatus = {
-  ok: boolean;
-  status?: AuthStatus;
-  tableSessionId?: string;
-  customerSessionId?: string;
-  businessId?: string;
-  tableId?: string;
-  orderRequestStatus?: string | null;
-  /** Yalnız demoda dolu: sistem onayına kalan süre */
-  demoAutoApproveInMs?: number | null;
-  code?: string;
-};
-
 /** /api/customer/active-requests: tür → bekleyen talep var mı (ör. CALL_WAITER, PAYMENT_REQUEST_BLOCKED) */
 export type ActiveRequests = Record<string, boolean>;
 

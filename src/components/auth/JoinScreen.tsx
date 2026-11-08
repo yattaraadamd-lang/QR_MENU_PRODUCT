@@ -7,13 +7,14 @@ import Link from "next/link";
 import AuthShell from "@/components/auth/AuthShell";
 import { AuthCard, AuthHeader, BackHomeLink, FormAlert, authStyles as styles } from "@/components/auth/AuthParts";
 import { STAFF_ASIDE } from "@/components/auth/asides";
+import { registerStaff, verifyInvite, type InviteInvalidReason } from "./auth.api";
 
 type InviteState =
   | { status: "loading" }
   | { status: "valid"; businessName: string; expiresAt: string }
-  | { status: "invalid"; reason: "INVALID" | "USED" | "EXPIRED" | "ERROR" };
+  | { status: "invalid"; reason: InviteInvalidReason };
 
-const INVALID_MESSAGES: Record<string, string> = {
+const INVALID_MESSAGES: Readonly<Record<InviteInvalidReason, string>> = {
   USED: "Bu davet linki daha önce kullanılmış.",
   EXPIRED: "Bu davet linkinin süresi dolmuş.",
   INVALID: "Bu davet linki geçersiz.",
@@ -32,24 +33,15 @@ export default function JoinScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/auth/invite/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
-        });
-        const data = await res.json();
-        if (cancelled) return;
-        setInvite(
-          data.valid
-            ? { status: "valid", businessName: data.businessName, expiresAt: data.expiresAt }
-            : { status: "invalid", reason: data.reason ?? "INVALID" }
-        );
-      } catch {
-        if (!cancelled) setInvite({ status: "invalid", reason: "ERROR" });
-      }
-    })();
+    // verifyInvite reddetmez: ağ hatası ve okunamayan yanıt "ERROR" nedeniyle döner
+    void verifyInvite(code).then((check) => {
+      if (cancelled) return;
+      setInvite(
+        check.valid
+          ? { status: "valid", businessName: check.businessName, expiresAt: check.expiresAt }
+          : { status: "invalid", reason: check.reason },
+      );
+    });
     return () => {
       cancelled = true;
     };
@@ -63,19 +55,13 @@ export default function JoinScreen() {
     e.preventDefault();
     setError("");
     setSubmitting(true);
+    const registration = await registerStaff({ ...formData, phone: formData.phone || null, inviteCode: code });
+    if (!registration.ok) {
+      setError(registration.error);
+      setSubmitting(false);
+      return;
+    }
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, phone: formData.phone || null, inviteCode: code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Kayıt sırasında bir hata oluştu");
-        setSubmitting(false);
-        return;
-      }
-
       // Hesap açıldı — doğrudan garson paneline giriş
       const result = await signIn("credentials", {
         email: formData.email,

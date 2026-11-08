@@ -7,7 +7,7 @@ import Link from "next/link";
 import AuthShell from "@/components/auth/AuthShell";
 import { AuthCard, AuthHeader, AuthLinks, BackHomeLink, FormAlert, authStyles as styles } from "@/components/auth/AuthParts";
 import { SIGNUP_ASIDE } from "@/components/auth/asides";
-
+import { signupBusiness } from "./auth.api";
 
 function SignupForm() {
   const router = useRouter();
@@ -33,20 +33,14 @@ function SignupForm() {
     setError("");
     setLoading(true);
 
+    const signup = await signupBusiness({ ...formData, planCode });
+    if (!signup.ok) {
+      setError(signup.error);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, planCode }),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Kayıt sırasında bir hata oluştu");
-        setLoading(false);
-        return;
-      }
-
       // Hesap açıldı — doğrudan admin paneline giriş yap
       const result = await signIn("credentials", {
         email: formData.email,

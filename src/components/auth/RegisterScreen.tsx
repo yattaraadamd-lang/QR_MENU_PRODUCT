@@ -6,6 +6,7 @@ import Link from "next/link";
 import AuthShell from "@/components/auth/AuthShell";
 import { AuthCard, AuthHeader, AuthLinks, BackHomeLink, FormAlert, authStyles as styles } from "@/components/auth/AuthParts";
 import { STAFF_ASIDE } from "@/components/auth/asides";
+import { registerStaff } from "./auth.api";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -31,26 +32,14 @@ export default function RegisterScreen() {
     setError("");
     setLoading(true);
 
-    try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Kayıt sırasında bir hata oluştu");
-        setLoading(false);
-        return;
-      }
-
-      router.push("/auth/signin?registered=true");
-    } catch {
-      setError("Kayıt yapılırken bir hata oluştu");
+    const result = await registerStaff(formData);
+    if (!result.ok) {
+      setError(result.error);
       setLoading(false);
+      return;
     }
+
+    router.push("/auth/signin?registered=true");
   };
 
   return (

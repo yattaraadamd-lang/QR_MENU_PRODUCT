@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiRequest } from "@/lib/api-client";
 import { useVisiblePolling } from "./useVisiblePolling";
 
 type Options<T> = {
@@ -14,6 +15,11 @@ type Options<T> = {
 
 type QueryState<T> = { url: string | null; data: T | undefined; error: string | null };
 
+const LOAD_ERROR = "Veriler alınamadı.";
+/** Yoklayan ekran bağlantı dönünce kendiliğinden yeniler; kullanıcıya bunu söyler */
+const POLL_NETWORK_ERROR = "Bağlantı hatası. Yeniden deneniyor...";
+const SIGN_IN_PATH = "/auth/signin";
+
 /**
  * Personel ekranları için GET sorgusu.
  * - `url` null iken istek atılmaz (ör. oturum henüz yok); url değişince hemen yeniden çeker.
@@ -23,6 +29,8 @@ type QueryState<T> = { url: string | null; data: T | undefined; error: string | 
  *   yenisinin üstüne yazılmaz. Ekran ayrılınca uçuştaki istek iptal edilir.
  * - Polling sekme görünürken çalışır, ön plana gelince hemen yeniler (useVisiblePolling).
  * - `mutate` iyimser güncelleme içindir: uçuştaki yanıtı geçersiz sayar, sonra `refresh`.
+ * - İstek ve hata eşlemesi `apiRequest`'te (tek API istemcisi); burada yalnız 401 yönlendirmesi
+ *   ve yoklama ekranına özgü bağlantı metni.
  */
 export function useApiQuery<T>(url: string | null, { select, refreshInterval, redirectOnUnauthorized = true }: Options<T>) {
   const [state, setState] = useState<QueryState<T>>({ url: null, data: undefined, error: null });
@@ -41,25 +49,20 @@ export function useApiQuery<T>(url: string | null, { select, refreshInterval, re
     const controller = new AbortController();
     controllerRef.current = controller;
     const seq = ++seqRef.current;
-    const fail = (error: string) =>
-      setState((prev) => ({ url, data: prev.url === url ? prev.data : undefined, error }));
-    try {
-      const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
-      if (res.status === 401 && redirectOnUnauthorized) {
-        window.location.href = "/auth/signin";
-        return;
-      }
-      const json = await res.json().catch(() => null);
-      if (seq !== seqRef.current) return;
-      if (res.ok) {
-        setState({ url, data: selectRef.current(json), error: null });
-      } else {
-        fail((json as { error?: string } | null)?.error || "Veriler alınamadı.");
-      }
-    } catch (e) {
-      if ((e as Error).name === "AbortError" || seq !== seqRef.current) return;
-      fail("Bağlantı hatası. Yeniden deneniyor...");
+
+    const result = await apiRequest<unknown>(url, { signal: controller.signal, fallbackError: LOAD_ERROR });
+    if (!result.ok && result.status === 401 && redirectOnUnauthorized) {
+      window.location.href = SIGN_IN_PATH;
+      return;
     }
+    if (seq !== seqRef.current) return;
+    if (result.ok) {
+      setState({ url, data: selectRef.current(result.data), error: null });
+      return;
+    }
+    if (result.aborted) return;
+    const error = result.status === 0 ? POLL_NETWORK_ERROR : result.error;
+    setState((prev) => ({ url, data: prev.url === url ? prev.data : undefined, error }));
   }, [url, redirectOnUnauthorized]);
 
   // İlk yükleme ve url değişimi (ör. filtre); ayrılınca uçuştaki istek iptal
