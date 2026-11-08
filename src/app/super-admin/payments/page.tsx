@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
+
+export const metadata: Metadata = { title: "Platform Ödemeleri" };
 
 /**
  * Platform tahsilat kaydı henüz tutulmuyor (/api/super-admin/platform-payments sabit boş liste

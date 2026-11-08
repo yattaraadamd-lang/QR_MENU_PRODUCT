@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import AuthShell from "@/components/auth/AuthShell";
 import { AuthHeader, BackHomeLink } from "@/components/auth/AuthParts";
 import SignInForm from "@/components/auth/SignInForm";
 import { SIGNIN_ASIDE } from "@/components/auth/asides";
+
+export const metadata: Metadata = { title: "Giriş Yap" };
 
 export default function SignInPage() {
   return (

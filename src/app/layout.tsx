@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 import SkipLink from "@/components/SkipLink";
 import WebVitalsLoader from "@/components/WebVitalsLoader";
+import { SITE_NAME, siteTitle } from "@/lib/site";
 import { SITE_URL } from "@/lib/site-url";
 
 // Gövde: geniş açıklıklı, küçük boyda da okunaklı (değişken ağırlık)
@@ -33,8 +34,8 @@ const logo = Fraunces({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "QR Menü Platformu",
-    template: "%s | QR Menü Platformu",
+    default: SITE_NAME,
+    template: siteTitle("%s"),
   },
   description: "QR kod tabanlı dijital menü, sipariş ve hizmet yönetim platformu",
   // "./" her sayfada kendi yoluna çözülür (self-canonical); sorgu parametreleri atılır.
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "tr_TR",
-    siteName: "QR Menü Platformu",
+    siteName: SITE_NAME,
   },
 };
 

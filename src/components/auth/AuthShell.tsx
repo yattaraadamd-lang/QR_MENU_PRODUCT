@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import BrandLogo from "@/components/brand/BrandLogo";
 import QrGlyph from "@/components/brand/QrGlyph";
+import { SITE_NAME } from "@/lib/site";
 import type { AuthAside } from "./asides";
 import styles from "./auth.module.css";
 
@@ -42,7 +43,9 @@ export default function AuthShell({ aside, children }: AuthShellProps) {
         <div className={styles.asideQr} aria-hidden="true">
           <QrGlyph />
         </div>
-        <p className={styles.asideFoot}>© {new Date().getFullYear()} QR Menü Platformu</p>
+        <p className={styles.asideFoot}>
+          © {new Date().getFullYear()} {SITE_NAME}
+        </p>
       </aside>
 
       <main id="main-content" className={styles.main}>
