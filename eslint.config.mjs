@@ -1,8 +1,95 @@
-// Erişilebilirlik kapısı: jsx-a11y "recommended" kuralları hata seviyesinde.
-// CI'da `npm run lint:a11y` olarak çalışır; hata varsa PR kırmızıya düşer.
+// Erişilebilirlik, hook, inline style ve katman kapıları. CI'da `npm run lint:a11y` olarak
+// çalışır; hata varsa PR kırmızıya düşer.
+import { readdirSync } from "node:fs";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
+
+// ─── Katman kapısı (FE-ARCH-1.1) ─────────────────────────────────────────────
+// shared ← entities ← features ← app. Kabuklar (*-shell) ve components/*.tsx app katmanındadır.
+// Üst katman alttakini import edebilir; tersi ve aynı katmanda yan yana import yasaktır.
+const SHARED = ["ui", "brand", "staff"];
+// Varlık sırası: soldaki sağdakini import edemez
+const ENTITIES = ["payments", "tables", "orders"];
+const SHELLS = ["admin-shell", "waiter-shell", "super-admin-shell"];
+const FEATURES = [
+  "admin-categories", "admin-dashboard", "admin-orders", "admin-payments", "admin-products",
+  "admin-requests", "admin-settings", "admin-staff", "admin-tables", "auth", "blocked-devices",
+  "customer-menu", "landing", "notifications", "pending-payments", "subscription",
+  "super-admin-businesses", "super-admin-platform", "waiter-orders", "waiter-payments",
+  "waiter-requests", "waiter-tables",
+];
+// Bugünkü ihlaller. FE-ARCH-2.2 düzelttikçe satır silinir; listeye ekleme yapılmaz.
+const KNOWN_EDGES = {
+  "admin-requests": ["waiter-requests"],
+  "admin-products": ["admin-categories"],
+  "admin-payments": ["pending-payments"],
+  "waiter-payments": ["pending-payments"],
+  "waiter-requests": ["pending-payments"],
+  "super-admin-platform": ["subscription"],
+  auth: ["landing"],
+  orders: ["pending-payments"],
+  payments: ["tables"],
+};
+
+// Yeni bir klasör katmanı belirtilmeden kuralların dışında kalmasın
+const classified = new Set([...SHARED, ...ENTITIES, ...SHELLS, ...FEATURES]);
+const unclassified = readdirSync(new URL("./src/components", import.meta.url), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && !classified.has(entry.name))
+  .map((entry) => entry.name);
+if (unclassified.length > 0) {
+  throw new Error(`eslint.config.mjs: katmanı tanımsız klasör: ${unclassified.join(", ")} (SHARED/ENTITIES/SHELLS/FEATURES)`);
+}
+
+const importGlobs = (folders) => folders.flatMap((folder) => [`@/components/${folder}/**`, `../${folder}/**`]);
+
+function layer(folder, banned, message) {
+  const allowed = new Set(KNOWN_EDGES[folder] ?? []);
+  const group = importGlobs(banned.filter((name) => name !== folder && !allowed.has(name)));
+  return {
+    files: [`src/components/${folder}/**/*.{ts,tsx}`],
+    rules: { "no-restricted-imports": ["error", { patterns: [{ group, message }] }] },
+  };
+}
+
+const layerRules = [
+  ...SHARED.map((folder) =>
+    layer(folder, [...ENTITIES, ...FEATURES, ...SHELLS], "Paylaşılan katman (ui, brand, staff) özellik ya da varlık import edemez."),
+  ),
+  ...ENTITIES.map((folder, index) =>
+    layer(
+      folder,
+      [...ENTITIES.slice(index + 1), ...FEATURES, ...SHELLS],
+      "Varlık; özellik, kabuk ya da üst varlık import edemez (sıra: payments → tables → orders).",
+    ),
+  ),
+  ...FEATURES.map((folder) =>
+    layer(folder, [...FEATURES, ...SHELLS], "Özellikler birbirini import etmez. Ortak parçayı bir varlığa ya da components/ui'ye taşıyın."),
+  ),
+  {
+    files: ["src/hooks/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/components/**", "@/contexts/**"],
+              message: "hooks/ ve lib/ paylaşılan katmandır; components ya da contexts import edemez.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // İstemci kodunda any yok (sunucu tarafı FE-ARCH-3.6 ile)
+  {
+    files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}", "src/contexts/**/*.{ts,tsx}", "src/app/**/*.tsx"],
+    plugins: { "@typescript-eslint": tsPlugin },
+    rules: { "@typescript-eslint/no-explicit-any": "error" },
+  },
+];
 
 export default [
   { ignores: [".next/**", "node_modules/**", "maturity-audit/**", "scripts/**", "prisma/**"] },
@@ -51,4 +138,5 @@ export default [
       ],
     },
   },
+  ...layerRules,
 ];

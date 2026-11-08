@@ -50,6 +50,21 @@ async function login(page: Page, role: "ADMIN" | "WAITER") {
   expect(res.ok(), `${role} girişi başarısız (${res.status()})`).toBeTruthy();
 }
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * WCAG 2.4.2 (FE-ARCH-1.2): personel sekmesinin başlığı sayfanın h1'iyle başlar ve bölgeyi
+ * söyler (ör. "Ürün Yönetimi · Yönetim | …"), böylece sayfalar sekme listesinde ayırt edilir.
+ */
+async function expectTitleFromHeading(page: Page, path: string, area: string) {
+  await page.goto(path);
+  const heading = page.locator("main h1").first();
+  await heading.waitFor();
+  const text = (await heading.innerText()).trim();
+  await expect(page, path).toHaveTitle(new RegExp(`^${escapeRegExp(text)} · ${area} \\| `));
+  return page.title();
+}
+
 test.describe("axe (WCAG 2.2 AA)", () => {
   for (const path of PUBLIC_ROUTES) {
     test(`herkese açık ${path}`, async ({ page }) => {
@@ -72,6 +87,34 @@ test.describe("axe (WCAG 2.2 AA)", () => {
       await open(page, path);
       expect.soft(await axeViolations(page), path).toEqual([]);
     }
+  });
+});
+
+test.describe("sayfa başlıkları (WCAG 2.4.2)", () => {
+  test("hesap sayfaları", async ({ page }) => {
+    const titles: Readonly<Record<string, string>> = {
+      "/auth/signin": "Giriş Yap",
+      "/auth/signup": "İşletme Kaydı",
+      "/auth/register": "Garson Kaydı",
+    };
+    for (const [path, title] of Object.entries(titles)) {
+      await page.goto(path);
+      await expect(page, path).toHaveTitle(new RegExp(`^${escapeRegExp(title)} \\| `));
+    }
+  });
+
+  test("admin ekranları", async ({ page }) => {
+    await login(page, "ADMIN");
+    const titles = new Set<string>();
+    for (const path of ADMIN_ROUTES) titles.add(await expectTitleFromHeading(page, path, "Yönetim"));
+    expect(titles.size, "her admin sayfasının başlığı farklı").toBe(ADMIN_ROUTES.length);
+  });
+
+  test("garson ekranları", async ({ page }) => {
+    await login(page, "WAITER");
+    const titles = new Set<string>();
+    for (const path of WAITER_ROUTES) titles.add(await expectTitleFromHeading(page, path, "Garson"));
+    expect(titles.size, "her garson sayfasının başlığı farklı").toBe(WAITER_ROUTES.length);
   });
 });
 

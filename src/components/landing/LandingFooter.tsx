@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import BrandLogo from "@/components/brand/BrandLogo";
 import QrGlyph from "@/components/brand/QrGlyph";
+import { SITE_NAME } from "@/lib/site";
 import DemoButton from "./DemoButton";
 import { Reveal } from "./motion";
 import styles from "./landing.module.css";
@@ -34,7 +35,9 @@ export default function LandingFooter() {
 
       <div className={styles.footerBar}>
         <BrandLogo size="sm" />
-        <p className={styles.footerNote}>© {new Date().getFullYear()} QR Menü Platformu</p>
+        <p className={styles.footerNote}>
+          © {new Date().getFullYear()} {SITE_NAME}
+        </p>
         <ul className={styles.footerLinks}>
           <li>
             <Link href="/auth/signin">Giriş</Link>
