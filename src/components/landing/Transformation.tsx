@@ -1,6 +1,6 @@
 import SectionHeading from "./SectionHeading";
 import { RevealGroup } from "./motion";
-import { revealIndex } from "./motion-style";
+import { revealIndex } from "@/components/ui/motion-style";
 import { TRANSFORM_STEPS } from "./content";
 import styles from "./landing.module.css";
 

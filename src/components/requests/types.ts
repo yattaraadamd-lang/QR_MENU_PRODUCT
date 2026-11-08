@@ -1,7 +1,7 @@
 /** Garson talepleri sözleşmesi. Kaynak: /api/waiter/service-requests?status=active|completed */
 
-import type { TableRefDTO } from "@/components/pending-payments/types";
-import type { Money } from "@/components/tables/types";
+import type { TableRefDTO } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 export type RequestType =
   | "CALL_WAITER"

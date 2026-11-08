@@ -4,7 +4,7 @@ import { useId } from "react";
 import Button from "@/components/ui/Button";
 import Field from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
-import type { BillingCustomer, PlanDTO } from "./types";
+import type { BillingCustomer, PlanDTO } from "@/components/subscription/types";
 import { useCheckout } from "./useCheckout";
 
 interface FieldDef {

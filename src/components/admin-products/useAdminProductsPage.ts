@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useLatestSave } from "@/hooks/useLatestSave";
 import { nextSortOrder, reorderById } from "@/lib/reorder";
-import { CATEGORIES_URL, selectCategories } from "@/components/admin-categories/categories.api";
+import { CATEGORIES_URL, selectCategories } from "@/components/categories/categories.api";
 import { useConfirm } from "@/components/ui/useConfirm";
 import { FILTER_ALL, filterProducts, productTabs } from "./productModel";
 import { PRODUCTS_URL, productsApi, selectProducts } from "./products.api";

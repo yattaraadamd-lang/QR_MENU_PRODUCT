@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { ApiResult } from "@/lib/api-client";
 import { useConfirm } from "@/components/ui/useConfirm";
 import type { RequestStatus, ServiceRequestDTO } from "./types";
-import { waiterRequestsApi } from "./waiterRequests.api";
+import { requestsApi } from "./requests.api";
 
 /**
  * Talep eylemleri (garson ve admin ekranı aynı uçları kullanır): durum ilerletme, masa açma,
@@ -30,10 +30,10 @@ export function useRequestActions(refresh: () => Promise<unknown>) {
   };
 
   const updateStatus = (request: ServiceRequestDTO, status: RequestStatus) =>
-    runFor(request.id, () => waiterRequestsApi.updateStatus(request.id, status));
+    runFor(request.id, () => requestsApi.updateStatus(request.id, status));
 
   const openTable = (request: ServiceRequestDTO, code: string) =>
-    runFor(request.id, () => waiterRequestsApi.openTable(request.id, code), "Masa açıldı, müşteri sipariş verebilir.");
+    runFor(request.id, () => requestsApi.openTable(request.id, code), "Masa açıldı, müşteri sipariş verebilir.");
 
   const rejectOrderRequest = async (request: ServiceRequestDTO) => {
     const confirmed = await confirm({
@@ -43,7 +43,7 @@ export function useRequestActions(refresh: () => Promise<unknown>) {
       confirmText: "Reddet ve engelle",
     });
     if (!confirmed) return;
-    await runFor(request.id, () => waiterRequestsApi.rejectOrderRequest(request.id), "Sipariş talebi reddedildi.");
+    await runFor(request.id, () => requestsApi.rejectOrderRequest(request.id), "Sipariş talebi reddedildi.");
   };
 
   return { busyId, updateStatus, openTable, rejectOrderRequest, confirmDialog };

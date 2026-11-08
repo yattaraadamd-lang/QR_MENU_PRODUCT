@@ -3,11 +3,11 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useNow } from "@/hooks/useNow";
-import CheckoutPanel from "@/components/subscription/CheckoutPanel";
-import CurrentPlanCard from "@/components/subscription/CurrentPlanCard";
-import PlanCard from "@/components/subscription/PlanCard";
+import CheckoutPanel from "@/components/admin-subscription/CheckoutPanel";
+import CurrentPlanCard from "@/components/admin-subscription/CurrentPlanCard";
+import PlanCard from "@/components/admin-subscription/PlanCard";
 import { planAction } from "@/components/subscription/subscriptionModel";
-import { useSubscriptionPage } from "@/components/subscription/useSubscriptionPage";
+import { useSubscriptionPage } from "@/components/admin-subscription/useSubscriptionPage";
 import Alert from "@/components/ui/Alert";
 import Loader from "@/components/ui/Loader";
 import QueryError from "@/components/ui/QueryError";

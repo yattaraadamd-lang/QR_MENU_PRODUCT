@@ -10,28 +10,17 @@ import reactHooks from "eslint-plugin-react-hooks";
 // shared ← entities ← features ← app. Kabuklar (*-shell) ve components/*.tsx app katmanındadır.
 // Üst katman alttakini import edebilir; tersi ve aynı katmanda yan yana import yasaktır.
 const SHARED = ["ui", "brand", "staff"];
-// Varlık sırası: soldaki sağdakini import edemez
-const ENTITIES = ["payments", "tables", "orders"];
+// Varlık sırası: soldaki sağdakini import edemez (requests, tables ve payments'ı kullanır)
+const ENTITIES = ["payments", "tables", "orders", "categories", "subscription", "requests"];
 const SHELLS = ["admin-shell", "waiter-shell", "super-admin-shell"];
 const FEATURES = [
   "admin-categories", "admin-dashboard", "admin-orders", "admin-payments", "admin-products",
-  "admin-requests", "admin-settings", "admin-staff", "admin-tables", "auth", "blocked-devices",
-  "customer-menu", "landing", "notifications", "pending-payments", "subscription",
+  "admin-requests", "admin-settings", "admin-staff", "admin-subscription", "admin-tables", "auth",
+  "blocked-devices", "customer-menu", "landing", "notifications", "pending-payments",
   "super-admin-businesses", "super-admin-platform", "waiter-orders", "waiter-payments",
   "waiter-requests", "waiter-tables",
 ];
-// Bugünkü ihlaller. FE-ARCH-2.2 düzelttikçe satır silinir; listeye ekleme yapılmaz.
-const KNOWN_EDGES = {
-  "admin-requests": ["waiter-requests"],
-  "admin-products": ["admin-categories"],
-  "admin-payments": ["pending-payments"],
-  "waiter-payments": ["pending-payments"],
-  "waiter-requests": ["pending-payments"],
-  "super-admin-platform": ["subscription"],
-  auth: ["landing"],
-  orders: ["pending-payments"],
-  payments: ["tables"],
-};
+// İstisna listesi yok (FE-ARCH-2.2): iki özelliğin ortak ihtiyacı bir varlığa ya da ui'ye iner.
 
 // Yeni bir klasör katmanı belirtilmeden kuralların dışında kalmasın
 const classified = new Set([...SHARED, ...ENTITIES, ...SHELLS, ...FEATURES]);
@@ -45,8 +34,7 @@ if (unclassified.length > 0) {
 const importGlobs = (folders) => folders.flatMap((folder) => [`@/components/${folder}/**`, `../${folder}/**`]);
 
 function layer(folder, banned, message) {
-  const allowed = new Set(KNOWN_EDGES[folder] ?? []);
-  const group = importGlobs(banned.filter((name) => name !== folder && !allowed.has(name)));
+  const group = importGlobs(banned.filter((name) => name !== folder));
   return {
     files: [`src/components/${folder}/**/*.{ts,tsx}`],
     rules: { "no-restricted-imports": ["error", { patterns: [{ group, message }] }] },
@@ -61,7 +49,7 @@ const layerRules = [
     layer(
       folder,
       [...ENTITIES.slice(index + 1), ...FEATURES, ...SHELLS],
-      "Varlık; özellik, kabuk ya da üst varlık import edemez (sıra: payments → tables → orders).",
+      "Varlık; özellik, kabuk ya da ENTITIES listesinde kendinden sonra gelen varlığı import edemez.",
     ),
   ),
   ...FEATURES.map((folder) =>

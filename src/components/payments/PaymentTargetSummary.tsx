@@ -1,5 +1,5 @@
 import { formatTRY } from "@/lib/format";
-import type { Money } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 interface PaymentTargetSummaryProps {
   tableName: string;

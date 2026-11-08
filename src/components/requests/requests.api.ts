@@ -12,7 +12,8 @@ export function selectRequests(json: unknown): ServiceRequestDTO[] {
 
 const base = (id: string) => `/api/waiter/service-requests/${encodeURIComponent(id)}`;
 
-export const waiterRequestsApi = {
+/** Talep uçları: garson ve yönetici ekranları aynı uçları kullanır */
+export const requestsApi = {
   updateStatus: (id: string, status: RequestStatus) =>
     apiRequest<unknown>(`${base(id)}/status`, {
       method: "PUT",

@@ -1,5 +1,5 @@
 import Button from "@/components/ui/Button";
-import type { RequestStatus, ServiceRequestDTO } from "@/components/waiter-requests/types";
+import type { RequestStatus, ServiceRequestDTO } from "@/components/requests/types";
 import type { AdminServiceRequestDTO } from "./types";
 
 interface AdminRequestActionsProps {

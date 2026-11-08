@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 import Button from "@/components/ui/Button";
-import { formatLimit } from "./subscriptionModel";
-import type { PlanDTO } from "./types";
+import { formatLimit } from "@/components/subscription/subscriptionModel";
+import type { PlanDTO } from "@/components/subscription/types";
 
 const PRICE = new Intl.NumberFormat("tr-TR");
 

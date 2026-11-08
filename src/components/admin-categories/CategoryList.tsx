@@ -3,7 +3,7 @@
 import { Edit3, Trash2 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import SortableList from "@/components/ui/SortableList";
-import type { CategoryDTO } from "./types";
+import type { CategoryDTO } from "@/components/categories/types";
 
 interface CategoryListProps {
   items: readonly CategoryDTO[];

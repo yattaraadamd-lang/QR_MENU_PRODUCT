@@ -7,8 +7,8 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useLatestSave } from "@/hooks/useLatestSave";
 import { nextSortOrder, reorderById } from "@/lib/reorder";
 import { useConfirm } from "@/components/ui/useConfirm";
-import { categoriesApi, CATEGORIES_URL, selectCategories } from "./categories.api";
-import type { CategoryDTO } from "./types";
+import { categoriesApi, CATEGORIES_URL, selectCategories } from "@/components/categories/categories.api";
+import type { CategoryDTO } from "@/components/categories/types";
 
 /** Kategori ekranı: liste, iyimser sıralama, form penceresi, silme onayı */
 export function useAdminCategoriesPage() {

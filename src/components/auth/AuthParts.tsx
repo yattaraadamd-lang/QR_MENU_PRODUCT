@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
-import { enterDelay } from "@/components/landing/motion-style";
+import { enterDelay } from "@/components/ui/motion-style";
 import styles from "./auth.module.css";
 
 /** Hesap sayfası yapı taşları: başlık, kart, hata, bağlantılar */

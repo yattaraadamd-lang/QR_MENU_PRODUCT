@@ -6,10 +6,10 @@ import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ToneStripe from "@/components/ui/ToneStripe";
 import { TONE_TINT } from "@/components/ui/tone";
-import OrderPreview from "./OrderPreview";
+import OrderPreview from "@/components/requests/OrderPreview";
 import { OrderRequestActions } from "./OrderRequestPanel";
-import { isExpired, isOpenRequest, nextRequestStep, requestStatusMeta, requestTypeMeta } from "./requestModel";
-import type { RequestStatus, ServiceRequestDTO } from "./types";
+import { isExpired, isOpenRequest, nextRequestStep, requestStatusMeta, requestTypeMeta } from "@/components/requests/requestModel";
+import type { RequestStatus, ServiceRequestDTO } from "@/components/requests/types";
 
 interface RequestCardProps {
   request: ServiceRequestDTO;

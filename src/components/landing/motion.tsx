@@ -5,10 +5,10 @@ import React, { useEffect, useRef } from "react";
 /**
  * Landing hareketleri — framer-motion'sız (landing'in ilk yükünden ≈30 KB gzip JS ve
  * hidrasyon işi kalktı). Görsel kurallar globals.css "Landing hareketleri" bölümünde.
- * Gecikme stilleri (enterDelay, revealIndex) sunucuda da çağrılabilsin diye motion-style.ts'te.
+ * Gecikme stilleri (enterDelay, revealIndex) sunucuda da çağrılabilsin diye components/ui/motion-style.ts'te.
  */
 
-export { enterDelay, revealIndex } from "./motion-style";
+export { enterDelay, revealIndex } from "@/components/ui/motion-style";
 
 /**
  * Kaydırınca bir kez belirme. Sunucu HTML'inde blok görünür (JS yoksa da öyle kalır);

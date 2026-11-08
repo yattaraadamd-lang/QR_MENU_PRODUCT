@@ -1,5 +1,5 @@
 import { FEED_STATUS_LABEL, LIVE_FEED } from "./content";
-import { enterDelay } from "./motion-style";
+import { enterDelay } from "@/components/ui/motion-style";
 import styles from "./landing.module.css";
 
 const FEED_DELAY_START = 0.6;

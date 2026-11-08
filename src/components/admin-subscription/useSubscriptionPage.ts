@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useConfirm } from "@/components/ui/useConfirm";
 import { selectSubscription, subscriptionApi, SUBSCRIPTION_URL } from "./subscription.api";
-import type { PlanDTO } from "./types";
+import type { PlanDTO } from "@/components/subscription/types";
 
 /** Abonelik: mevcut plan + kullanım, planlar, ödeme için seçilen plan, ücretli aboneliği iptal */
 export function useSubscriptionPage() {

@@ -1,11 +1,7 @@
 /** Admin "bekleyen ödemeler" sözleşmesi. Kaynak: /api/admin/pending-payments, /api/admin/payments */
 
-import type { Money } from "@/components/tables/types";
-
-export interface TableRefDTO {
-  readonly tableNumber: string;
-  readonly tableName: string | null;
-}
+import type { TableRefDTO } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 /** Açık adisyon (doğrudan tahsilat) */
 export interface OpenBillDTO {

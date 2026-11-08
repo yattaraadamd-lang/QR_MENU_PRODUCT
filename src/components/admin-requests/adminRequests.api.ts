@@ -1,4 +1,4 @@
-import { selectRequests } from "@/components/waiter-requests/waiterRequests.api";
+import { selectRequests } from "@/components/requests/requests.api";
 import type { AdminServiceRequestDTO } from "./types";
 
 /** businessId oturumdan okunur (sorgu parametresi yok sayılır) */

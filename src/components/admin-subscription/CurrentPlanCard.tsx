@@ -1,7 +1,7 @@
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { cancelledPlanEndDate, SUBSCRIPTION_STATUS, trialDaysLeft } from "./subscriptionModel";
-import type { SubscriptionData } from "./types";
+import { cancelledPlanEndDate, SUBSCRIPTION_STATUS, trialDaysLeft } from "@/components/subscription/subscriptionModel";
+import type { SubscriptionData } from "@/components/subscription/types";
 import UsageMeter from "./UsageMeter";
 
 interface CurrentPlanCardProps {

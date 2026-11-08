@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api-client";
-import type { BillingCustomer, SubscriptionData } from "./types";
+import type { BillingCustomer, SubscriptionData } from "@/components/subscription/types";
 
 export const SUBSCRIPTION_URL = "/api/admin/subscription";
 
