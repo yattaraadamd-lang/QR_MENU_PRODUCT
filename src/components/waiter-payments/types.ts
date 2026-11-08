@@ -1,7 +1,7 @@
 /** Garson "ödeme talepleri" sözleşmesi. Kaynak: /api/waiter/payments */
 
-import type { TableRefDTO } from "@/components/pending-payments/types";
-import type { Money } from "@/components/tables/types";
+import type { TableRefDTO } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 /** PENDING: müşteri istedi · AWAITING_ADMIN_APPROVAL: garson gönderdi · REJECTED: admin reddetti */
 export type WaiterPaymentStatus = "PENDING" | "AWAITING_ADMIN_APPROVAL" | "REJECTED";

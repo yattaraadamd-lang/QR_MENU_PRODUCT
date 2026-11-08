@@ -4,8 +4,8 @@ import { useId, useState, type FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import CodeInput from "@/components/ui/CodeInput";
 import Field from "@/components/ui/Field";
-import { VERIFICATION_CODE_LENGTH } from "./requestModel";
-import type { ServiceRequestDTO } from "./types";
+import { VERIFICATION_CODE_LENGTH } from "@/components/requests/requestModel";
+import type { ServiceRequestDTO } from "@/components/requests/types";
 
 interface OrderRequestActionsProps {
   request: ServiceRequestDTO;

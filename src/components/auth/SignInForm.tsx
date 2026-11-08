@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Loader2, Lock, Mail } from "lucide-react";
 import Input from "@/components/ui/Input";
-import { enterDelay } from "@/components/landing/motion-style";
+import { enterDelay } from "@/components/ui/motion-style";
 import { AuthCard, AuthLinks, FormAlert, authStyles as styles } from "./AuthParts";
 import { DEMO_ACCOUNTS, useSignIn } from "./useSignIn";
 

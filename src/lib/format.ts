@@ -1,3 +1,6 @@
+/** Para tutarı: Prisma Decimal JSON'da string gelir */
+export type Money = number | string;
+
 const TRY = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" });
 const CLOCK = new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" });
 const DATE_TIME = new Intl.DateTimeFormat("tr-TR", {

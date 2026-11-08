@@ -1,7 +1,7 @@
 /** Süper admin platform ekranları sözleşmesi. Kaynak: /api/super-admin/{dashboard,subscriptions,users} */
 
 import type { SubscriptionStatus } from "@/components/subscription/types";
-import type { Money } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 export interface PlatformStatsDTO {
   readonly totalBusinesses: number;

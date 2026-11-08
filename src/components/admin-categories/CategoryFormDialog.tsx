@@ -6,8 +6,8 @@ import Button from "@/components/ui/Button";
 import Field from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
-import { categoriesApi } from "./categories.api";
-import { CATEGORY_ICON_MAX, CATEGORY_NAME_MAX, type CategoryDTO } from "./types";
+import { categoriesApi } from "@/components/categories/categories.api";
+import { CATEGORY_ICON_MAX, CATEGORY_NAME_MAX, type CategoryDTO } from "@/components/categories/types";
 
 interface CategoryFormDialogProps {
   /** null: yeni kategori */

@@ -2,9 +2,9 @@ import { formatDateTime } from "@/lib/format";
 import { tableDisplayName } from "@/components/tables/tableModel";
 import Alert from "@/components/ui/Alert";
 import Badge from "@/components/ui/Badge";
-import OrderPreview from "@/components/waiter-requests/OrderPreview";
-import { isOpenRequest, requestStatusMeta, requestTypeMeta } from "@/components/waiter-requests/requestModel";
-import type { RequestStatus, ServiceRequestDTO } from "@/components/waiter-requests/types";
+import OrderPreview from "@/components/requests/OrderPreview";
+import { isOpenRequest, requestStatusMeta, requestTypeMeta } from "@/components/requests/requestModel";
+import type { RequestStatus, ServiceRequestDTO } from "@/components/requests/types";
 import AdminRequestActions from "./AdminRequestActions";
 import type { AdminServiceRequestDTO } from "./types";
 

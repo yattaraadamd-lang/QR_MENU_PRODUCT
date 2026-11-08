@@ -1,6 +1,6 @@
 import type { FilterTab } from "@/components/ui/FilterTabs";
-import { isOpenRequest } from "@/components/waiter-requests/requestModel";
-import type { ServiceRequestDTO } from "@/components/waiter-requests/types";
+import { isOpenRequest } from "@/components/requests/requestModel";
+import type { ServiceRequestDTO } from "@/components/requests/types";
 
 export type RequestTab = "active" | "completed" | "cancelled" | "all";
 

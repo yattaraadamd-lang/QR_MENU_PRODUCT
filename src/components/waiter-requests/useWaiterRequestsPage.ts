@@ -5,9 +5,9 @@ import { useSession } from "next-auth/react";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { useBusinessSocket } from "@/hooks/useBusinessSocket";
 import type { QueueFilter } from "@/components/staff/StaffQueueHeader";
-import { REQUEST_SOCKET_EVENTS } from "./requestModel";
-import { useRequestActions } from "./useRequestActions";
-import { requestsUrl, selectRequests } from "./waiterRequests.api";
+import { REQUEST_SOCKET_EVENTS } from "@/components/requests/requestModel";
+import { useRequestActions } from "@/components/requests/useRequestActions";
+import { requestsUrl, selectRequests } from "@/components/requests/requests.api";
 
 /** Sekme görünürken yenileme aralığı; çağrılar ayrıca soketle anında gelir */
 const REFRESH_MS = 5000;

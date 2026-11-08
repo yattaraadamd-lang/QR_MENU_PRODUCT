@@ -5,8 +5,13 @@
 
 import type { PaymentPayload } from "@/components/payments/paymentForm";
 import type { PaymentMethod } from "@/components/payments/paymentMethods";
+import type { Money } from "@/lib/format";
 
-export type Money = number | string;
+/** Ödeme, sipariş ve talep kayıtlarındaki masa özeti */
+export interface TableRefDTO {
+  readonly tableNumber: string;
+  readonly tableName: string | null;
+}
 
 export type TableStatus =
   | "EMPTY"

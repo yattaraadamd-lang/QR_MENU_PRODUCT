@@ -1,5 +1,5 @@
 import QrGlyph from "@/components/brand/QrGlyph";
-import { enterDelay } from "./motion-style";
+import { enterDelay } from "@/components/ui/motion-style";
 import { MENU_PREVIEW } from "./content";
 import styles from "./landing.module.css";
 

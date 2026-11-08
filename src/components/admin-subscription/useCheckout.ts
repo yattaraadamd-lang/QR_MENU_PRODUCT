@@ -2,7 +2,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { subscriptionApi } from "./subscription.api";
-import type { BillingCustomer, PlanDTO } from "./types";
+import type { BillingCustomer, PlanDTO } from "@/components/subscription/types";
 
 const EMPTY_CUSTOMER: BillingCustomer = { name: "", surname: "", gsmNumber: "", identityNumber: "", city: "", address: "" };
 

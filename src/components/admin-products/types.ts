@@ -1,6 +1,6 @@
 /** Admin ürünleri sözleşmesi. Kaynak: /api/admin/products */
 
-import type { Money } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 export type StockStatus = "IN_STOCK" | "OUT_OF_STOCK" | "TEMPORARILY_UNAVAILABLE";
 

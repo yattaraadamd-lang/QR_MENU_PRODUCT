@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import DemoButton from "./DemoButton";
 import HeroVisual from "./HeroVisual";
-import { enterDelay } from "./motion-style";
+import { enterDelay } from "@/components/ui/motion-style";
 import { HERO_FACTS } from "./content";
 import styles from "./landing.module.css";
 

@@ -1,7 +1,7 @@
 /** Ödeme geçmişi sözleşmesi. Kaynak: /api/admin/payments */
 
-import type { TableRefDTO } from "@/components/pending-payments/types";
-import type { Money } from "@/components/tables/types";
+import type { TableRefDTO } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 export type PaymentStatus =
   | "PENDING"

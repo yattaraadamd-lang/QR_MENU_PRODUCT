@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
-import { formatLimit, usageLevel } from "./subscriptionModel";
-import type { UsageDTO } from "./types";
+import { formatLimit, usageLevel } from "@/components/subscription/subscriptionModel";
+import type { UsageDTO } from "@/components/subscription/types";
 
 const FILL: Record<ReturnType<typeof usageLevel>["tone"], string> = {
   primary: "bg-primary",

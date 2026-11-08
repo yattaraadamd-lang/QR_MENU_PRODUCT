@@ -1,7 +1,7 @@
 /** Sipariş sözleşmesi (garson + admin). Kaynak: /api/waiter/orders, /api/orders */
 
-import type { TableRefDTO } from "@/components/pending-payments/types";
-import type { Money } from "@/components/tables/types";
+import type { TableRefDTO } from "@/components/tables/types";
+import type { Money } from "@/lib/format";
 
 export type OrderStatus = "PENDING" | "ACCEPTED" | "PREPARING" | "SERVED" | "CANCELLED" | "REJECTED";
 
