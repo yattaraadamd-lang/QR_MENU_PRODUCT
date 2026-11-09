@@ -59,7 +59,7 @@ export function unlockFallbackAudio(): void {
         });
     }
   } catch {
-    // sessizce geç
+    // play() bazı tarayıcılarda eşzamanlı hata atar: kilit açılmaz, bildirim görsel olarak gelir
   }
 }
 
@@ -73,11 +73,11 @@ export function playFallbackBeep(): void {
     const playPromise = audio.play();
     if (playPromise) {
       playPromise.catch(() => {
-        // Ses çalınamadı — sessizce geç
+        // Autoplay kilidi ya da desteklenmeyen biçim: ses çalınmaz, bildirim görsel olarak gelir
       });
     }
   } catch {
-    // sessizce geç
+    // play() eşzamanlı hata attı: ses çalınmaz, bildirim görsel olarak gelir
   }
 }
 

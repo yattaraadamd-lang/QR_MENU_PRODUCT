@@ -88,6 +88,8 @@ const layerRules = [
       "@typescript-eslint/no-unsafe-call": "error",
       "@typescript-eslint/no-unsafe-return": "error",
       "@typescript-eslint/no-unsafe-argument": "error",
+      // `.catch(() => {})` gibi gövdesiz işlev de gerekçe yorumu ister (FE-ARCH-2.6)
+      "@typescript-eslint/no-empty-function": "error",
     },
   },
 ];
@@ -113,6 +115,9 @@ export default [
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      // Hata yutulmaz (FE-ARCH-2.6): boş catch gerekçe yorumu ister; yoksa ele alın ya da
+      // reportClientError ile bildirin
+      "no-empty": ["error", { allowEmptyCatch: false }],
     },
   },
   // Inline style kapısı (FE-ITEM-3.1, 1305 → 10). Statik değer Tailwind sınıfı ya da token olur:

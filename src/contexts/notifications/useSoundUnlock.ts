@@ -30,7 +30,7 @@ function writeSoundPref(mode: NotificationSoundMode, enabled: boolean): void {
   try {
     localStorage.setItem(soundPrefKey(mode), String(enabled));
   } catch {
-    // sessizce geç
+    // Depolama kapalı (gizli sekme, engelli site verisi): tercih yalnız bu sayfa açıkken geçerli
   }
 }
 

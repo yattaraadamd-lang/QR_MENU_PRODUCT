@@ -2,6 +2,7 @@
 
 import { io, Socket } from "socket.io-client";
 import { getSessionToken } from "./get-session-token";
+import { reportClientError } from "./report-error";
 
 /**
  * 🔒 SECURITY FIX P0-03: Socket.IO Client with Authentication
@@ -131,8 +132,10 @@ export function getSocket(authToken?: string): Socket {
           }
           // If still fails on next connect_error it will fall through to
           // FATAL or another TOKEN_EXPIRED, which is guarded by the flag.
-        } catch {
-          // getSession failed — nothing more we can do
+        } catch (error) {
+          // Oturum okunamadı: bağlantı yeniden kurulmaz. Yutulmaz; FATAL koduyla aynı olay yayılır
+          reportClientError("socket.token-refresh", error);
+          window.dispatchEvent(new CustomEvent("socket-auth-failed", { detail: { code: "TOKEN_REFRESH_FAILED" } }));
         } finally {
           tokenRefreshInProgress = false;
         }

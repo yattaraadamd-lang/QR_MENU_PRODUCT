@@ -35,7 +35,8 @@ function playSilentBuffer(ctx: AudioContext, stopAfter?: number): void {
     source.start(0);
     if (stopAfter !== undefined) source.stop(ctx.currentTime + stopAfter);
   } catch {
-    // sessizce geç
+    // Kapanmış bağlamda sessiz tampon çalınamaz: kilit açma ve canlı tutma denemesi boşa gider,
+    // bildirimin görsel kısmı etkilenmez
   }
 }
 
@@ -46,7 +47,10 @@ function playSilentBuffer(ctx: AudioContext, stopAfter?: number): void {
 export function unlockAudio(): void {
   const ctx = getAudioContext();
   if (ctx && ctx.state !== "running") {
-    ctx.resume().catch(() => {});
+    ctx.resume().catch(() => {
+      // Etkileşim dışında reddedilir: bağlam askıda kalır, bildirim sesi yedek <audio> ile çalınır
+      // ve kilit sonraki kullanıcı etkileşiminde yeniden denenir (useSoundUnlock)
+    });
     playSilentBuffer(ctx, 0.001);
   }
   unlockFallbackAudio();
