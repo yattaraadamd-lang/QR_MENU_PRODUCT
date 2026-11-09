@@ -24,3 +24,11 @@ export const PENDING_SYNC_MS = 3_000; // garson onayı bekleniyor: onay anı hı
 export const ACTIVE_REQUESTS_POLL_MS = 5_000; // bekleyen talep varken
 export const ACTIVE_REQUESTS_IDLE_POLL_MS = 15_000; // bekleyen talep yokken
 export const LIVE_BILL_POLL_MS = 15_000;
+
+/** Oturum kurulamadığında müşteriye gösterilen metinler (useCustomerSession) */
+export const SESSION_MESSAGE = {
+  noQrProof: "Sipariş vermek için masadaki QR kodu okutmanız gerekir.",
+  rescan: "Sipariş vermek için masadaki QR kodu tekrar okutun.",
+  createFailed: "Oturum oluşturulamadı. Lütfen QR kodu tekrar okutun.",
+  hydrateFailed: "Oturum doğrulanamadı. Lütfen QR kodu tekrar okutun.",
+} as const;
