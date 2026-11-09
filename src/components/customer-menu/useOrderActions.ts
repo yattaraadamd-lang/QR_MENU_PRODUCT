@@ -1,8 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { toast } from "sonner";
+import { useState } from "react";
 import {
   errorCode,
   requestCodeOf,
@@ -16,7 +14,16 @@ import type { CartApi } from "./useCart";
 import type { CustomerSessionApi } from "./useCustomerSession";
 import type { ActiveRequests, AuthStatus, Business, TableInfo } from "./types";
 
+/** Eylem sonucunu kullanıcıya gösterme: toast mı pencere içi mi kararını bileşen verir */
+export interface ActionNotifier {
+  readonly success: (message: string) => void;
+  readonly error: (message: string) => void;
+  /** Yeni eylem başlarken önceki hata temizlenir */
+  readonly clear: () => void;
+}
+
 type Params = {
+  notify: ActionNotifier;
   /** Rota parametresi: oturumun bu masaya ait olduğu buna göre doğrulanır */
   routeBusinessId: string;
   business: Business | null;
@@ -39,42 +46,45 @@ const TABLE_CLAIMED = "Bu masa başka bir aktif oturuma ait. Personelden yardım
 const cartLines = (cart: CartApi): CartLine[] =>
   cart.items.map((i) => ({ productId: i.product.id, quantity: i.quantity, customerNote: i.customerNote || null }));
 
+/**
+ * Aynı siparişin iki kez yazılmasını önleyen anahtar (sunucu: [A-Za-z0-9_-], 8–128). uuid paketi
+ * yerine tarayıcı API'si; crypto.randomUUID güvenli olmayan bağlamda (yerel ağda http) yok.
+ */
+const idempotencyKey = (prefix: string): string => {
+  const random =
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${prefix}_${random}`;
+};
+
 /** Yetki durumuna göre sipariş (VIEW_ONLY → ORDER_REQUEST, AUTHORIZED → sipariş) ve hizmet talepleri */
 export function useOrderActions(p: Params) {
-  const { session, cart } = p;
+  const { session, cart, notify } = p;
   const [submitting, setSubmitting] = useState(false);
   const [sendingRequest, setSendingRequest] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const clearError = useCallback(() => setActionError(null), []);
-
-  // Açık <dialog> (top layer) varken toast modalın arkasında kalır: hata pencerenin içinde
-  // (FormError) gösterilir, pencere yoksa toast
-  const showError = (msg: string) => {
-    if (document.querySelector("dialog[open]")) setActionError(msg);
-    else toast.error(msg);
-  };
 
   // ✅ Tek gerçek sipariş gönderme fonksiyonu — yalnız AUTHORIZED durumda çağrılır
   const sendActualOrder = async (token: string): Promise<boolean> => {
     const result = await sendOrder(token, {
       items: cartLines(cart),
       note: p.orderNote || null,
-      idempotencyKey: `ord_${uuidv4()}`,
+      idempotencyKey: idempotencyKey("ord"),
     });
     if (result.ok) {
       cart.clear();
       p.onOrderSent();
-      toast.success("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳");
+      notify.success("Siparişiniz gönderildi! Garson onayı bekleniyor... ⏳");
       return true;
     }
     const code = errorCode(result);
     if (code === "CUSTOMER_DEVICE_BLOCKED") {
-      showError(BLOCKED_DEVICE);
+      notify.error(BLOCKED_DEVICE);
     } else if (code === "SESSION_NOT_AUTHORIZED_FOR_TABLE" || code === "SESSION_REVOKED") {
       session.setStatus("REVOKED");
-      showError("Oturumunuz sonlanmış. Personelden yardım isteyin.");
+      notify.error("Oturumunuz sonlanmış. Personelden yardım isteyin.");
     } else {
-      showError(result.error);
+      notify.error(result.error);
       // Ürün stokta yok / kaldırılmış olabilir: menüyü 60 sn beklemeden yenile;
       // menü yenilenince sepetteki stoksuz ürünler temizlenir
       if (result.status === 400 || result.status === 404) p.refreshMenu();
@@ -87,11 +97,11 @@ export function useOrderActions(p: Params) {
     const { business, table } = p;
     if (!cart.items.length || !business || !table) return;
     if (submitting) return;
-    setActionError(null);
+    notify.clear();
 
     // REVOKED veya TABLE_ALREADY_CLAIMED durumunda engelle
     if (session.status === "REVOKED" || session.status === "TABLE_ALREADY_CLAIMED") {
-      showError(TABLE_CLAIMED);
+      notify.error(TABLE_CLAIMED);
       return;
     }
 
@@ -99,7 +109,7 @@ export function useOrderActions(p: Params) {
     try {
       const token = session.token || (await session.ensure(table.id));
       if (!token) {
-        showError(session.blockedMsg || "Sipariş vermek için masadaki QR kodu okutun.");
+        notify.error(session.blockedMsg || "Sipariş vermek için masadaki QR kodu okutun.");
         return;
       }
 
@@ -110,26 +120,26 @@ export function useOrderActions(p: Params) {
       if (server.ok && server.status) {
         // Route-table eşleşme kontrolü
         if (server.businessId !== p.routeBusinessId || server.tableId !== table.id) {
-          showError("Oturum farklı masaya ait. Lütfen QR kodu tekrar okutun.");
+          notify.error("Oturum farklı masaya ait. Lütfen QR kodu tekrar okutun.");
           return;
         }
         effective = server.status;
         if (effective !== session.status) session.setStatus(effective);
 
         if (effective === "REVOKED") {
-          showError("Oturumunuz iptal edilmiş. Personelden yardım isteyin.");
+          notify.error("Oturumunuz iptal edilmiş. Personelden yardım isteyin.");
           return;
         }
         if (effective === "TABLE_ALREADY_CLAIMED") {
-          showError(TABLE_CLAIMED);
+          notify.error(TABLE_CLAIMED);
           return;
         }
       } else if (server.code === "SESSION_REVOKED") {
         session.setStatus("REVOKED");
-        showError("Oturumunuz iptal edilmiş. Personelden yardım isteyin.");
+        notify.error("Oturumunuz iptal edilmiş. Personelden yardım isteyin.");
         return;
       } else if (server.code === "SESSION_EXPIRED" || server.code === "SESSION_NOT_FOUND") {
-        showError("Oturum süresi dolmuş. QR kodu tekrar okutun.");
+        notify.error("Oturum süresi dolmuş. QR kodu tekrar okutun.");
         return;
       }
 
@@ -141,7 +151,7 @@ export function useOrderActions(p: Params) {
 
       // ── PENDING: Zaten bekliyor, ikinci ORDER_REQUEST oluşturma
       if (effective === "PENDING") {
-        showError("Garson onayı bekleniyor. Lütfen bekleyin.");
+        notify.error("Garson onayı bekleniyor. Lütfen bekleyin.");
         return;
       }
 
@@ -153,7 +163,7 @@ export function useOrderActions(p: Params) {
           reason: "Sipariş vermek istiyorum",
           items: cartLines(cart),
           orderNote: p.orderNote || null,
-          idempotencyKey: `or_${uuidv4()}`,
+          idempotencyKey: idempotencyKey("or"),
         });
         const code = errorCode(result);
         const verificationCode = requestCodeOf(result);
@@ -161,28 +171,28 @@ export function useOrderActions(p: Params) {
           session.setStatus("PENDING");
           if (verificationCode) session.setVerificationCode(verificationCode);
           // ✅ Sepet korunur — ORDER_REQUEST ile temizleme
-          toast.success("Sipariş talebiniz oluşturuldu. Garson onayı bekleniyor.");
+          notify.success("Sipariş talebiniz oluşturuldu. Garson onayı bekleniyor.");
         } else if (code === "CUSTOMER_DEVICE_BLOCKED") {
-          showError(BLOCKED_DEVICE);
+          notify.error(BLOCKED_DEVICE);
         } else if (code === "TABLE_ALREADY_CLAIMED") {
           session.setStatus("TABLE_ALREADY_CLAIMED");
-          showError(TABLE_CLAIMED);
+          notify.error(TABLE_CLAIMED);
         } else if (code === "ORDER_REQUEST_PENDING") {
           session.setStatus("PENDING");
           if (verificationCode) session.setVerificationCode(verificationCode);
-          showError("Bekleyen talebiniz var. Garson onayı bekleniyor.");
+          notify.error("Bekleyen talebiniz var. Garson onayı bekleniyor.");
         } else if (code === "SESSION_ALREADY_AUTHORIZED") {
           // ✅ Canonical doğrula + aynı tıklamada sipariş gönder (ağ hatasında butona bırakır)
           const recheck = await session.fetchStatus(token);
           session.setStatus("AUTHORIZED");
           if (recheck.ok && recheck.status === "AUTHORIZED") await sendActualOrder(token);
-          else toast.success("Masanız açık! Siparişi Gönder butonuna basın.");
+          else notify.success("Masanız açık! Siparişi Gönder butonuna basın.");
         } else {
-          showError(result.error);
+          notify.error(result.error);
         }
       }
     } catch {
-      showError("Bağlantı hatası");
+      notify.error("Bağlantı hatası");
     } finally {
       setSubmitting(false);
     }
@@ -192,17 +202,17 @@ export function useOrderActions(p: Params) {
     const { business, table, activeRequests } = p;
     if (!business || !table) return;
     if (sendingRequest) return;
-    setActionError(null);
+    notify.clear();
 
     // Hizmet talepleri için AUTHORIZED gerekli (ORDER_REQUEST hariç)
     if (type !== "ORDER_REQUEST" && session.status !== "AUTHORIZED") {
-      showError("Masanız henüz açılmamış. Önce sipariş talebi oluşturun.");
+      notify.error("Masanız henüz açılmamış. Önce sipariş talebi oluşturun.");
       return;
     }
 
     const token = session.token || (await session.ensure(table.id));
     if (!token) {
-      showError(session.blockedMsg || "Talep göndermek için masadaki QR kodu okutun.");
+      notify.error(session.blockedMsg || "Talep göndermek için masadaki QR kodu okutun.");
       return;
     }
 
@@ -212,7 +222,7 @@ export function useOrderActions(p: Params) {
       (type === "ORDER_REQUEST" && activeRequests["ORDER_REQUEST"]);
 
     if (isBlocked) {
-      showError(type === "PAYMENT_REQUEST" ? "Ödeme talebiniz zaten bekliyor." : "Devam eden bir talebiniz var. Lütfen bekleyin.");
+      notify.error(type === "PAYMENT_REQUEST" ? "Ödeme talebiniz zaten bekliyor." : "Devam eden bir talebiniz var. Lütfen bekleyin.");
       return;
     }
 
@@ -237,21 +247,21 @@ export function useOrderActions(p: Params) {
           HELP_REQUEST: "Yardım talebi gönderildi! ℹ️",
           ORDER_REQUEST: "Sipariş talebi garsona iletildi. 📋",
         };
-        toast.success(msgs[type] || "Talep gönderildi");
+        notify.success(msgs[type] || "Talep gönderildi");
         p.onRequestSent();
         p.refreshRequests();
       } else {
         const code = errorCode(result);
-        if (code === "CUSTOMER_DEVICE_BLOCKED") showError(BLOCKED_DEVICE);
-        else if (isPaymentRequest && (result.status === 409 || code === "PAYMENT_REQUEST_ALREADY_EXISTS")) showError("Ödeme talebiniz zaten bekliyor.");
-        else showError(result.error);
+        if (code === "CUSTOMER_DEVICE_BLOCKED") notify.error(BLOCKED_DEVICE);
+        else if (isPaymentRequest && (result.status === 409 || code === "PAYMENT_REQUEST_ALREADY_EXISTS")) notify.error("Ödeme talebiniz zaten bekliyor.");
+        else notify.error(result.error);
       }
     } catch {
-      showError("Bağlantı hatası");
+      notify.error("Bağlantı hatası");
     } finally {
       setSendingRequest(false);
     }
   };
 
-  return { submitOrder, sendRequest, submitting, sendingRequest, actionError, clearError };
+  return { submitOrder, sendRequest, submitting, sendingRequest };
 }
