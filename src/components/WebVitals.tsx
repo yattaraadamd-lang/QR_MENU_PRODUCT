@@ -18,8 +18,19 @@ function routeOf(pathname: string) {
   return pathname.slice(0, 100);
 }
 
+/**
+ * Gönderilen alanlar. next/web-vitals'ın Metric tipi derlenmiş pakette tanımsız kaldığı için
+ * parametre any'ye düşüyordu (FE-ARCH-2.5); burada açıkça tiplenir.
+ */
+interface VitalSample {
+  readonly name: string;
+  readonly value: number;
+  readonly rating?: string;
+  readonly navigationType?: string;
+}
+
 export default function WebVitals() {
-  useReportWebVitals((metric) => {
+  useReportWebVitals((metric: VitalSample) => {
     if (process.env.NODE_ENV !== "production") return;
     const body = JSON.stringify({
       name: metric.name,

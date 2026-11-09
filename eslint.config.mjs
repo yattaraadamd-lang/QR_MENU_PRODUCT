@@ -1,6 +1,7 @@
 // Erişilebilirlik, hook, inline style ve katman kapıları. CI'da `npm run lint:a11y` olarak
 // çalışır; hata varsa PR kırmızıya düşer.
 import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import jsxA11y from "eslint-plugin-jsx-a11y";
@@ -71,11 +72,23 @@ const layerRules = [
       ],
     },
   },
-  // İstemci kodunda any yok (sunucu tarafı FE-ARCH-3.6 ile)
+  // İstemci kodunda any yok; tipsiz değerin (JSON, kütüphane geri çağrısı) alanına erişim ve
+  // ataması da tip farkında kurallarla yakalanır (FE-ARCH-2.5). Sunucu tarafı FE-ARCH-3.6 ile.
   {
     files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}", "src/contexts/**/*.{ts,tsx}", "src/app/**/*.tsx"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { projectService: true, tsconfigRootDir: fileURLToPath(new URL(".", import.meta.url)) },
+    },
     plugins: { "@typescript-eslint": tsPlugin },
-    rules: { "@typescript-eslint/no-explicit-any": "error" },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+    },
   },
 ];
 

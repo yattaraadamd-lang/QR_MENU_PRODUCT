@@ -59,6 +59,8 @@ export async function apiRequest<T>(url: string, options: RequestOptions = {}): 
   }
 
   const json: unknown = await res.json().catch(() => null);
+  // Güven sınırı: aynı kökenli ve sunucuda doğrulanmış yanıt T kabul edilir. Güven akışının
+  // yanıtları (müşteri oturumu, doğrulama kodu) unknown alınıp tip korumasıyla okunur (customer.api).
   if (res.ok) return { ok: true, data: json as T, headers: res.headers };
 
   const errorBody = isRecord(json) ? json : null;
