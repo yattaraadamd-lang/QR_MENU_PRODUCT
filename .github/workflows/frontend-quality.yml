@@ -58,6 +58,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Saf mantık (modeller, durum makineleri): DB ve build gerektirmez (FE-ARCH-2.3)
+      - name: Unit tests (node:test)
+        run: npm run test:unit
+
       - name: Database (migrate + demo seed)
         run: |
           npx prisma migrate deploy
