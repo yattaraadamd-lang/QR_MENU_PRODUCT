@@ -73,6 +73,13 @@ test.describe("müşteri akışı", () => {
     await scanAndAddProduct(other, qrPath);
     const otherRequest = other.getByRole("button", { name: "Sipariş talebi oluştur" });
     await expect(otherRequest).toBeEnabled({ timeout: 15_000 });
+
+    // Ağ yokken eylem sessiz kalmaz, anlaşılır bir hata gösterir (FE-ARCH-2.6)
+    await secondDevice.setOffline(true);
+    await otherRequest.click();
+    await expect(toast(other, "Bağlantı hatası. Lütfen tekrar deneyin.")).toBeVisible();
+    await secondDevice.setOffline(false);
+
     await otherRequest.click();
     await expect(toast(other, "Bu masa başka bir aktif oturuma ait")).toBeVisible();
     await expect(other.getByRole("button", { name: "Masa başka oturuma ait" })).toBeDisabled();

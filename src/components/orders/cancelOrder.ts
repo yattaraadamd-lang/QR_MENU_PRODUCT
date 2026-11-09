@@ -19,10 +19,7 @@ export interface OrderProduct {
 /** Siparişteki farklı ürünler (stokta yok işaretlemek için) */
 export function orderProducts(order: OrderDTO): OrderProduct[] {
   const products = new Map<string, string>();
-  for (const item of order.items) {
-    const id = item.productId ?? item.product?.id;
-    if (id) products.set(id, item.productName || item.product?.name || "Bilinmeyen Ürün");
-  }
+  for (const item of order.items) products.set(item.productId, item.productName || "Bilinmeyen Ürün");
   return Array.from(products, ([id, name]) => ({ id, name }));
 }
 

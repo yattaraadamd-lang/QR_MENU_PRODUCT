@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
+import { reportClientError } from "@/lib/report-error";
 import { SESSION_MESSAGE } from "./constants";
 import { approveDemoOrderRequest, createCustomerSession, getSessionStatus } from "./customer.api";
 import { initialSession, sessionReducer, type SessionState } from "./sessionMachine";
@@ -24,13 +25,11 @@ export interface SessionNotices {
  */
 export function useCustomerSession(businessId: string, notices: SessionNotices = {}) {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
-  // Yanıt döndüğünde güncel durumu okumak için (PENDING yoklaması)
+  // Yanıt döndüğünde güncel durum ve geri çağrılar okunur (PENDING yoklaması)
   const stateRef = useRef<SessionState>(state);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
   const noticesRef = useRef(notices);
   useEffect(() => {
+    stateRef.current = state;
     noticesRef.current = notices;
   });
 
@@ -120,7 +119,10 @@ export function useCustomerSession(businessId: string, notices: SessionNotices =
 
   // Beklenmeyen hata (ör. depolama erişimi) butonu "kontrol ediliyor"da bırakmasın
   const hydrate = useCallback((tableId: string) => {
-    hydrateInner(tableId).catch(() => dispatch({ type: "blocked", message: SESSION_MESSAGE.hydrateFailed }));
+    hydrateInner(tableId).catch((error: unknown) => {
+      reportClientError("customer-session.hydrate", error);
+      dispatch({ type: "blocked", message: SESSION_MESSAGE.hydrateFailed });
+    });
   }, [hydrateInner]);
 
   useSessionSync(state.token, state.status, {
@@ -142,7 +144,6 @@ export function useCustomerSession(businessId: string, notices: SessionNotices =
 
   const setStatus = useCallback((next: AuthStatus) => dispatch({ type: "status", status: next }), []);
   const setVerificationCode = useCallback((code: string | null) => dispatch({ type: "verificationCode", code }), []);
-
   return { ...state, setStatus, setVerificationCode, ensure, hydrate, fetchStatus: getSessionStatus };
 }
 

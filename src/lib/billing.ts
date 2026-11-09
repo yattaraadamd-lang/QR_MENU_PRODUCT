@@ -3,6 +3,7 @@
  */
 
 import type { BusinessSubscription } from "@prisma/client";
+import { logger } from "./logger";
 import { prisma } from "./prisma";
 import { cancelSubscription, getSubscription, mapIyzicoStatus, IyzicoSubscription } from "./iyzico";
 
@@ -48,7 +49,11 @@ export function subscriptionEndDate(
 export async function cancelPaidSubscription(local: BusinessSubscription) {
   if (!local.iyzicoSubscriptionRef) throw new Error("iyzico aboneliği olmayan kayıt iptal edilemez");
   await cancelSubscription(local.iyzicoSubscriptionRef);
-  const remote = await getSubscription(local.iyzicoSubscriptionRef).catch(() => null);
+  const remote = await getSubscription(local.iyzicoSubscriptionRef).catch((error: unknown) => {
+    // Yutulmaz: bitiş tarihi yerel kayıttan hesaplanır, okuma hatası loga düşer
+    logger.warn({ err: error, subscriptionId: local.id }, "[billing] İptal sonrası iyzico durumu okunamadı");
+    return null;
+  });
   return prisma.businessSubscription.update({
     where: { id: local.id },
     data: { status: "CANCELLED", endsAt: subscriptionEndDate(remote, local, new Date()) },

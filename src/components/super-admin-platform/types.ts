@@ -1,7 +1,10 @@
 /** Süper admin platform ekranları sözleşmesi. Kaynak: /api/super-admin/{dashboard,subscriptions,users} */
 
 import type { SubscriptionStatus } from "@/components/subscription/types";
+import type { UserRole } from "@/contracts/users";
 import type { Money } from "@/lib/format";
+
+export type { UserRole };
 
 export interface PlatformStatsDTO {
   readonly totalBusinesses: number;
@@ -21,8 +24,6 @@ export interface PlatformSubscriptionDTO {
   readonly business: { readonly name: string } | null;
   readonly plan: { readonly name: string; readonly monthlyPrice: Money } | null;
 }
-
-export type UserRole = "SUPER_ADMIN" | "ADMIN" | "WAITER";
 
 export interface PlatformUserDTO {
   readonly id: string;

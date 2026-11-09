@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { reportClientError } from "@/lib/report-error";
 import { getCurrentUser } from "./auth.api";
 
 export type DemoRole = "admin" | "waiter";
@@ -77,7 +78,7 @@ export function useSignIn() {
       router.push(await resolveHome());
       router.refresh();
     } catch (err) {
-      console.error("Giriş başarısız", err);
+      reportClientError("auth.signin", err);
       setError(UNEXPECTED_ERROR);
     } finally {
       setLoading(false);

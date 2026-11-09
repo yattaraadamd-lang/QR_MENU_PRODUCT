@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { reportClientError } from "@/lib/report-error";
 import {
   errorCode,
   requestCodeOf,
@@ -41,6 +42,7 @@ type Params = {
 };
 
 const BLOCKED_DEVICE = "Bu cihazın bu işletmede işlem yapması engellendi.";
+const UNEXPECTED_ERROR = "İşlem tamamlanamadı. Lütfen tekrar deneyin.";
 const TABLE_CLAIMED = "Bu masa başka bir aktif oturuma ait. Personelden yardım isteyin.";
 
 const cartLines = (cart: CartApi): CartLine[] =>
@@ -191,8 +193,10 @@ export function useOrderActions(p: Params) {
           notify.error(result.error);
         }
       }
-    } catch {
-      notify.error("Bağlantı hatası");
+    } catch (error) {
+      // Ağ hataları sonuç olarak döner; buraya yalnız beklenmeyen hata (ör. depolama erişimi) düşer
+      reportClientError("customer-order.submit", error);
+      notify.error(UNEXPECTED_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -256,8 +260,9 @@ export function useOrderActions(p: Params) {
         else if (isPaymentRequest && (result.status === 409 || code === "PAYMENT_REQUEST_ALREADY_EXISTS")) notify.error("Ödeme talebiniz zaten bekliyor.");
         else notify.error(result.error);
       }
-    } catch {
-      notify.error("Bağlantı hatası");
+    } catch (error) {
+      reportClientError("customer-order.request", error);
+      notify.error(UNEXPECTED_ERROR);
     } finally {
       setSendingRequest(false);
     }

@@ -1,5 +1,9 @@
 /** Abonelik ekranı sözleşmesi. Kaynak: /api/admin/subscription, /api/admin/billing/* */
 
+import type { SubscriptionStatus } from "@/contracts/subscription";
+
+export type { SubscriptionStatus };
+
 export interface UsageDTO {
   readonly current: number;
   /** null: sınırsız */
@@ -20,8 +24,6 @@ export interface PlanDTO {
   /** Online ödemesi tanımlı mı */
   readonly canPurchase: boolean;
 }
-
-export type SubscriptionStatus = "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
 
 export interface SubscriptionDTO {
   readonly status: SubscriptionStatus;

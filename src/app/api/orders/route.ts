@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { AdminOrderListResponse } from "@/contracts/orders";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { withApiHandler } from "@/lib/api/handler";
+import { ADMIN_ORDER_LIST_SELECT, toAdminOrderDTO } from "@/lib/api/orders.dto";
 
 export const dynamic = "force-dynamic";
 
@@ -33,44 +35,10 @@ async function handleGet(request: NextRequest) {
 
   const orders = await prisma.order.findMany({
     where: { businessId },
-    select: {
-      id: true,
-      totalPrice: true,
-      status: true,
-      paymentStatus: true,
-      note: true,
-      // Admin listesinde iptal/red nedeni gösterilir
-      cancelReason: true,
-      createdAt: true,
-      table: {
-        select: {
-          id: true,
-          tableNumber: true,
-          tableName: true,
-        },
-      },
-      waiter: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      items: {
-        select: {
-          id: true,
-          // "Stokta yok" ile iptal ederken hangi ürünün işaretleneceği buradan seçilir
-          productId: true,
-          productName: true,
-          quantity: true,
-          unitPrice: true,
-          totalPrice: true,
-          customerNote: true,
-        },
-      },
-    },
+    select: ADMIN_ORDER_LIST_SELECT,
     orderBy: { createdAt: "desc" },
     take: 100,
   });
 
-  return NextResponse.json({ orders });
+  return NextResponse.json({ orders: orders.map(toAdminOrderDTO) } satisfies AdminOrderListResponse);
 }

@@ -1,18 +1,12 @@
 /** Garson talepleri sözleşmesi. Kaynak: /api/waiter/service-requests?status=active|completed */
 
 import type { TableRefDTO } from "@/components/tables/types";
+import type { RequestStatus, ServiceRequestType } from "@/contracts/requests";
 import type { Money } from "@/lib/format";
 
-export type RequestType =
-  | "CALL_WAITER"
-  | "PAYMENT_REQUEST"
-  | "HELP_REQUEST"
-  | "CLEANING_REQUEST"
-  | "ORDER_REQUEST"
-  | "PRODUCT_INFO"
-  | "COMPLAINT_SUGGESTION";
-
-export type RequestStatus = "PENDING" | "SEEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+export type { RequestStatus };
+/** Talep türü (sözleşmede ServiceRequestType) */
+export type RequestType = ServiceRequestType;
 
 /** Masa açma isteğiyle gelen sepet önizlemesi (ORDER_REQUEST) */
 export interface OrderPreviewDTO {

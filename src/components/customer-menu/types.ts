@@ -1,3 +1,5 @@
+import type { CustomerAuthorizationStatus } from "@/contracts/customer-session";
+
 export type Product = {
   id: string;
   name: string;
@@ -17,7 +19,8 @@ export type Business = { id: string; name: string; description: string | null; l
 export type TableInfo = { id: string; tableNumber: string; tableName: string | null };
 export type MenuResponse = { business: Business; table: TableInfo; categories: Category[] };
 
-export type AuthStatus = "VIEW_ONLY" | "PENDING" | "AUTHORIZED" | "REVOKED" | "TABLE_ALREADY_CLAIMED";
+/** Canonical yetki durumu + istemcinin kendi durumu: masa başka cihazda */
+export type AuthStatus = CustomerAuthorizationStatus | "TABLE_ALREADY_CLAIMED";
 
 /** /api/customer/active-requests: tür → bekleyen talep var mı (ör. CALL_WAITER, PAYMENT_REQUEST_BLOCKED) */
 export type ActiveRequests = Record<string, boolean>;

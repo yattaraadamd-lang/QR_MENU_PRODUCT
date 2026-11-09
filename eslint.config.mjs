@@ -8,8 +8,9 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 
 // ─── Katman kapısı (FE-ARCH-1.1) ─────────────────────────────────────────────
-// shared ← entities ← features ← app. Kabuklar (*-shell) ve components/*.tsx app katmanındadır.
-// Üst katman alttakini import edebilir; tersi ve aynı katmanda yan yana import yasaktır.
+// contracts ← shared ← entities ← features ← app. Kabuklar (*-shell) ve components/*.tsx app
+// katmanındadır. Üst katman alttakini import edebilir; tersi ve aynı katmanda yan yana import yasaktır.
+// contracts (src/contracts) yalnız tiptir; sunucu da kullanır (aşağıdaki sözleşme kuralı).
 const SHARED = ["ui", "brand", "staff"];
 // Varlık sırası: soldaki sağdakini import edemez (requests, tables ve payments'ı kullanır)
 const ENTITIES = ["payments", "tables", "orders", "categories", "subscription", "requests"];
@@ -72,6 +73,32 @@ const layerRules = [
       ],
     },
   },
+  // Sözleşme katmanı (FE-ARCH-3.1): src/contracts API ile ekranın ortak tipleridir, en alt katman.
+  // Yalnız tip içerir (istemci paketine girmez), yalnız kendi klasöründen import eder, any taşımaz.
+  // Prisma enum eşitliği: src/lib/api/contracts-sync.ts
+  {
+    files: ["src/contracts/**/*.ts"],
+    plugins: { "@typescript-eslint": tsPlugin },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: ":matches(VariableDeclaration, FunctionDeclaration, ClassDeclaration, TSEnumDeclaration, ExportDefaultDeclaration)",
+          message: "Sözleşme yalnız tip içerir: değer (sabit, işlev, enum) istemci paketine girer. Değeri kullanan katmana koyun.",
+        },
+        {
+          selector: "ImportDeclaration[importKind!='type'], ExportNamedDeclaration[source][exportKind!='type'], ExportAllDeclaration[exportKind!='type']",
+          message: "Sözleşmede yalnız `import type` ve `export type` kullanılır.",
+        },
+        {
+          // Yalnız ./ ile başlayan yol: ../ ve paket importu yok
+          selector: ":matches(ImportDeclaration, ExportNamedDeclaration[source], ExportAllDeclaration)[source.value!=/^\\.[^.]/]",
+          message: "Sözleşme yalnız kendi klasöründen (./) import eder. Prisma eşitliği src/lib/api/contracts-sync.ts'te.",
+        },
+      ],
+    },
+  },
   // İstemci kodunda any yok; tipsiz değerin (JSON, kütüphane geri çağrısı) alanına erişim ve
   // ataması da tip farkında kurallarla yakalanır (FE-ARCH-2.5). Sunucu tarafı FE-ARCH-3.6 ile.
   {
@@ -88,6 +115,8 @@ const layerRules = [
       "@typescript-eslint/no-unsafe-call": "error",
       "@typescript-eslint/no-unsafe-return": "error",
       "@typescript-eslint/no-unsafe-argument": "error",
+      // `.catch(() => {})` gibi gövdesiz işlev de gerekçe yorumu ister (FE-ARCH-2.6)
+      "@typescript-eslint/no-empty-function": "error",
     },
   },
 ];
@@ -113,6 +142,9 @@ export default [
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
+      // Hata yutulmaz (FE-ARCH-2.6): boş catch gerekçe yorumu ister; yoksa ele alın ya da
+      // reportClientError ile bildirin
+      "no-empty": ["error", { allowEmptyCatch: false }],
     },
   },
   // Inline style kapısı (FE-ITEM-3.1, 1305 → 10). Statik değer Tailwind sınıfı ya da token olur:

@@ -1,12 +1,12 @@
 import { apiRequest } from "@/lib/api-client";
-import type { CancelPayload, OrderDTO } from "@/components/orders/types";
+import type { CancelPayload, OrderDTO, WaiterOrderListResponse } from "@/components/orders/types";
 import type { OrderFilter, OrderStatusUpdate } from "./types";
 
 export const ordersUrl = (filter: OrderFilter) => `/api/waiter/orders?status=${filter}`;
 
-/** useApiQuery `select`: uç `{ orders: [...] }` döner */
+/** useApiQuery `select`: anahtar sözleşmeden okunur, değer doğrulanmaz (sunucu sözleşmeyle döner) */
 export function selectOrders(json: unknown): OrderDTO[] {
-  const list = (json as { orders?: unknown } | null)?.orders;
+  const list = (json as Partial<Record<keyof WaiterOrderListResponse, unknown>> | null)?.orders;
   return Array.isArray(list) ? (list as OrderDTO[]) : [];
 }
 

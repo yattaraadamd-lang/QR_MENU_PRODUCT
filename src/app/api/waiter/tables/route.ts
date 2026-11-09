@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { TableListResponse } from "@/contracts/tables";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { TableStatus } from "@prisma/client";
 import { writeTableStatus } from "@/lib/services/table-events.service";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { TABLE_LIST_SELECT, toTableDTO } from "@/lib/api/tables.dto";
 import { waiterTableStatusSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
-// Garson ekranı bu alanları kullanır (components/tables/types.ts). Liste açıkça yazılır: masanın
-// QR token'ı ve talebin doğrulama kodu garsona dönmemeli, kod müşteriden sorulur.
+// PUT yanıtındaki masa özeti. Alanlar açıkça yazılır: masanın QR token'ı garsona dönmez.
 const TABLE_SELECT = { id: true, tableNumber: true, tableName: true, status: true } as const;
 
-// GET /api/waiter/tables — Masaları adisyon bilgisiyle getir
+// GET /api/waiter/tables — Masaları adisyon bilgisiyle getir (sözleşme: src/contracts/tables.ts)
 export async function GET(request: NextRequest) {
   try {
     const { error, response, session } = await requireWaiterOrAdmin();
@@ -22,43 +23,10 @@ export async function GET(request: NextRequest) {
     const tables = await prisma.table.findMany({
       where: { businessId, isDeleted: false },
       orderBy: { tableNumber: "asc" },
-      select: {
-        ...TABLE_SELECT,
-        orders: {
-          where: { status: { in: ["PENDING", "ACCEPTED", "PREPARING"] } },
-          orderBy: { createdAt: "desc" },
-          select: { id: true, status: true },
-        },
-        serviceRequests: {
-          where: { status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] } },
-          orderBy: { createdAt: "desc" },
-          select: { id: true, status: true, requestType: true },
-        },
-        tableSessions: {
-          where: { status: "ACTIVE" },
-          take: 1,
-          select: {
-            id: true,
-            startedAt: true,
-            bill: {
-              select: { id: true, totalAmount: true, paidAmount: true, remainingAmount: true, paymentStatus: true },
-            },
-          },
-        },
-      },
+      select: TABLE_LIST_SELECT,
     });
 
-    // Her masaya aktif oturum ve adisyon bilgisini ekle
-    const enriched = tables.map(({ tableSessions, ...t }) => {
-      const active = tableSessions[0];
-      return {
-        ...t,
-        activeSession: active ? { id: active.id, startedAt: active.startedAt } : null,
-        bill: active?.bill ?? null,
-      };
-    });
-
-    return NextResponse.json({ tables: enriched });
+    return NextResponse.json({ tables: tables.map(toTableDTO) } satisfies TableListResponse);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "Masalar yüklenirken hata oluştu" }, { status: 500 });

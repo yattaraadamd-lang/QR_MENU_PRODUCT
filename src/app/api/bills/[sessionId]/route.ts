@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { BillDetailResponse } from "@/contracts/tables";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { withApiHandler } from "@/lib/api/handler";
-import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";
+import { BILL_DETAIL_SELECT, toBillDetailDTO } from "@/lib/api/tables.dto";
 
 export const dynamic = "force-dynamic";
 
@@ -17,28 +18,14 @@ async function handleGet(request: NextRequest, context: { params: Promise<{ sess
   if (waiterCheck.error) return waiterCheck.response!;
   const businessId = getBusinessId(waiterCheck.session);
 
+  // Yalnız ödenebilir siparişler (liste adisyon toplamıyla aynı küme) ve alınmış ödemeler
   const bill = await prisma.bill.findFirst({
     where: { tableSessionId: params.sessionId, businessId },
-    include: {
-      tableSession: {
-        include: {
-          orders: {
-            // ✅ Sadece ödenebilir durumdaki siparişler: liste adisyon toplamıyla aynı kümeyi gösterir
-            where: { status: { in: BILLABLE_ORDER_STATUSES } },
-            include: { items: { include: { product: true } }, waiter: { select: { name: true } } },
-            orderBy: { createdAt: "asc" },
-          },
-        },
-      },
-      payments: {
-        where: { status: "PAID" },
-        orderBy: { createdAt: "desc" },
-      },
-    },
+    select: BILL_DETAIL_SELECT,
   });
 
   if (!bill) return NextResponse.json({ error: "Adisyon bulunamadı" }, { status: 404 });
-  return NextResponse.json({ bill });
+  return NextResponse.json({ bill: toBillDetailDTO(bill) } satisfies BillDetailResponse);
 }
 
 // POST kaldırıldı: hiçbir ekran kullanmıyordu ve toplamı ödeme servisinden farklı kurallarla

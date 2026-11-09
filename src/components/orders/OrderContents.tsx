@@ -1,23 +1,19 @@
 import { formatTRY } from "@/lib/format";
 import Alert from "@/components/ui/Alert";
-import type { OrderDTO, OrderItemDTO } from "./types";
-
-function itemTotal(item: OrderItemDTO): number {
-  return item.totalPrice !== undefined ? Number(item.totalPrice) : Number(item.unitPrice) * item.quantity;
-}
+import type { OrderDTO } from "./types";
 
 /** Sipariş kalemleri + sipariş notu + iptal/red nedeni (garson ve admin kartı ortak) */
 export default function OrderContents({ order }: { order: OrderDTO }) {
   return (
     <div className="flex flex-col gap-2">
       <ul className="divide-y divide-line-subtle text-sm">
-        {order.items.map((item, i) => (
-          <li key={item.id ?? i} className="flex justify-between gap-2 py-1">
+        {order.items.map((item) => (
+          <li key={item.id} className="flex justify-between gap-2 py-1">
             <span className="min-w-0 text-fg-secondary">
-              <span className="font-semibold text-fg">{item.quantity}×</span> {item.productName || item.product?.name}
+              <span className="font-semibold text-fg">{item.quantity}×</span> {item.productName}
               {item.customerNote && <span className="block text-2xs text-warning-fg">📝 {item.customerNote}</span>}
             </span>
-            <span className="shrink-0 font-semibold tabular-nums text-fg-secondary">{formatTRY(itemTotal(item))}</span>
+            <span className="shrink-0 font-semibold tabular-nums text-fg-secondary">{formatTRY(item.totalPrice)}</span>
           </li>
         ))}
       </ul>

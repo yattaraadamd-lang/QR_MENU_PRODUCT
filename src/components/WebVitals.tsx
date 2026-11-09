@@ -40,7 +40,9 @@ export default function WebVitals() {
       route: routeOf(window.location.pathname),
     });
     if (!navigator.sendBeacon?.("/api/vitals", body)) {
-      fetch("/api/vitals", { method: "POST", body, keepalive: true }).catch(() => {});
+      fetch("/api/vitals", { method: "POST", body, keepalive: true }).catch(() => {
+        // Ölçüm en iyi çabayla gönderilir: kaybı kullanıcıyı etkilemez, yeniden denenmez
+      });
     }
   });
   return null;

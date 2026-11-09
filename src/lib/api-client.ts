@@ -58,6 +58,7 @@ export async function apiRequest<T>(url: string, options: RequestOptions = {}): 
     return { ok: false, error: NETWORK_ERROR, status: 0, body: null, aborted };
   }
 
+  // Gövdesiz ya da JSON olmayan yanıt (204, proxy'nin HTML hata sayfası): null
   const json: unknown = await res.json().catch(() => null);
   // Güven sınırı: aynı kökenli ve sunucuda doğrulanmış yanıt T kabul edilir. Güven akışının
   // yanıtları (müşteri oturumu, doğrulama kodu) unknown alınıp tip korumasıyla okunur (customer.api).

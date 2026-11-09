@@ -21,6 +21,7 @@ export const BILL_PAYMENT_STATUS: Readonly<Record<BillPaymentStatus, StatusMeta>
   PAID: { label: "Ödendi", tone: "success" },
   PARTIALLY_PAID: { label: "Kısmi ödendi", tone: "warning" },
   UNPAID: { label: "Ödenmedi", tone: "danger" },
+  CANCELLED: { label: "İptal", tone: "neutral" },
 };
 
 export const FORCE_CLOSE_REASONS = ["İkram", "İptal", "Müşteri ayrıldı", "Hatalı sipariş", "Diğer"] as const;

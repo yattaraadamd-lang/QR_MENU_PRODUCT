@@ -76,7 +76,7 @@ function DetailBody({ hasSession, billState, onRetry }: { hasSession: boolean; b
 
 function BillDetail({ bill }: { bill: BillDetailDTO }) {
   const paymentStatus = BILL_PAYMENT_STATUS[bill.paymentStatus] ?? BILL_PAYMENT_STATUS.UNPAID;
-  const orders = bill.tableSession?.orders ?? [];
+  const orders = bill.tableSession.orders;
 
   return (
     <div className="flex flex-col gap-4">
