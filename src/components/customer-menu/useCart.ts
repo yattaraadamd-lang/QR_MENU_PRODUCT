@@ -13,7 +13,7 @@ const isCartItem = (v: unknown): v is CartItem => {
 
 function readStored(key: string): CartItem[] {
   try {
-    const parsed = JSON.parse(sessionStorage.getItem(key) || "[]");
+    const parsed: unknown = JSON.parse(sessionStorage.getItem(key) || "[]");
     return Array.isArray(parsed) ? parsed.filter(isCartItem) : [];
   } catch {
     return []; // gizli pencere / engelli depolama
