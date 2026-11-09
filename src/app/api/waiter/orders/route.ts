@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { WaiterOrderListResponse } from "@/contracts/orders";
+import { ORDER_LIST_SELECT, toOrderDTO } from "@/lib/api/orders.dto";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateQuery, orderFilterSchema, paginationSchema } from "@/lib/validation";
@@ -77,45 +79,13 @@ export async function GET(request: NextRequest) {
     // ✅ Tenant-safe query with minimal select
     const orders = await prisma.order.findMany({
       where,
-      select: {
-        id: true,
-        totalPrice: true,
-        status: true,
-        note: true,
-        createdAt: true,
-        cancelReason: true,
-        items: {
-          select: {
-            id: true,
-            // "Stokta yok" ile reddederken hangi ürünün işaretleneceği buradan seçilir
-            productId: true,
-            productName: true,
-            quantity: true,
-            unitPrice: true,
-            totalPrice: true,
-            customerNote: true,
-          },
-        },
-        table: {
-          select: {
-            id: true,
-            tableNumber: true,
-            tableName: true,
-          },
-        },
-        waiter: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+      select: ORDER_LIST_SELECT,
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
     });
 
-    return NextResponse.json({ orders, page, limit });
+    return NextResponse.json({ orders: orders.map(toOrderDTO), page, limit } satisfies WaiterOrderListResponse);
   } catch (error) {
     console.error("Sipariş listeleme hatası:", error instanceof Error ? error.message : error);
     console.error("Stack:", error instanceof Error ? error.stack : "N/A");

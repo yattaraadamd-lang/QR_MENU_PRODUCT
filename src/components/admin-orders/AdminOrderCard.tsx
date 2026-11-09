@@ -1,7 +1,7 @@
 import { formatTRY } from "@/lib/format";
 import OrderContents from "@/components/orders/OrderContents";
 import { ORDER_PAYMENT_STATUS, STOPPED_STATUSES, isFinalStatus, orderStatusMeta } from "@/components/orders/orderStatus";
-import type { OrderDTO } from "@/components/orders/types";
+import type { AdminOrderDTO } from "@/components/orders/types";
 import { tableDisplayName } from "@/components/tables/tableModel";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -9,16 +9,14 @@ import Button from "@/components/ui/Button";
 const DATE_TIME = new Intl.DateTimeFormat("tr-TR", { dateStyle: "short", timeStyle: "short" });
 
 interface AdminOrderCardProps {
-  order: OrderDTO;
-  onCancel: (order: OrderDTO) => void;
+  order: AdminOrderDTO;
+  onCancel: (order: AdminOrderDTO) => void;
 }
 
 /** Admin sipariş kartı: masa, zaman, garson, sipariş ve ödeme durumu, kalemler, iptal */
 export default function AdminOrderCard({ order, onCancel }: AdminOrderCardProps) {
   const status = orderStatusMeta(order.status);
-  const payment = order.paymentStatus && !STOPPED_STATUSES.includes(order.status)
-    ? ORDER_PAYMENT_STATUS[order.paymentStatus]
-    : null;
+  const payment = STOPPED_STATUSES.includes(order.status) ? null : ORDER_PAYMENT_STATUS[order.paymentStatus];
   const name = tableDisplayName(order.table);
 
   return (

@@ -17,7 +17,7 @@ export function orderStatusMeta(status: OrderStatus) {
 
 export const ORDER_PAYMENT_STATUS: Readonly<Record<OrderPaymentStatus, StatusMeta>> = {
   UNPAID: { label: "Ödenmedi", tone: "warning" },
-  PAYMENT_REQUESTED: { label: "Ödeme Bekleniyor", tone: "purple" },
+  PARTIALLY_PAID: { label: "Kısmi ödendi", tone: "info" },
   PAID: { label: "Ödendi", tone: "success" },
   CANCELLED: { label: "İptal", tone: "danger" },
 };

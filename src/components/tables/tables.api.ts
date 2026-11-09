@@ -1,18 +1,18 @@
 import { apiRequest } from "@/lib/api-client";
-import type { BillDetailDTO, CollectPaymentInput, TableDTO } from "./types";
+import type { BillDetailResponse, CollectPaymentInput, TableDTO, TableListResponse } from "./types";
 
 const id = (value: string) => encodeURIComponent(value);
 
-/** useApiQuery `select`: liste uçları `{ tables: [...] }` döner */
+/** useApiQuery `select`: anahtar sözleşmeden okunur, değer doğrulanmaz (sunucu sözleşmeyle döner) */
 export function selectTables(json: unknown): TableDTO[] {
-  const tables = (json as { tables?: unknown } | null)?.tables;
+  const tables = (json as Partial<Record<keyof TableListResponse, unknown>> | null)?.tables;
   return Array.isArray(tables) ? (tables as TableDTO[]) : [];
 }
 
 /** Admin ve garson masa ekranlarının ortak yazma/okuma uçları */
 export const tablesApi = {
   getBill: async (sessionId: string, signal?: AbortSignal) => {
-    const result = await apiRequest<{ bill: BillDetailDTO }>(`/api/bills/${id(sessionId)}`, {
+    const result = await apiRequest<BillDetailResponse>(`/api/bills/${id(sessionId)}`, {
       signal,
       fallbackError: "Adisyon yüklenemedi.",
     });

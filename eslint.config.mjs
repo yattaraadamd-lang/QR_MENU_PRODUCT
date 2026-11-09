@@ -8,8 +8,9 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 
 // ─── Katman kapısı (FE-ARCH-1.1) ─────────────────────────────────────────────
-// shared ← entities ← features ← app. Kabuklar (*-shell) ve components/*.tsx app katmanındadır.
-// Üst katman alttakini import edebilir; tersi ve aynı katmanda yan yana import yasaktır.
+// contracts ← shared ← entities ← features ← app. Kabuklar (*-shell) ve components/*.tsx app
+// katmanındadır. Üst katman alttakini import edebilir; tersi ve aynı katmanda yan yana import yasaktır.
+// contracts (src/contracts) yalnız tiptir; sunucu da kullanır (aşağıdaki sözleşme kuralı).
 const SHARED = ["ui", "brand", "staff"];
 // Varlık sırası: soldaki sağdakini import edemez (requests, tables ve payments'ı kullanır)
 const ENTITIES = ["payments", "tables", "orders", "categories", "subscription", "requests"];
@@ -68,6 +69,32 @@ const layerRules = [
               message: "hooks/ ve lib/ paylaşılan katmandır; components ya da contexts import edemez.",
             },
           ],
+        },
+      ],
+    },
+  },
+  // Sözleşme katmanı (FE-ARCH-3.1): src/contracts API ile ekranın ortak tipleridir, en alt katman.
+  // Yalnız tip içerir (istemci paketine girmez), yalnız kendi klasöründen import eder, any taşımaz.
+  // Prisma enum eşitliği: src/lib/api/contracts-sync.ts
+  {
+    files: ["src/contracts/**/*.ts"],
+    plugins: { "@typescript-eslint": tsPlugin },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: ":matches(VariableDeclaration, FunctionDeclaration, ClassDeclaration, TSEnumDeclaration, ExportDefaultDeclaration)",
+          message: "Sözleşme yalnız tip içerir: değer (sabit, işlev, enum) istemci paketine girer. Değeri kullanan katmana koyun.",
+        },
+        {
+          selector: "ImportDeclaration[importKind!='type'], ExportNamedDeclaration[source][exportKind!='type'], ExportAllDeclaration[exportKind!='type']",
+          message: "Sözleşmede yalnız `import type` ve `export type` kullanılır.",
+        },
+        {
+          // Yalnız ./ ile başlayan yol: ../ ve paket importu yok
+          selector: ":matches(ImportDeclaration, ExportNamedDeclaration[source], ExportAllDeclaration)[source.value!=/^\\.[^.]/]",
+          message: "Sözleşme yalnız kendi klasöründen (./) import eder. Prisma eşitliği src/lib/api/contracts-sync.ts'te.",
         },
       ],
     },

@@ -1,8 +1,9 @@
 /** Admin ürünleri sözleşmesi. Kaynak: /api/admin/products */
 
+import type { StockStatus } from "@/contracts/products";
 import type { Money } from "@/lib/format";
 
-export type StockStatus = "IN_STOCK" | "OUT_OF_STOCK" | "TEMPORARILY_UNAVAILABLE";
+export type { StockStatus };
 
 export interface ProductDTO {
   readonly id: string;

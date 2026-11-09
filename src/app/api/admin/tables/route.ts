@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { TableListResponse } from "@/contracts/tables";
+import { TABLE_LIST_SELECT, toTableDTO } from "@/lib/api/tables.dto";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { createTableSchema } from "@/lib/validation";
@@ -15,66 +17,15 @@ export async function GET(request: NextRequest) {
     if (!authResult.success) return authResult.response;
 
     const businessId = getBusinessIdFromSession(authResult.session);
-    
+
+    // Garson listesiyle aynı sözleşme; QR kodu ekrana generate-qr ucundan gelir
     const tables = await prisma.table.findMany({
       where: { businessId, isDeleted: false },
-      select: {
-        id: true,
-        tableNumber: true,
-        tableName: true,
-        status: true,
-        isActive: true,
-        qrToken: true,
-        createdAt: true,
-        orders: {
-          where: { status: { in: ["PENDING", "ACCEPTED", "PREPARING"] } },
-          select: {
-            id: true,
-            status: true,
-            totalPrice: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        serviceRequests: {
-          where: { status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] } },
-          select: {
-            id: true,
-            requestType: true,
-            status: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        tableSessions: {
-          where: { status: "ACTIVE" },
-          select: {
-            id: true,
-            startedAt: true,
-            bill: {
-              select: {
-                id: true,
-                totalAmount: true,
-                paidAmount: true,
-                remainingAmount: true,
-                paymentStatus: true,
-              },
-            },
-          },
-          take: 1,
-        },
-      },
+      select: TABLE_LIST_SELECT,
       orderBy: { tableNumber: "asc" },
     });
 
-    // Düzleştir
-    const enriched = tables.map(t => ({
-      ...t,
-      activeSession: t.tableSessions[0] || null,
-      bill: t.tableSessions[0]?.bill || null,
-    }));
-
-    return NextResponse.json({ tables: enriched });
+    return NextResponse.json({ tables: tables.map(toTableDTO) } satisfies TableListResponse);
   } catch (error) {
     console.error("Masa listeleme hatası:", error);
     return NextResponse.json(

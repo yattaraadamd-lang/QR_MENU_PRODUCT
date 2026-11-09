@@ -1,11 +1,12 @@
 import type { ChoiceOption } from "@/components/ui/ChoiceGroup";
+import type { PaymentMethod } from "@/contracts/payments";
 
 /**
  * Ödeme yöntemleri ve etiketleri. Form mantığından (paymentForm.ts) ayrı: liste/detay ekranları
  * yalnız etiketi kullanır, doğrulama kodu ilk yük paketine girmesin.
  */
 
-export type PaymentMethod = "CASH" | "CARD" | "ONLINE" | "OTHER";
+export type { PaymentMethod };
 
 const PAYMENT_METHOD_LABEL: Readonly<Record<PaymentMethod, string>> = {
   CASH: "💵 Nakit",
