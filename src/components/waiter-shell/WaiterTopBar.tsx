@@ -3,7 +3,7 @@
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 import BrandMark from "@/components/brand/BrandMark";
-import { NotificationPanel } from "@/components/NotificationPanel";
+import { NotificationPanel } from "@/components/notifications";
 import Button from "@/components/ui/Button";
 
 /** Garson üst çubuğu (banner landmark'ı): marka, ad, işletme, bildirimler, çıkış */

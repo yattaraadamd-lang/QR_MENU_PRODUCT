@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { NotificationSoundProvider } from "@/contexts/NotificationSoundContext";
+import { NotificationSoundProvider } from "@/components/notifications";
 import AdminSidebar from "@/components/admin-shell/AdminSidebar";
 import AdminTopBar from "@/components/admin-shell/AdminTopBar";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
