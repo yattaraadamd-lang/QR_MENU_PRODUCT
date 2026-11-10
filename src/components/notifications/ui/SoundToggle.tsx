@@ -2,7 +2,7 @@
 
 import { Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useNotificationActions, useNotificationSoundState } from "@/contexts/NotificationSoundContext";
+import { useNotificationActions, useNotificationSoundState } from "../model/NotificationSoundContext";
 
 const BASE = "flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-md border text-[13px] transition-colors";
 const ICON_ONLY = "w-10 border-line bg-surface";

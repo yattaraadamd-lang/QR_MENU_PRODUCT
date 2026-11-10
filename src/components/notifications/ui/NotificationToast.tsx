@@ -2,7 +2,7 @@
 
 import { VolumeX, X } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useNotificationActions, useNotificationSoundState, useNotificationToast } from "@/contexts/NotificationSoundContext";
+import { useNotificationActions, useNotificationSoundState, useNotificationToast } from "../model/NotificationSoundContext";
 
 /**
  * Son bildirimin toast'ı. Kritik olanlar (persistent) elle kapatılana kadar kalır ve

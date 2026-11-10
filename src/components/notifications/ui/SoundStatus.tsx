@@ -6,7 +6,7 @@ import {
   useNotificationActions,
   useNotificationSoundState,
   type NotificationSoundMode,
-} from "@/contexts/NotificationSoundContext";
+} from "../model/NotificationSoundContext";
 
 /** Durumun simgesi ve metni: kapalı (tercih) · kilitli (tarayıcı dokunuş bekliyor) · açık */
 function describeSound(soundEnabled: boolean, audioUnlocked: boolean, mode: NotificationSoundMode) {

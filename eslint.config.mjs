@@ -1,6 +1,6 @@
 // Erişilebilirlik, hook, inline style ve katman kapıları. CI'da `npm run lint:a11y` olarak
 // çalışır; hata varsa PR kırmızıya düşer.
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
@@ -33,7 +33,15 @@ if (unclassified.length > 0) {
   throw new Error(`eslint.config.mjs: katmanı tanımsız klasör: ${unclassified.join(", ")} (SHARED/ENTITIES/SHELLS/FEATURES)`);
 }
 
-const importGlobs = (folders) => folders.flatMap((folder) => [`@/components/${folder}/**`, `../${folder}/**`]);
+// Klasörün kendisi de listede: dışa açık yüzü (index.ts) olan klasör de katman kuralına takılır
+const importGlobs = (folders) =>
+  folders.flatMap((folder) => [`@/components/${folder}`, `@/components/${folder}/**`, `../${folder}`, `../${folder}/**`]);
+
+// Dışa açık yüzü (index.ts) olan özelliğe yalnız oradan girilir (FE-ARCH-3.2): kabuk ve sayfa
+// içerideki model/ ya da ui/ dosyasını doğrudan import edemez
+const PUBLIC_API = FEATURES.filter((folder) =>
+  existsSync(new URL(`./src/components/${folder}/index.ts`, import.meta.url)),
+);
 
 function layer(folder, banned, message) {
   const group = importGlobs(banned.filter((name) => name !== folder));
@@ -57,6 +65,26 @@ const layerRules = [
   ...FEATURES.map((folder) =>
     layer(folder, [...FEATURES, ...SHELLS], "Özellikler birbirini import etmez. Ortak parçayı bir varlığa ya da components/ui'ye taşıyın."),
   ),
+  ...(PUBLIC_API.length > 0
+    ? [
+        {
+          files: [...SHELLS.map((shell) => `src/components/${shell}/**/*.{ts,tsx}`), "src/components/*.{ts,tsx}", "src/app/**/*.{ts,tsx}"],
+          rules: {
+            "no-restricted-imports": [
+              "error",
+              {
+                patterns: [
+                  {
+                    group: PUBLIC_API.flatMap((folder) => [`@/components/${folder}/**`, `../${folder}/**`]),
+                    message: "Bu özelliğe yalnız dışa açık yüzünden girilir: @/components/<özellik> (index.ts).",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ]
+    : []),
   {
     files: ["src/hooks/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
     rules: {
@@ -65,8 +93,8 @@ const layerRules = [
         {
           patterns: [
             {
-              group: ["@/components/**", "@/contexts/**"],
-              message: "hooks/ ve lib/ paylaşılan katmandır; components ya da contexts import edemez.",
+              group: ["@/components/**"],
+              message: "hooks/ ve lib/ paylaşılan katmandır; components import edemez.",
             },
           ],
         },
@@ -102,7 +130,7 @@ const layerRules = [
   // İstemci kodunda any yok; tipsiz değerin (JSON, kütüphane geri çağrısı) alanına erişim ve
   // ataması da tip farkında kurallarla yakalanır (FE-ARCH-2.5). Sunucu tarafı FE-ARCH-3.6 ile.
   {
-    files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}", "src/contexts/**/*.{ts,tsx}", "src/app/**/*.tsx"],
+    files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}", "src/app/**/*.tsx"],
     languageOptions: {
       parser: tsParser,
       parserOptions: { projectService: true, tsconfigRootDir: fileURLToPath(new URL(".", import.meta.url)) },

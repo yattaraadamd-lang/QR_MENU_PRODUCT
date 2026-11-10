@@ -2,7 +2,7 @@
 
 import { Bell } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useNotificationList } from "@/contexts/NotificationSoundContext";
+import { useNotificationList } from "../model/NotificationSoundContext";
 
 /** Rozette en fazla iki hane */
 const MAX_BADGE = 99;

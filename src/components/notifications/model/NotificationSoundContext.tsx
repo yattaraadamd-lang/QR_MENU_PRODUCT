@@ -1,19 +1,19 @@
 "use client";
 
 import React, { createContext, useContext, useMemo, useState } from "react";
-import { createDeduper, soundFor, STAFF_EVENT_NAMES, toNotification } from "./notifications/events";
-import type { NotificationItem, NotificationSoundMode, NotificationType } from "./notifications/types";
-import { useNotificationStore } from "./notifications/useNotificationStore";
-import { useSoundUnlock } from "./notifications/useSoundUnlock";
-import { useStaffSocket } from "./notifications/useStaffSocket";
+import { createDeduper, soundFor, STAFF_EVENT_NAMES, toNotification } from "./events";
+import type { NotificationItem, NotificationSoundMode, NotificationType } from "./types";
+import { useNotificationStore } from "./useNotificationStore";
+import { useSoundUnlock } from "./useSoundUnlock";
+import { useStaffSocket } from "./useStaffSocket";
 
-export type { NotificationItem, NotificationSoundMode } from "./notifications/types";
+export type { NotificationItem, NotificationSoundMode } from "./types";
 
 /**
- * Personel bildirimleri (garson ve admin kabuğu). Parçalar ayrı modüllerde:
- *   - notifications/useSoundUnlock: ses tercihi + tarayıcı autoplay kilidi (audio.ts)
- *   - notifications/useNotificationStore: liste, okunmamış sayısı, toast
- *   - notifications/useStaffSocket + events: soket olayı → bildirim, ses, tekrar eleme
+ * Personel bildirimleri (garson ve admin kabuğu). Parçalar bu klasörde (model/):
+ *   - useSoundUnlock: ses tercihi + tarayıcı autoplay kilidi (audio.ts)
+ *   - useNotificationStore: liste, okunmamış sayısı, toast
+ *   - useStaffSocket + events: soket olayı → bildirim, ses, tekrar eleme
  *
  * Durum dört bağlamda: bildirim gelince yalnız liste/toast tüketicileri, ses tercihi
  * değişince yalnız ses tüketicileri çizilir. Eylem bağlamı hiç değişmez.

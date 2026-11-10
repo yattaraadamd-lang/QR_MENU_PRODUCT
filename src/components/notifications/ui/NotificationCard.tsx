@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from "react";
 import { X } from "lucide-react";
-import type { NotificationItem } from "@/contexts/NotificationSoundContext";
+import type { NotificationItem } from "../model/types";
 
 // ─── Relative time formatter ──────────────────────────────────────────────────
 function relativeTime(date: Date): string {

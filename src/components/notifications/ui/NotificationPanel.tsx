@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useNotificationActions } from "@/contexts/NotificationSoundContext";
-import NotificationBell from "@/components/notifications/NotificationBell";
-import NotificationDrawer from "@/components/notifications/NotificationDrawer";
-import NotificationToast from "@/components/notifications/NotificationToast";
-import SoundToggle from "@/components/notifications/SoundToggle";
+import { useNotificationActions } from "../model/NotificationSoundContext";
+import NotificationBell from "./NotificationBell";
+import NotificationDrawer from "./NotificationDrawer";
+import NotificationToast from "./NotificationToast";
+import SoundToggle from "./SoundToggle";
 
 /**
  * 🔔 Personel bildirim alanı (garson ve admin üst çubuğu): zil, ses düğmesi, son
- * bildirimin toast'ı ve sağdan açılan çekmece. Parçalar components/notifications altında;
+ * bildirimin toast'ı ve sağdan açılan çekmece. Parçalar bu klasörde (ui/);
  * her biri yalnız ihtiyacı olan bağlamı okur (bildirim gelince ses düğmesi, ses tercihi
  * değişince zil çizilmez). Bu kabuk yalnız kararlı eylem bağlamını okur.
  */

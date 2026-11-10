@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, CheckCheck, X } from "lucide-react";
 import Dialog from "@/components/ui/Dialog";
-import { useNotificationActions, useNotificationList } from "@/contexts/NotificationSoundContext";
+import { useNotificationActions, useNotificationList } from "../model/NotificationSoundContext";
 import NotificationCard from "./NotificationCard";
 import SoundStatus from "./SoundStatus";
 

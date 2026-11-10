@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { Menu } from "lucide-react";
 import BrandLogo from "@/components/brand/BrandLogo";
-import { NotificationPanel } from "@/components/NotificationPanel";
+import { NotificationPanel } from "@/components/notifications";
 
 interface AdminTopBarProps {
   sidebarId: string;
