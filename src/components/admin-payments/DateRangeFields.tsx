@@ -9,10 +9,7 @@ interface DateRangeFieldsProps {
   onEnd: (value: string) => void;
 }
 
-/**
- * Başlangıç–bitiş tarihi. Telefonda tam genişlik, iki alan yan yana esner; genişte sabit.
- * .input %100 genişlik alır (globals): genişlik sarmalayıcıda verilir.
- */
+/** Başlangıç–bitiş tarihi. Telefonda tam genişlik, iki alan yan yana esner; genişte sabit. */
 export default function DateRangeFields({ range, max, onStart, onEnd }: DateRangeFieldsProps) {
   const labelId = useId();
 
@@ -21,30 +18,26 @@ export default function DateRangeFields({ range, max, onStart, onEnd }: DateRang
       <span id={labelId} className="w-full text-sm font-semibold text-fg-secondary sm:w-auto">
         Tarih Aralığı:
       </span>
-      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
-        <input
-          type="date"
-          aria-label="Başlangıç tarihi"
-          className="input"
-          value={range.start}
-          max={range.end}
-          onChange={(e) => onStart(e.target.value)}
-        />
-      </div>
+      <input
+        type="date"
+        aria-label="Başlangıç tarihi"
+        className="input min-w-0 flex-1 sm:w-40 sm:flex-none"
+        value={range.start}
+        max={range.end}
+        onChange={(e) => onStart(e.target.value)}
+      />
       <span aria-hidden="true" className="text-fg-secondary">
         –
       </span>
-      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
-        <input
-          type="date"
-          aria-label="Bitiş tarihi"
-          className="input"
-          value={range.end}
-          min={range.start}
-          max={max}
-          onChange={(e) => onEnd(e.target.value)}
-        />
-      </div>
+      <input
+        type="date"
+        aria-label="Bitiş tarihi"
+        className="input min-w-0 flex-1 sm:w-40 sm:flex-none"
+        value={range.end}
+        min={range.start}
+        max={max}
+        onChange={(e) => onEnd(e.target.value)}
+      />
     </div>
   );
 }

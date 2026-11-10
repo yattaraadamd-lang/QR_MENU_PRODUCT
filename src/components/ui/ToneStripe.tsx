@@ -14,7 +14,7 @@ const TONE_BG: Record<Tone, string> = {
 
 /**
  * Kartın sol kenarında durum rengi: köşelere değmeyen iç çubuk. Ebeveyn position:relative
- * olmalı. `.card` çerçevesini (globals.css, Tailwind'den sonra gelir) ezmeye çalışmaz.
+ * olmalı. Ayrı öğe olduğu için kartın kendi çerçevesine dokunmaz.
  */
 export default function ToneStripe({ tone }: { tone: Tone }) {
   return <span aria-hidden="true" className={cn("absolute inset-y-3 left-0 w-[3px] rounded-r-full", TONE_BG[tone])} />;

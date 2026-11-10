@@ -23,6 +23,10 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  // globals.css @layer components'teki sınıf ancak kaynakta tam adıyla geçerse derlenir. Button
+  // ve Badge varyantı çalışma anında kurar (`btn-${variant}`, `badge-${tone}`): aile burada
+  // tutulur. Eşleme tablosu yerine safelist, çünkü Badge'e tone.ts'i taşıyıp her rotanın JS'ini büyütürdü.
+  safelist: [{ pattern: /^(btn|badge)-/ }],
   corePlugins: {
     textOpacity: false,
     backgroundOpacity: false,

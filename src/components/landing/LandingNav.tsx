@@ -26,10 +26,7 @@ export default function LandingNav() {
         </ul>
 
         <div className={styles.navActions}>
-          {/* Gizleme sarmalayıcıda: .btn'nin display'i Tailwind'in "hidden"ını ezer */}
-          <span className="hidden sm:inline-flex">
-            <DemoButton className="btn btn-ghost">Demoyu deneyin</DemoButton>
-          </span>
+          <DemoButton className="btn btn-ghost hidden sm:inline-flex">Demoyu deneyin</DemoButton>
           <Link href="/auth/signin" className="btn btn-primary">
             Giriş yapın
           </Link>

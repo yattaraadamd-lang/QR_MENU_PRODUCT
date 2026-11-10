@@ -1,5 +1,5 @@
-/* Temada (globals.css) olmayan varyantlar. .btn Tailwind'den sonra geldiği için birleşik
-   seçiciyle (0,2,0) verilir; renkler token'dan, tema değişince kendiliğinden uyar. */
+/* Temada (globals.css) olmayan varyantlar. Birleşik seçici (0,2,0) .btn'i yükleme sırasından
+   bağımsız ezer; renkler token'dan, tema değişince kendiliğinden uyar. */
 
 /* Yıkıcı ikincil eylem (iptal, sil): dolgusuz, kırmızı yazı + ince kırmızı çerçeve */
 .dangerGhost:global(.btn) {

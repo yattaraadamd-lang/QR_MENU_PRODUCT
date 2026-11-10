@@ -30,7 +30,7 @@ function ProductCard({ product: p, categoryIcon, priority = false, onOpen, onAdd
   const dim = ok ? "" : styles.dim;
 
   return (
-    <div className={`prod-card card lift ${styles.product}`} data-media={p.image ? "image" : "tile"}>
+    <div className={`card ${styles.product}`} data-media={p.image ? "image" : "tile"}>
       {/* Stoksuz ürünün ayrıntısı da açılır: alerjen/içerik bilgisi her zaman okunabilmeli */}
       <button
         type="button"

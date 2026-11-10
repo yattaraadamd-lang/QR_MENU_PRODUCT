@@ -1,4 +1,4 @@
-/* .modal-content (globals.css) Tailwind yardımcılarından sonra geldiği için genişlik
-   birleşik seçiciyle (0,2,0) verilir; !important gerekmez. */
+/* .modal-content'in (globals.css) genişliğinin yerine geçer: birleşik seçici (0,2,0) yükleme
+   sırasından bağımsız kazanır; !important gerekmez. */
 .sm:global(.modal-content) { max-width: 380px; }
 .md:global(.modal-content) { max-width: 500px; }
