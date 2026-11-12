@@ -5,6 +5,7 @@ import { requestPayment } from "@/lib/services/table-flow.service";
 import { validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { customerPaymentRequestSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -73,11 +74,13 @@ async function createPaymentRequest(request: NextRequest) {
     } catch { /* socket opsiyonel */ }
 
     return NextResponse.json({ message: "Ödeme talebi oluşturuldu", payment: result.payment }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Ödeme talebi hatası:", error);
+    // requestPayment iş kuralı hatalarını mesajla bildirir
+    const { message } = errorFields(error);
 
     // ✅ Duplicate ödeme talebi — 409 ile ayrı döndür
-    if (error.message && error.message.includes("bekleyen")) {
+    if (typeof message === "string" && message.includes("bekleyen")) {
       return NextResponse.json(
         { error: "Ödeme talebiniz zaten bekliyor.", code: "PAYMENT_REQUEST_ALREADY_EXISTS" },
         { status: 409 }
@@ -85,13 +88,13 @@ async function createPaymentRequest(request: NextRequest) {
     }
 
     // Kullanıcı dostu hata mesajları
-    if (error.message && (
-      error.message.includes("bulunamadı") ||
-      error.message.includes("aktif") ||
-      error.message.includes("Boş masadan") ||
-      error.message.includes("sipariş")
+    if (typeof message === "string" && (
+      message.includes("bulunamadı") ||
+      message.includes("aktif") ||
+      message.includes("Boş masadan") ||
+      message.includes("sipariş")
     )) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     return NextResponse.json({ error: "Talep oluşturulurken hata oluştu" }, { status: 500 });

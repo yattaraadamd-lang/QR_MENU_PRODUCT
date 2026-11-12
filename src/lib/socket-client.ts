@@ -67,6 +67,16 @@ function stopPollingFallback() {
 }
 
 /**
+ * Sunucu ara katmanının reddettiği bağlantıdaki kod: `next(err)` ile gelen hatanın `data.code`'u
+ * (socket-auth-runtime.cjs). Başka bağlantı hatalarında (ağ, zaman aşımı) yoktur.
+ */
+function connectErrorCode(error: Error): string | undefined {
+  const data: unknown = "data" in error ? error.data : undefined;
+  if (typeof data !== "object" || data === null || !("code" in data)) return undefined;
+  return typeof data.code === "string" ? data.code : undefined;
+}
+
+/**
  * Check if polling is currently active.
  */
 export function isPollingActive(): boolean {
@@ -98,9 +108,9 @@ export function getSocket(authToken?: string): Socket {
     });
 
     // ✅ Handle authentication errors
-    socket.on("connect_error", async (error: any) => {
-      const code = error?.data?.code as string | undefined;
-      console.error("[Socket] Connection error:", error?.message || error);
+    socket.on("connect_error", async (error: Error) => {
+      const code = connectErrorCode(error);
+      console.error("[Socket] Connection error:", error.message || error);
 
       // ── Fatal auth errors: stop reconnecting with the same broken token
       if (code && FATAL_AUTH_CODES.has(code)) {
@@ -206,7 +216,8 @@ export function createConnectGate(connectedAtSubscribe: boolean, graceMs: number
  */
 export function subscribeToBusinessRoom(
   authToken: string,
-  handlers: Record<string, (data: any) => void>,
+  /** Olay verisi sunucudan gelir ve doğrulanmamıştır: işleyici kullanmadan önce daraltır */
+  handlers: Record<string, (data: unknown) => void>,
   onReconnect?: () => void
 ): () => void {
   if (!authToken) {

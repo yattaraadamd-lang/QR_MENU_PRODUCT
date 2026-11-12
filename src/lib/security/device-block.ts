@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 
@@ -82,7 +83,8 @@ export async function createDeviceBlock(params: {
   reason: string;
   sourceRequestId?: string;
   createdById?: string;
-  tx?: any; // Prisma transaction client
+  /** Verilirse engel çağıranın transaction'ında yazılır */
+  tx?: Prisma.TransactionClient;
 }): Promise<void> {
   const client = params.tx || prisma;
 

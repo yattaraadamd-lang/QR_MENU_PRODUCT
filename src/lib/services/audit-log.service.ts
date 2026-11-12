@@ -8,6 +8,7 @@
  * - userAgent is truncated to essential info
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { currentRequestId } from "@/lib/request-id";
@@ -21,23 +22,41 @@ const SENSITIVE_FIELDS = [
   "qrToken", "accessToken", "verificationCode",
 ];
 
+/** Audit kaydının JSON alanlarına giden değer: Date, Decimal gibi değerler JSON'a çevrilerek yazılır */
+type AuditJson = Record<string, unknown>;
+
+function isPlainObject(value: unknown): value is AuditJson {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * Redact sensitive fields from an object for audit logging.
  */
-function redactSensitiveFields(obj: Record<string, any> | null | undefined): Record<string, any> | null {
+function redactSensitiveFields(obj: AuditJson | null | undefined): AuditJson | null {
   if (!obj) return null;
 
-  const redacted: Record<string, any> = {};
+  const redacted: AuditJson = {};
   for (const [key, value] of Object.entries(obj)) {
     if (SENSITIVE_FIELDS.some(f => key.toLowerCase().includes(f.toLowerCase()))) {
       redacted[key] = "[REDACTED]";
-    } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    } else if (isPlainObject(value)) {
       redacted[key] = redactSensitiveFields(value);
     } else {
       redacted[key] = value;
     }
   }
   return redacted;
+}
+
+/**
+ * Json? sütununa yazılacak değer. Prisma tipi düz `null`'u kabul etmez; önceki `as any` ile
+ * giden `null` JSON null ('null'::jsonb) olarak yazılıyordu, aynısı Prisma.JsonNull ile.
+ * `undefined` alanı yazmaz (veritabanı NULL'u). Değerlerin JSON'a çevrilmesini Prisma yapar.
+ */
+function toJsonColumn(value: AuditJson | null | undefined) {
+  if (value === undefined) return undefined;
+  if (value === null) return Prisma.JsonNull;
+  return value as Prisma.InputJsonObject;
 }
 
 /**
@@ -68,9 +87,9 @@ export interface AuditLogParams {
   requestId?: string | null;
   ip?: string | null;
   userAgent?: string | null;
-  before?: Record<string, any> | null;
-  after?: Record<string, any> | null;
-  metadata?: Record<string, any> | null;
+  before?: AuditJson | null;
+  after?: AuditJson | null;
+  metadata?: AuditJson | null;
 }
 
 /**
@@ -107,9 +126,9 @@ export async function createAuditLog(params: AuditLogParams): Promise<void> {
         requestId,
         ipHash: hashIp(params.ip || null),
         userAgentInfo: truncateUserAgent(params.userAgent || null),
-        beforeJson: redactSensitiveFields(params.before) as any,
-        afterJson: redactSensitiveFields(params.after) as any,
-        metadata: params.metadata as any,
+        beforeJson: toJsonColumn(redactSensitiveFields(params.before)),
+        afterJson: toJsonColumn(redactSensitiveFields(params.after)),
+        metadata: toJsonColumn(params.metadata),
       },
     });
   } catch (error) {

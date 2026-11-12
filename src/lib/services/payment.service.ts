@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { PaymentStatus, PaymentMethod, BillStatus, BillPaymentStatus, TableStatus } from "@prisma/client";
+import type { Bill, Payment, Table } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import { writeTableStatus } from "@/lib/services/table-events.service";
@@ -29,9 +30,10 @@ export type ProcessAdminPaymentInput = {
 };
 
 export type ProcessAdminPaymentResult = {
-  payment: any;
-  bill: any;
-  table: any;
+  payment: Payment;
+  /** Zaten ödenmiş (idempotent) yolda adisyon/masa okunamamış olabilir */
+  bill: Bill | null;
+  table: Table | null;
   changeAmount: number | null;
   isFullyPaid: boolean;
   isIdempotent: boolean;

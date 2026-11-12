@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdmin } from "@/lib/auth-helpers";
+import { errorFields } from "@/lib/error-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -41,8 +42,8 @@ export async function GET() {
       `;
       checks.customer_access_blocks_revokedById = result.some((r) => r.column_name === "revokedById");
       checks.customer_access_blocks_revocationNote = result.some((r) => r.column_name === "revocationNote");
-    } catch (e: any) {
-      errors.push(`customer_access_blocks check failed: ${e.message}`);
+    } catch (e) {
+      errors.push(`customer_access_blocks check failed: ${String(errorFields(e).message)}`);
     }
 
     // Check payments columns
@@ -57,8 +58,8 @@ export async function GET() {
       checks.payments_receivedAmount = result.some((r) => r.column_name === "receivedAmount");
       checks.payments_changeAmount = result.some((r) => r.column_name === "changeAmount");
       checks.payments_idempotencyKey = result.some((r) => r.column_name === "idempotencyKey");
-    } catch (e: any) {
-      errors.push(`payments check failed: ${e.message}`);
+    } catch (e) {
+      errors.push(`payments check failed: ${String(errorFields(e).message)}`);
     }
 
     // Check if all required columns exist
@@ -75,7 +76,7 @@ export async function GET() {
       errors: errors.length > 0 ? errors : undefined,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[SCHEMA_DIAGNOSTIC_ERROR]", error);
     return NextResponse.json(
       {

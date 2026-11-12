@@ -8,6 +8,7 @@ import { z } from "zod";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
 import { PASSWORD_LIMITS, PERSON_NAME_LIMITS } from "@/contracts/users";
+import { errorFields } from "@/lib/error-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -227,14 +228,14 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    const { code, message: errorMessage } = errorFields(error);
     console.error("[REGISTER_ERROR]", {
-      code: (error as any)?.code,
-      message: (error as any)?.message,
+      code,
+      message: errorMessage,
       // ❌ DO NOT log email, password, or PII
     });
 
     // ✅ P0-02 FIX: Generic error messages to prevent enumeration
-    const errorMessage = (error as any)?.message;
 
     if (errorMessage === "EMAIL_EXISTS") {
       // ✅ Generic: don't reveal that email exists

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashInviteCode, extractInviteCode } from "@/lib/invite";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
 import { inviteVerifySchema } from "@/lib/validation";
+import { errorFields } from "@/lib/error-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
       expiresAt: invite.expiresAt,
     });
   } catch (error) {
-    console.error("[INVITE_VERIFY_ERROR]", { message: (error as any)?.message });
+    console.error("[INVITE_VERIFY_ERROR]", { message: errorFields(error).message });
     return NextResponse.json({ valid: false, reason: "ERROR" }, { status: 500 });
   }
 }

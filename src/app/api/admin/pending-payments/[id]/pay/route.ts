@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { createDirectAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { staffPaymentSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -61,14 +62,16 @@ async function handlePost(
           status: "EMPTY",
           message: `${result.table.tableName || "Masa " + result.table.tableNumber} hesabı ödendi ve masa boşaltıldı.`,
         });
-        emitToBusinessRoom(session.user.businessId, "payment_collected", {
-          tableNumber: result.table.tableNumber,
-          tableName: result.table.tableName,
-          amount,
-          method,
-          remainingAmount: Number(result.bill.remainingAmount),
-          paymentStatus: result.bill.paymentStatus,
-        });
+        if (result.bill) {
+          emitToBusinessRoom(session.user.businessId, "payment_collected", {
+            tableNumber: result.table.tableNumber,
+            tableName: result.table.tableName,
+            amount,
+            method,
+            remainingAmount: Number(result.bill.remainingAmount),
+            paymentStatus: result.bill.paymentStatus,
+          });
+        }
       } catch (e) {
         console.error("Soket emit hatası:", e);
       }
@@ -82,13 +85,14 @@ async function handlePost(
       isFullyPaid: result.isFullyPaid,
       isIdempotent: result.isIdempotent,
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ApiError) throw error;
+    const { code, name, message } = errorFields(error);
     console.error("[ADMIN_PENDING_PAYMENT_PAY_FAILED]", {
       endpoint: "/api/admin/pending-payments/[id]/pay",
-      code: error?.code,
-      name: error?.name,
-      message: error?.message,
+      code,
+      name,
+      message,
       billId,
     });
 
@@ -99,7 +103,7 @@ async function handlePost(
       );
     }
 
-    if (error.code === "P2002") {
+    if (code === "P2002") {
       return NextResponse.json(
         { error: "Bu ödeme zaten işlenmiş.", code: "DUPLICATE_PAYMENT" },
         { status: 409 }

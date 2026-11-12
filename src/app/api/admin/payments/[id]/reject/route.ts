@@ -3,6 +3,7 @@ import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { rejectPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { paymentRejectSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -55,13 +56,14 @@ async function handlePost(
       message: "Ödeme talebi reddedildi.",
       payment,
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ApiError) throw error;
+    const { code, name, message } = errorFields(error);
     console.error("[ADMIN_PAYMENT_REJECT_FAILED]", {
       endpoint: "/api/admin/payments/[id]/reject",
-      code: error?.code,
-      name: error?.name,
-      message: error?.message,
+      code,
+      name,
+      message,
       paymentId,
     });
 

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { emitToBusinessRoom } from "@/lib/socket-server";
+import { errorFields, isUniqueViolationOn } from "@/lib/error-fields";
 import { validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/unified-rate-limit";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
@@ -110,7 +112,7 @@ async function createOrder(request: NextRequest) {
     });
 
     const incomingProductSignature = items
-      .map((item: any) => `${item.productId}:${item.quantity}`)
+      .map((item) => `${item.productId}:${item.quantity}`)
       .sort()
       .join("|");
 
@@ -137,7 +139,7 @@ async function createOrder(request: NextRequest) {
 
     // ✅ Ürün kontrolleri ve sunucu tarafı fiyat doğrulaması
     let totalPrice = 0;
-    const orderItems: any[] = [];
+    const orderItems: Prisma.OrderItemUncheckedCreateWithoutOrderInput[] = [];
 
     for (const item of items) {
       const quantity = item.quantity;
@@ -258,9 +260,9 @@ async function createOrder(request: NextRequest) {
       order,
       status: "PENDING"
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     // ✅ P0-10 FIX: Idempotency key conflict with tenant scope
-    if (error?.code === "P2002" && error?.meta?.target?.includes("idempotencyKey")) {
+    if (isUniqueViolationOn(error, "idempotencyKey")) {
       // ✅ SECURITY FIX: Use cached body variables instead of re-reading request.json()
       // (request body stream is already consumed — calling json() again throws)
       try {
@@ -295,9 +297,10 @@ async function createOrder(request: NextRequest) {
         { status: 409 }
       );
     }
+    const { code, message } = errorFields(error);
     console.error("Sipariş oluşturma hatası:", {
-      code: error?.code,
-      message: error?.message,
+      code,
+      message,
       // ❌ DO NOT log full error object
     });
     return NextResponse.json({ error: "Sipariş oluşturulurken bir hata oluştu" }, { status: 500 });

@@ -26,7 +26,18 @@ export class IyzicoError extends Error {
   }
 }
 
-async function iyzicoRequest<T = any>(method: "GET" | "POST", path: string, body?: object): Promise<T> {
+/** Hata gövdesi: `status` "failure" iken dolu gelir */
+interface IyzicoEnvelope {
+  status?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+/**
+ * `T`: başarılı yanıtın uca özgü alanları. Yanıt kimliği doğrulanmış sunucudan gelir ve şekli
+ * doğrulanmaz; tip, iyzico abonelik API belgesindeki alanlardır.
+ */
+async function iyzicoRequest<T>(method: "GET" | "POST", path: string, body?: object): Promise<T> {
   const apiKey = process.env.IYZICO_API_KEY;
   const secretKey = process.env.IYZICO_SECRET_KEY;
   if (!apiKey || !secretKey) throw new IyzicoError("iyzico yapılandırılmamış");
@@ -54,7 +65,7 @@ async function iyzicoRequest<T = any>(method: "GET" | "POST", path: string, body
     cache: "no-store",
   });
 
-  const json = await res.json().catch(() => null);
+  const json = (await res.json().catch(() => null)) as (IyzicoEnvelope & T) | null;
   if (!json || json.status !== "success") {
     throw new IyzicoError(json?.errorMessage || `iyzico isteği başarısız (${res.status})`, json?.errorCode);
   }
@@ -63,21 +74,26 @@ async function iyzicoRequest<T = any>(method: "GET" | "POST", path: string, body
 
 // ─── Ürün & Ödeme Planı (kurulum) ───────────────────────────────────────────
 
+/** Ürün ve ödeme planı oluşturma yanıtı */
+interface ReferenceCodeResponse {
+  data: { referenceCode: string };
+}
+
 export async function createProduct(name: string, description?: string) {
-  const res = await iyzicoRequest("POST", "/v2/subscription/products", {
+  const res = await iyzicoRequest<ReferenceCodeResponse>("POST", "/v2/subscription/products", {
     locale: "tr",
     conversationId: `product_${Date.now()}`,
     name,
     description,
   });
-  return res.data.referenceCode as string;
+  return res.data.referenceCode;
 }
 
 export async function createPricingPlan(
   productReferenceCode: string,
   plan: { name: string; price: number }
 ) {
-  const res = await iyzicoRequest("POST", `/v2/subscription/products/${productReferenceCode}/pricing-plans`, {
+  const res = await iyzicoRequest<ReferenceCodeResponse>("POST", `/v2/subscription/products/${productReferenceCode}/pricing-plans`, {
     locale: "tr",
     conversationId: `plan_${Date.now()}`,
     name: plan.name,
@@ -87,7 +103,7 @@ export async function createPricingPlan(
     paymentIntervalCount: 1,
     planPaymentType: "RECURRING",
   });
-  return res.data.referenceCode as string;
+  return res.data.referenceCode;
 }
 
 // ─── Abonelik Ödeme Formu ───────────────────────────────────────────────────
@@ -116,7 +132,11 @@ export async function initializeSubscriptionCheckout(params: {
     address: customer.address,
   };
 
-  const res = await iyzicoRequest("POST", "/v2/subscription/checkoutform/initialize", {
+  const res = await iyzicoRequest<{
+    token: string;
+    checkoutFormContent: string;
+    tokenExpireTime: number;
+  }>("POST", "/v2/subscription/checkoutform/initialize", {
     locale: "tr",
     conversationId: params.conversationId,
     callbackUrl: params.callbackUrl,
@@ -134,9 +154,9 @@ export async function initializeSubscriptionCheckout(params: {
   });
 
   return {
-    token: res.token as string,
-    checkoutFormContent: res.checkoutFormContent as string,
-    tokenExpireTime: res.tokenExpireTime as number,
+    token: res.token,
+    checkoutFormContent: res.checkoutFormContent,
+    tokenExpireTime: res.tokenExpireTime,
   };
 }
 
@@ -158,18 +178,24 @@ export interface IyzicoSubscription {
 }
 
 export async function retrieveSubscriptionCheckout(token: string): Promise<IyzicoSubscription> {
-  const res = await iyzicoRequest("GET", `/v2/subscription/checkoutform/${encodeURIComponent(token)}`);
+  const res = await iyzicoRequest<{ data: IyzicoSubscription }>(
+    "GET",
+    `/v2/subscription/checkoutform/${encodeURIComponent(token)}`
+  );
   return res.data;
 }
 
 export async function getSubscription(referenceCode: string): Promise<IyzicoSubscription> {
-  const res = await iyzicoRequest("GET", `/v2/subscription/subscriptions/${encodeURIComponent(referenceCode)}`);
+  const res = await iyzicoRequest<{ data: IyzicoSubscription & { items?: IyzicoSubscription[] } }>(
+    "GET",
+    `/v2/subscription/subscriptions/${encodeURIComponent(referenceCode)}`
+  );
   // Detay endpoint'i sayfalı liste döner
   return res.data?.items?.[0] ?? res.data;
 }
 
 export async function cancelSubscription(referenceCode: string) {
-  await iyzicoRequest("POST", `/v2/subscription/subscriptions/${encodeURIComponent(referenceCode)}/cancel`, {
+  await iyzicoRequest<object>("POST", `/v2/subscription/subscriptions/${encodeURIComponent(referenceCode)}/cancel`, {
     locale: "tr",
     conversationId: `cancel_${Date.now()}`,
   });

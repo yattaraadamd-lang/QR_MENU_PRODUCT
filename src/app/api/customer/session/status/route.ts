@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashCustomerSessionToken } from "@/lib/customer-session-utils";
 import { DEMO_AUTO_APPROVE_DELAY_MS, isDemoBusiness } from "@/lib/demo";
+import { errorFields } from "@/lib/error-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -192,7 +193,7 @@ export async function GET(request: NextRequest) {
       { headers: securityHeaders }
     );
   } catch (error) {
-    console.error("[session/status] Error:", (error as any)?.code);
+    console.error("[session/status] Error:", errorFields(error).code);
     return NextResponse.json(
       { error: "Durum kontrol hatası", code: "INTERNAL_ERROR" },
       { status: 500, headers: securityHeaders }

@@ -3,6 +3,7 @@ import { requireWaiter, getBusinessId } from "@/lib/auth-helpers";
 import { requestWaiterApproval, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { staffPaymentSchema, toPaymentMethod } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -83,13 +84,14 @@ async function handlePost(
       message: "Ödeme bilgisi admin onayına gönderildi.",
       payment: updatedPayment,
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ApiError) throw error;
+    const { code, name, message } = errorFields(error);
     console.error("[PAYMENT_REQUEST_APPROVAL_FAILED]", {
       endpoint: "/api/waiter/payments/[id]/request-approval",
-      code: error?.code,
-      name: error?.name,
-      message: error?.message,
+      code,
+      name,
+      message,
       paymentId,
     });
 

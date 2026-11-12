@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma, RequestStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashCustomerSessionToken } from "@/lib/customer-session-utils";
 import { withApiHandler, parseQuery } from "@/lib/api/handler";
@@ -39,7 +40,7 @@ async function getActiveRequests(request: NextRequest) {
   }
 
   // Token doğrulanmışsa sadece o oturumun taleplerini, yoksa genel masa taleplerini döndür
-  const where: any = {
+  const where: Prisma.ServiceRequestWhereInput = {
     tableId,
     businessId,
     status: { in: ["PENDING", "SEEN", "IN_PROGRESS"] },
@@ -63,7 +64,10 @@ async function getActiveRequests(request: NextRequest) {
   });
 
   const activeRequests: Record<string, boolean> = {};
-  const requestDetails: Record<string, any> = {};
+  const requestDetails: Record<
+    string,
+    { verificationCode: string | null; expiresAt: string | null; status: RequestStatus }
+  > = {};
 
   for (const req of activeReqs) {
     activeRequests[req.requestType] = true;
@@ -71,7 +75,7 @@ async function getActiveRequests(request: NextRequest) {
     // ORDER_REQUEST için detay bilgisi
     if (req.requestType === "ORDER_REQUEST" && req.customerSessionId === customerSessionId) {
       requestDetails["ORDER_REQUEST"] = {
-        verificationCode: (req as any).verificationCode || null,
+        verificationCode: req.verificationCode || null,
         expiresAt: req.expiresAt?.toISOString() || null,
         status: req.status,
       };

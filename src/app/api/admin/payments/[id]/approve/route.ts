@@ -3,6 +3,7 @@ import { requireAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { processAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { staffPaymentSchema, toPaymentMethod } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -52,30 +53,36 @@ async function handlePost(
       idempotencyKey: idempotencyKey || null,
     });
 
-    // Socket bildirimleri
+    // Socket bildirimleri: zaten ödenmiş (idempotent) yolda adisyon ya da masa okunamamışsa
+    // ona bağlı yayın atlanır
     try {
-      emitToBusinessRoom(businessId, "payment_approved", {
-        paymentId: result.payment.id,
-        tableId: result.table.id,
-        tableNumber: result.table.tableNumber,
-        amount: Number(result.payment.amount),
-        isFullyPaid: result.isFullyPaid,
-      });
+      const { table, bill } = result;
+      if (table) {
+        emitToBusinessRoom(businessId, "payment_approved", {
+          paymentId: result.payment.id,
+          tableId: table.id,
+          tableNumber: table.tableNumber,
+          amount: Number(result.payment.amount),
+          isFullyPaid: result.isFullyPaid,
+        });
+      }
 
-      emitToBusinessRoom(businessId, "payment_collected", {
-        tableNumber: result.table.tableNumber,
-        tableName: result.table.tableName,
-        amount: Number(result.payment.amount),
-        method: result.payment.method,
-        remainingAmount: Number(result.bill.remainingAmount),
-        paymentStatus: result.bill.paymentStatus,
-      });
+      if (table && bill) {
+        emitToBusinessRoom(businessId, "payment_collected", {
+          tableNumber: table.tableNumber,
+          tableName: table.tableName,
+          amount: Number(result.payment.amount),
+          method: result.payment.method,
+          remainingAmount: Number(bill.remainingAmount),
+          paymentStatus: bill.paymentStatus,
+        });
+      }
 
-      if (result.isFullyPaid) {
+      if (table && result.isFullyPaid) {
         emitToBusinessRoom(businessId, "table_status_update", {
-          tableId: result.table.id,
+          tableId: table.id,
           status: "EMPTY",
-          message: `${result.table.tableName || "Masa " + result.table.tableNumber} hesabı ödendi ve masa boşaltıldı.`,
+          message: `${table.tableName || "Masa " + table.tableNumber} hesabı ödendi ve masa boşaltıldı.`,
         });
       }
     } catch (e) {
@@ -91,13 +98,14 @@ async function handlePost(
       isFullyPaid: result.isFullyPaid,
       isIdempotent: result.isIdempotent,
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ApiError) throw error;
+    const { code, name, message } = errorFields(error);
     console.error("[ADMIN_PAYMENT_APPROVE_FAILED]", {
       endpoint: "/api/admin/payments/[id]/approve",
-      code: error?.code,
-      name: error?.name,
-      message: error?.message,
+      code,
+      name,
+      message,
       paymentId,
     });
 
@@ -108,21 +116,21 @@ async function handlePost(
       );
     }
 
-    if (error?.code === "P2002") {
+    if (code === "P2002") {
       return NextResponse.json(
         { success: false, error: "Bu ödeme zaten işlenmiş.", code: "DUPLICATE_PAYMENT" },
         { status: 409 }
       );
     }
 
-    if (error?.code === "P2025") {
+    if (code === "P2025") {
       return NextResponse.json(
         { success: false, error: "Ödeme durumu değişti. Lütfen sayfayı yenileyin.", code: "PAYMENT_STATE_CHANGED" },
         { status: 409 }
       );
     }
 
-    if (error?.code === "P2028" || error?.message?.includes("Transaction not found")) {
+    if (code === "P2028" || (typeof message === "string" && message.includes("Transaction not found"))) {
       return NextResponse.json(
         { success: false, error: "İşlem zaman aşımına uğradı. Tekrar deneyin.", code: "PAYMENT_TRANSACTION_EXPIRED" },
         { status: 503 }

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ServiceRequestType, RequestStatus } from "@prisma/client";
+import type { NotificationType, Prisma, SoundType } from "@prisma/client";
 import { recalculateTableStatus } from "@/lib/services/table-flow.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
-import { validateViewSession, validateAuthorizedTableSession } from "@/lib/security/validate-customer-session";
+import {
+  validateViewSession,
+  validateAuthorizedTableSession,
+  type CustomerSessionValidationSuccess,
+} from "@/lib/security/validate-customer-session";
+import { errorFields, isUniqueViolationOn, prismaTarget } from "@/lib/error-fields";
 import { checkRateLimit, getClientIp, RATE_LIMITS } from "@/lib/unified-rate-limit";
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
@@ -63,7 +69,7 @@ async function createServiceRequest(request: NextRequest) {
     // YETKI KONTROLÜ — ORDER_REQUEST vs diğer talepler
     // ═══════════════════════════════════════════════════════════════════════
 
-    let customerSession: any;
+    let customerSession: CustomerSessionValidationSuccess["customerSession"];
 
     if (isOrderRequest) {
       // ORDER_REQUEST: VIEW_ONLY veya PENDING oturum kabul edilir
@@ -250,9 +256,10 @@ async function createServiceRequest(request: NextRequest) {
       }
 
       // ✅ Ürün özetini oluştur ve doğrula (orderPreview)
-      let orderPreview: any = null;
+      // Talep kaydına (Json sütunu) ve garson soket olayına giden özet
+      let orderPreview: Prisma.InputJsonObject | null = null;
       if (items && Array.isArray(items) && items.length > 0) {
-        const productIds = items.map((i: any) => i.productId).filter(Boolean);
+        const productIds = items.map((i) => i.productId).filter(Boolean);
         
         if (productIds.length === 0) {
           return NextResponse.json(
@@ -499,8 +506,8 @@ async function createServiceRequest(request: NextRequest) {
     });
 
     // Bildirim türü ve ses belirle
-    let notificationType: any = "SERVICE_REQUEST";
-    let soundType: any = "DEFAULT";
+    let notificationType: NotificationType = "SERVICE_REQUEST";
+    let soundType: SoundType = "DEFAULT";
     let title = "Hizmet Talebi";
     let message = `${table.tableName || "Masa " + table.tableNumber} hizmet talep etti`;
     let socketEvent = "service_request";
@@ -560,9 +567,10 @@ async function createServiceRequest(request: NextRequest) {
       { message: "Talep başarıyla oluşturuldu", serviceRequest },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
+    const { code, name, message, stack, meta } = errorFields(error);
     // ✅ Transaction'dan dönen business logic errors
-    if (error.message === "ORDER_REQUEST_PENDING") {
+    if (message === "ORDER_REQUEST_PENDING") {
       return NextResponse.json(
         {
           error: "Bekleyen sipariş talebiniz var. Garson onayı bekleniyor.",
@@ -573,13 +581,13 @@ async function createServiceRequest(request: NextRequest) {
     }
 
     // ✅ Prisma schema mismatch errors (P2021: table does not exist, P2022: column does not exist)
-    if (error?.code === "P2021" || error?.code === "P2022") {
+    if (code === "P2021" || code === "P2022") {
       console.error(`[ServiceRequest] Database schema outdated:`, {
-        code: error.code,
-        meta: error.meta,
-        message: error.message,
+        code,
+        meta,
+        message,
         endpoint: "/api/customer/service-requests",
-        requestType: error?.meta?.target || "unknown",
+        requestType: prismaTarget(error) || "unknown",
       });
       
       return NextResponse.json(
@@ -592,7 +600,7 @@ async function createServiceRequest(request: NextRequest) {
     }
 
     // ✅ Idempotency key unique constraint violation
-    if (error?.code === "P2002" && error?.meta?.target?.includes("idempotencyKey")) {
+    if (isUniqueViolationOn(error, "idempotencyKey")) {
       // Bu oturumun kaydı varsa döndür; anahtar başka oturuma aitse aşağıdaki genel 409 döner
       const attemptedKey = requestBody?.idempotencyKey;
       if (attemptedKey && customerSessionId) {
@@ -623,10 +631,10 @@ async function createServiceRequest(request: NextRequest) {
     }
 
     // ✅ Other Prisma unique constraint violations
-    if (error?.code === "P2002") {
+    if (code === "P2002") {
       console.error(`[ServiceRequest] Unique constraint violation:`, {
-        code: error.code,
-        meta: error.meta,
+        code,
+        meta,
         endpoint: "/api/customer/service-requests",
       });
       
@@ -640,10 +648,10 @@ async function createServiceRequest(request: NextRequest) {
     }
 
     // ✅ Foreign key constraint violations
-    if (error?.code === "P2003") {
+    if (code === "P2003") {
       console.error(`[ServiceRequest] Foreign key constraint failed:`, {
-        code: error.code,
-        meta: error.meta,
+        code,
+        meta,
         endpoint: "/api/customer/service-requests",
       });
       
@@ -657,18 +665,18 @@ async function createServiceRequest(request: NextRequest) {
     }
 
     // ✅ Generic database errors
-    if (error?.code && error.code.startsWith("P")) {
-      console.error(`[ServiceRequest] Prisma error ${error.code}:`, {
-        code: error.code,
-        meta: error.meta,
-        message: error.message,
+    if (typeof code === "string" && code.startsWith("P")) {
+      console.error(`[ServiceRequest] Prisma error ${code}:`, {
+        code,
+        meta,
+        message,
         endpoint: "/api/customer/service-requests",
       });
     } else {
       console.error("[ServiceRequest] Unexpected error:", {
-        name: error?.name,
-        message: error?.message,
-        stack: error?.stack?.split("\n").slice(0, 3).join("\n"),
+        name,
+        message,
+        stack: typeof stack === "string" ? stack.split("\n").slice(0, 3).join("\n") : undefined,
         endpoint: "/api/customer/service-requests",
       });
     }
