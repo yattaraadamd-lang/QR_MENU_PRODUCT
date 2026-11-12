@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { NotificationSoundProvider } from "@/components/notifications";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
 import AccessDenied from "@/components/staff/AccessDenied";
+import LiveConnectionAlert from "@/components/staff/LiveConnectionAlert";
 import Loader from "@/components/ui/Loader";
 import WaiterBottomNav from "@/components/waiter-shell/WaiterBottomNav";
 import WaiterTopBar from "@/components/waiter-shell/WaiterTopBar";
@@ -45,6 +46,7 @@ function WaiterShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-viewport bg-surface-page pb-[var(--waiter-nav-h,72px)]" data-height-vars>
       <WaiterTopBar userName={session?.user.name} businessName={session?.user.businessName} />
+      <LiveConnectionAlert className="px-3.5 pt-4" />
       <main id="main-content" key={pathname} className="page-enter px-3.5 py-4">
         {children}
       </main>

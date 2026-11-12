@@ -21,9 +21,16 @@ import { reportClientError } from "./report-error";
 let socket: Socket | null = null;
 // Guard: prevent parallel TOKEN_EXPIRED refresh loops
 let tokenRefreshInProgress = false;
-// Polling fallback state
-let pollingInterval: ReturnType<typeof setInterval> | null = null;
-let pollingCallback: (() => void) | null = null;
+
+/** Kimlik hatası yüzünden yeniden bağlanma kapandı (`detail.code`: sunucunun kodu) */
+export const SOCKET_AUTH_FAILED_EVENT = "socket-auth-failed";
+/** Bağlantı kuruldu ya da koptu (`detail.connected`) */
+export const SOCKET_STATUS_EVENT = "socket-connection-status";
+
+/** Bağlantı yokken aboneliğin geri çağrısı bu aralıkla çalışır */
+const POLLING_FALLBACK_MS = 5000;
+/** Şu an yoklayan aboneliklerin durdurucuları: oturum kapanınca hepsi durur */
+const activePolls = new Set<() => void>();
 
 /**
  * Fatal auth error codes — reconnecting with the same broken token is pointless.
@@ -43,27 +50,31 @@ const FATAL_AUTH_CODES = new Set([
 ]);
 
 /**
- * Start SWR/Polling fallback — polls every 5 seconds when socket is down.
+ * Bağlantı yokken bir aboneliğin yedek yoklaması (FE-ARCH-3.9b). Her abonelik kendi geri
+ * çağrısını kendi aralığıyla çağırır; önceden tek küresel geri çağrı tutulduğu için iki abonelik
+ * varken yalnız sonuncusu yoklanıyordu. `start` geri çağrıyı hemen bir kez çalıştırır, zaten
+ * yokluyorsa bir şey yapmaz.
  */
-function startPollingFallback(callback: () => void) {
-  stopPollingFallback();
-  pollingCallback = callback;
-  pollingInterval = setInterval(() => {
-    if (pollingCallback) pollingCallback();
-  }, 5000);
-  // Fire immediately on start
-  callback();
+export function createPollingFallback(callback: () => void, intervalMs = POLLING_FALLBACK_MS) {
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const stop = () => {
+    if (timer === null) return;
+    clearInterval(timer);
+    timer = null;
+    activePolls.delete(stop);
+  };
+  const start = () => {
+    if (timer !== null) return;
+    timer = setInterval(callback, intervalMs);
+    activePolls.add(stop);
+    callback();
+  };
+  return { start, stop };
 }
 
-/**
- * Stop polling fallback.
- */
-function stopPollingFallback() {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
-  }
-  pollingCallback = null;
+/** Yoklayan bütün abonelikleri durdurur (oturum kapanışı) */
+export function stopAllPolling(): void {
+  for (const stop of [...activePolls]) stop();
 }
 
 /**
@@ -74,13 +85,6 @@ function connectErrorCode(error: Error): string | undefined {
   const data: unknown = "data" in error ? error.data : undefined;
   if (typeof data !== "object" || data === null || !("code" in data)) return undefined;
   return typeof data.code === "string" ? data.code : undefined;
-}
-
-/**
- * Check if polling is currently active.
- */
-export function isPollingActive(): boolean {
-  return pollingInterval !== null;
 }
 
 /**
@@ -118,9 +122,7 @@ export function getSocket(authToken?: string): Socket {
           socket.io.opts.reconnection = false;
           socket.disconnect();
         }
-        window.dispatchEvent(
-          new CustomEvent("socket-auth-failed", { detail: { code } })
-        );
+        window.dispatchEvent(new CustomEvent(SOCKET_AUTH_FAILED_EVENT, { detail: { code } }));
         return;
       }
 
@@ -145,7 +147,7 @@ export function getSocket(authToken?: string): Socket {
         } catch (error) {
           // Oturum okunamadı: bağlantı yeniden kurulmaz. Yutulmaz; FATAL koduyla aynı olay yayılır
           reportClientError("socket.token-refresh", error);
-          window.dispatchEvent(new CustomEvent("socket-auth-failed", { detail: { code: "TOKEN_REFRESH_FAILED" } }));
+          window.dispatchEvent(new CustomEvent(SOCKET_AUTH_FAILED_EVENT, { detail: { code: "TOKEN_REFRESH_FAILED" } }));
         } finally {
           tokenRefreshInProgress = false;
         }
@@ -156,22 +158,13 @@ export function getSocket(authToken?: string): Socket {
     // ✅ Connection status events for UI
     socket.on("disconnect", (reason) => {
       console.warn("[Socket] Disconnected:", reason);
-      window.dispatchEvent(
-        new CustomEvent("socket-connection-status", {
-          detail: { connected: false, reason },
-        })
-      );
+      window.dispatchEvent(new CustomEvent(SOCKET_STATUS_EVENT, { detail: { connected: false, reason } }));
     });
 
+    // Yedek yoklamayı her abonelik kendi "connect" dinleyicisinde durdurur
     socket.on("connect", () => {
       console.log("[Socket] Connected");
-      // Stop polling when socket reconnects
-      stopPollingFallback();
-      window.dispatchEvent(
-        new CustomEvent("socket-connection-status", {
-          detail: { connected: true },
-        })
-      );
+      window.dispatchEvent(new CustomEvent(SOCKET_STATUS_EVENT, { detail: { connected: true } }));
     });
   }
 
@@ -208,7 +201,7 @@ export function createConnectGate(connectedAtSubscribe: boolean, graceMs: number
  * (yeniden bağlanınca da) kendiliğinden katar, "join_business" gerekmez.
  *
  * İşletme odasına abone ol: `handlers` olay → işleyici. `onReconnect` verilirse yeniden
- * bağlanınca ve bağlantı yokken (yedek polling) çağrılır; sayfa açılırken kurulan ilk
+ * bağlanınca ve bağlantı yokken (aboneliğin kendi yedek yoklaması) çağrılır; sayfa açılırken kurulan ilk
  * bağlantıda çağrılmaz (FIRST_CONNECT_GRACE_MS). Dönen fonksiyon yalnız bu aboneliğin
  * dinleyicilerini kaldırır. Eski connectToBusinessRoom her çağrıda yeni connect/disconnect
  * dinleyicisi ekleyip kaldıramadığından ekran her yeniden abone olduğunda (oturum
@@ -232,13 +225,12 @@ export function subscribeToBusinessRoom(
     s.connect();
   }
 
+  const polling = onReconnect ? createPollingFallback(onReconnect) : null;
   const handleConnect = () => {
-    stopPollingFallback();
+    polling?.stop();
     if (refreshOnConnect()) onReconnect?.();
   };
-  const handleDisconnect = () => {
-    if (onReconnect) startPollingFallback(onReconnect);
-  };
+  const handleDisconnect = () => polling?.start();
 
   s.on("connect", handleConnect);
   s.on("disconnect", handleDisconnect);
@@ -248,8 +240,8 @@ export function subscribeToBusinessRoom(
     s.off("connect", handleConnect);
     s.off("disconnect", handleDisconnect);
     Object.entries(handlers).forEach(([ev, fn]) => s.off(ev, fn));
-    // Bu aboneliğin başlattığı yedek polling ayrılmış ekran için çalışmaya devam etmesin
-    if (onReconnect && pollingCallback === onReconnect) stopPollingFallback();
+    // Bu aboneliğin yedek yoklaması ayrılmış ekran için çalışmaya devam etmesin
+    polling?.stop();
   };
 }
 
@@ -258,7 +250,7 @@ export function subscribeToBusinessRoom(
  * Kullanıcı logout olunca çağrılmalı.
  */
 export function disconnectSocket(): void {
-  stopPollingFallback();
+  stopAllPolling();
   if (socket) {
     socket.removeAllListeners();
     socket.disconnect();

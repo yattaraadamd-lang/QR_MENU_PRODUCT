@@ -7,13 +7,17 @@ export const dynamic = "force-dynamic";
  * Web Vitals (components/WebVitals → sendBeacon). Gerçek kullanıcıların LCP/INP/CLS
  * değerleri Render loglarına "[WEB_VITAL]" satırı olarak düşer; veritabanına yazılmaz.
  *
+ * İstemci ölçüleri sayfa gizlenince tek istekte gönderir: `{ metrics: [...] }` (FE-ARCH-3.9b).
+ * Bu sürümden önce açılmış sekmeler tek ölçüyü doğrudan gönderir; o biçim de kabul edilir.
+ *
  * Uç herkese açık ve gövde istemcinin elinde (csp-report ile aynı ilke): boyut ve IP başına
- * sayı sınırlı, alanlar beyaz listeden geçer, rota deseni dışındaki yol kısımları atılır.
+ * istek sayısı sınırlı, alanlar beyaz listeden geçer, rota deseni dışındaki yol kısımları atılır.
  * Kafede herkes aynı IP'den çıkabildiği için sınır geniş; aşılırsa ölçüm sessizce düşer.
  */
 
 const MAX_BODY_BYTES = 2 * 1024;
-const METRICS_PER_MINUTE = 120;
+/** İstek başına en çok ölçü türü kadar ölçü gelir */
+const REQUESTS_PER_MINUTE = 120;
 const NAMES = new Set(["LCP", "INP", "CLS", "FCP", "TTFB"]);
 const RATINGS = new Set(["good", "needs-improvement", "poor"]);
 const SECRET_PATH_RE = /^\/(qr|auth\/join)\/[^/[]+/;
@@ -27,6 +31,11 @@ interface VitalPayload {
   readonly route?: unknown;
 }
 
+/** Toplu gövde; `metrics` yoksa gövde tek ölçüdür (eski istemci) */
+interface VitalBatch extends VitalPayload {
+  readonly metrics?: unknown;
+}
+
 // Tarayıcı beacon'ı yeniden denemez; her durumda 204 (yalnız aşırı büyük gövde 413)
 const noContent = () => new Response(null, { status: 204 });
 
@@ -35,13 +44,36 @@ function sanitizeRoute(value: unknown): string | null {
   return value.split("?")[0].replace(SECRET_PATH_RE, "/$1/[token]").replace(/[^\w/[\]-]/g, "").slice(0, 100);
 }
 
+/** Geçerli ölçüyü log satırına yazar; geçersizi sessizce atlar */
+function logVital(item: unknown): void {
+  if (typeof item !== "object" || item === null) return;
+  const payload: VitalPayload = item;
+  const { name, value, rating, navigationType } = payload;
+  const route = sanitizeRoute(payload.route);
+  if (typeof name !== "string" || !NAMES.has(name)) return;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return;
+  if (!route) return;
+
+  console.info(
+    "[WEB_VITAL]",
+    JSON.stringify({
+      name,
+      // CLS birimsiz (4 hane), diğerleri ms
+      value: name === "CLS" ? Math.round(value * 10000) / 10000 : Math.round(value),
+      rating: typeof rating === "string" && RATINGS.has(rating) ? rating : null,
+      navigationType: typeof navigationType === "string" ? navigationType.replace(/[^a-z-]/gi, "").slice(0, 20) : null,
+      route,
+    }),
+  );
+}
+
 export async function POST(request: NextRequest) {
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
     return new Response(null, { status: 413 });
   }
 
   const rl = await checkRateLimit(`web_vitals:${getClientIp(request)}`, {
-    maxRequests: METRICS_PER_MINUTE,
+    maxRequests: REQUESTS_PER_MINUTE,
     windowMs: 60 * 1000,
   });
   if (!rl.allowed) return noContent();
@@ -57,23 +89,8 @@ export async function POST(request: NextRequest) {
   }
   if (typeof parsed !== "object" || parsed === null) return noContent();
 
-  const payload: VitalPayload = parsed;
-  const { name, value, rating, navigationType } = payload;
-  const route = sanitizeRoute(payload.route);
-  if (typeof name !== "string" || !NAMES.has(name)) return noContent();
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return noContent();
-  if (!route) return noContent();
-
-  console.info(
-    "[WEB_VITAL]",
-    JSON.stringify({
-      name,
-      // CLS birimsiz (4 hane), diğerleri ms
-      value: name === "CLS" ? Math.round(value * 10000) / 10000 : Math.round(value),
-      rating: typeof rating === "string" && RATINGS.has(rating) ? rating : null,
-      navigationType: typeof navigationType === "string" ? navigationType.replace(/[^a-z-]/gi, "").slice(0, 20) : null,
-      route,
-    }),
-  );
+  const body: VitalBatch = parsed;
+  const items: readonly unknown[] = Array.isArray(body.metrics) ? body.metrics.slice(0, NAMES.size) : [body];
+  for (const item of items) logVital(item);
   return noContent();
 }
