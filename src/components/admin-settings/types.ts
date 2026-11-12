@@ -18,8 +18,5 @@ export interface BusinessInput {
   readonly address: string | null;
 }
 
-/** Form durumu: boş alan "" (kontrollü input), sunucuya null gider */
+/** Form durumu: boş alan "" (kontrollü input), sunucuya null gider. Sınırlar: contracts/business.ts */
 export type BusinessFormValues = Readonly<Record<keyof BusinessInput, string>>;
-
-/** lib/validation.ts updateBusinessSchema ile aynı */
-export const BUSINESS_LIMITS = { name: 200, description: 1000, phone: 30, address: 500 } as const;

@@ -2,6 +2,7 @@
 
 import { useId, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
+import { ORDER_LIMITS } from "@/contracts/orders";
 import { formatTRY } from "@/lib/format";
 import MenuSheet from "./MenuSheet";
 import SheetHeader from "./SheetHeader";
@@ -47,7 +48,7 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
         {ok && (
           <div className={styles.noteField}>
             <label htmlFor={noteId} className={styles.fieldLabel}>Özel not (isteğe bağlı)</label>
-            <textarea id={noteId} ref={noteRef} placeholder="Örn: soğansız, az pişmiş" className={`input ${styles.note}`} />
+            <textarea id={noteId} ref={noteRef} placeholder="Örn: soğansız, az pişmiş" maxLength={ORDER_LIMITS.itemNote} className={`input ${styles.note}`} />
           </div>
         )}
         <div className={styles.sheetFooter}>

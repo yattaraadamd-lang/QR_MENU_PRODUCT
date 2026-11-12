@@ -17,6 +17,9 @@ export type TableStatus =
 
 export type BillPaymentStatus = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "CANCELLED";
 
+/** Masa numarası ve adının azami uzunluğu */
+export const TABLE_LIMITS = { number: 50, name: 100 } as const;
+
 export interface TableBillDTO {
   readonly id: string;
   readonly totalAmount: DecimalString;

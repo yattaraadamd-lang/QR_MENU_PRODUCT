@@ -10,7 +10,7 @@ import Field from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
 import { eyebrowClass } from "@/components/ui/tone";
-import { CANCEL_REASONS, type OrderProduct } from "./cancelOrder";
+import { CANCEL_NOTE_MAX, CANCEL_REASONS, type OrderProduct } from "./cancelOrder";
 import type { OrderDTO } from "./types";
 import { useCancelOrderForm, type CancelAction } from "./useCancelOrderForm";
 
@@ -76,7 +76,7 @@ export default function CancelOrderDialog({ order, title, action, onClose, onDon
             value={form.values.note}
             onChange={(e) => form.setNote(e.target.value)}
             placeholder="İptal/red nedenini detaylandırın..."
-            maxLength={500}
+            maxLength={CANCEL_NOTE_MAX}
             required={isOther}
           />
         </Field>

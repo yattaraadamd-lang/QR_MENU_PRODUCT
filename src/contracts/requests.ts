@@ -10,3 +10,6 @@ export type ServiceRequestType =
   | "COMPLAINT_SUGGESTION";
 
 export type RequestStatus = "PENDING" | "SEEN" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+
+/** Müşteri talebi: neden (ör. garson çağırma açıklaması) ve notun azami uzunluğu */
+export const SERVICE_REQUEST_LIMITS = { reason: 200, note: 500 } as const;

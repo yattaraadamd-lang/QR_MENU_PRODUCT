@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
+import { PAYMENT_LIMITS } from "@/contracts/payments";
 import { useApiMutation } from "@/hooks/useApiMutation";
 import { tableDisplayName } from "@/components/tables/tableModel";
 import Button from "@/components/ui/Button";
@@ -53,7 +54,7 @@ export default function RejectRequestDialog({ request, onClose, onRejected }: Re
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Örn: Tutar hatalı veya eksik"
-            maxLength={500}
+            maxLength={PAYMENT_LIMITS.rejectReason}
             data-autofocus
           />
         </Field>

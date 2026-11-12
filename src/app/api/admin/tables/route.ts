@@ -6,7 +6,7 @@ import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { createTableSchema } from "@/lib/validation";
 import { generateQrToken } from "@/lib/qr-token";
 import { checkPlanQuota } from "@/lib/services/subscription-guard.service";
-import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { ApiError, withApiHandler, parseJson } from "@/lib/api/handler";
 
 export const dynamic = "force-dynamic";
 
@@ -44,18 +44,9 @@ async function handlePost(request: NextRequest) {
 
   const businessId = getBusinessIdFromSession(authResult.session);
 
-  // 🔒 Plan Quota Enforcement
-  const quotaCheck = await checkPlanQuota(businessId, "TABLE");
-  if (!quotaCheck.allowed) {
-    return NextResponse.json(
-      { error: quotaCheck.error || "Masa oluşturma paket limitine ulaşıldı." },
-      { status: 403 }
-    );
-  }
-
-  // Validation
+  // Önce girdinin kendisi (biçim, sonra numara çakışması), ardından paket kotası: form hatası
+  // alanın altında görünür, kota hatası formun geneline aittir
   const { tableNumber, tableName } = await parseJson(request, createTableSchema);
-
 
   // Aynı numarada masa var mı kontrol et (tenant-safe)
   const existing = await prisma.table.findFirst({
@@ -68,9 +59,16 @@ async function handlePost(request: NextRequest) {
   });
 
   if (existing) {
+    const message = "Bu masa numarası zaten kullanılıyor";
+    throw new ApiError(400, "TABLE_NUMBER_TAKEN", message, { tableNumber: message });
+  }
+
+  // 🔒 Plan Quota Enforcement
+  const quotaCheck = await checkPlanQuota(businessId, "TABLE");
+  if (!quotaCheck.allowed) {
     return NextResponse.json(
-      { error: "Bu masa numarası zaten kullanılıyor" },
-      { status: 400 }
+      { error: quotaCheck.error || "Masa oluşturma paket limitine ulaşıldı." },
+      { status: 403 }
     );
   }
 

@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { Lock, ShoppingBag } from "lucide-react";
+import { ORDER_LIMITS } from "@/contracts/orders";
 import FormError from "@/components/ui/FormError";
 import { formatTRY } from "@/lib/format";
 import type { AuthStatus, CartItem } from "./types";
@@ -116,6 +117,7 @@ export default function CartPanel(p: Props) {
                 value={p.orderNote}
                 onChange={(e) => p.onOrderNoteChange(e.target.value)}
                 placeholder="Sipariş notu (isteğe bağlı)"
+                maxLength={ORDER_LIMITS.note}
                 className={`input ${styles.orderNote}`}
               />
             </>

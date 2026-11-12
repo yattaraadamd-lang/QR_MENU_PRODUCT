@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo } from "react";
+import { PAYMENT_LIMITS } from "@/contracts/payments";
 import { formatTRY } from "@/lib/format";
 import Alert from "@/components/ui/Alert";
 import AmountInput from "@/components/ui/AmountInput";
@@ -63,6 +64,7 @@ export default function PaymentFields({ form, methods, amountLabel, withNote = f
             value={values.note}
             onChange={(e) => form.setField("note", e.target.value)}
             placeholder="Ödeme notu..."
+            maxLength={PAYMENT_LIMITS.note}
           />
         </Field>
       )}

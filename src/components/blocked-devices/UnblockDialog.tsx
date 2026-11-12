@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
+import { ACCESS_BLOCK_LIMITS } from "@/contracts/customer-session";
 import { useApiMutation } from "@/hooks/useApiMutation";
 import { formatDateTime } from "@/lib/format";
 import Alert from "@/components/ui/Alert";
@@ -11,7 +12,7 @@ import Modal from "@/components/ui/Modal";
 import { blockedDevicesApi } from "./blockedDevices.api";
 import type { DeviceBlockDTO } from "./types";
 
-const NOTE_MAX = 500;
+const NOTE_MAX = ACCESS_BLOCK_LIMITS.note;
 
 interface UnblockDialogProps {
   block: DeviceBlockDTO;

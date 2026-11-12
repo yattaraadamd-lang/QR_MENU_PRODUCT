@@ -1,4 +1,5 @@
 import { Prisma, UserRole } from "@prisma/client";
+import { PASSWORD_LIMITS } from "../src/contracts/users";
 
 /** User.businessId zorunlu olduğu için süper admin bu işletmeye bağlıdır */
 export const PLATFORM_BUSINESS_ID = "platform-business";
@@ -14,9 +15,14 @@ export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
 
-/** Kayıt ve personel uçlarıyla aynı kural (src/app/api/auth/signup/route.ts) */
+/** Kayıt ve personel uçlarıyla aynı kural: uzunluk PASSWORD_LIMITS'ten, en az 1 harf + 1 rakam */
 export function isValidAccountPassword(password: string): boolean {
-  return password.length >= 12 && password.length <= 72 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password);
+  return (
+    password.length >= PASSWORD_LIMITS.min &&
+    password.length <= PASSWORD_LIMITS.max &&
+    /[a-zA-Z]/.test(password) &&
+    /[0-9]/.test(password)
+  );
 }
 
 export async function ensureSuperAdmin(

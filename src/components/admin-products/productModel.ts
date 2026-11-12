@@ -15,9 +15,6 @@ export function stockMeta(status: StockStatus) {
   return STOCK[status] ?? STOCK.IN_STOCK;
 }
 
-/** lib/validation.ts createProductSchema ile aynı */
-export const PRODUCT_LIMITS = { name: 200, description: 1000, ingredients: 1000, allergens: 500 } as const;
-
 export const EMPTY_PRODUCT_FORM: ProductFormValues = {
   name: "",
   description: "",

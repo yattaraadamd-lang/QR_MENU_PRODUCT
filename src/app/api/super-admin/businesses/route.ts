@@ -5,6 +5,7 @@ import { createAuditLog, auditRequestContext, AuditActions } from "@/lib/service
 import bcrypt from "bcryptjs";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
 import { superAdminBusinessCreateSchema } from "@/lib/validation";
+import { PASSWORD_LIMITS } from "@/contracts/users";
 
 export const dynamic = "force-dynamic";
 
@@ -78,17 +79,20 @@ async function handlePost(request: NextRequest) {
     );
   }
 
-  // ✅ SECURITY: Self-servis kayıt ve personel ile aynı politika (12-72, harf + rakam)
+  // ✅ SECURITY: Self-servis kayıt ve personel ile aynı politika (PASSWORD_LIMITS, harf + rakam)
   // bcrypt 72 bayttan sonrasını yok saydığı için üst sınır da gerekli
   const passwordStr = String(adminPassword);
   if (
-    passwordStr.length < 12 ||
-    passwordStr.length > 72 ||
+    passwordStr.length < PASSWORD_LIMITS.min ||
+    passwordStr.length > PASSWORD_LIMITS.max ||
     !/[a-zA-Z]/.test(passwordStr) ||
     !/[0-9]/.test(passwordStr)
   ) {
     return NextResponse.json(
-      { success: false, error: "Admin şifresi 12-72 karakter olmalı ve en az 1 harf ile 1 rakam içermelidir" },
+      {
+        success: false,
+        error: `Admin şifresi ${PASSWORD_LIMITS.min}-${PASSWORD_LIMITS.max} karakter olmalı ve en az 1 harf ile 1 rakam içermelidir`,
+      },
       { status: 400 }
     );
   }

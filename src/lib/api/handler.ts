@@ -4,32 +4,32 @@
  * Bozuk JSON, null gövde ya da yanlış tipte alan route içinde patlayıp 500 dönmesin diye
  * gövde parseJson ile okunur; hata ApiError olarak withApiHandler'a çıkar ve 400 olur.
  *
- * Yanıt zarfı geriye uyumludur: `error` metin olarak kalır (istemci `data.error` okuyor),
- * yanına makine tarafından okunabilir `code` ve log'la eşleştirmek için `requestId` eklenir.
+ * Yanıt zarfı geriye uyumludur (contracts/errors.ts): `error` metin olarak kalır (istemci
+ * `data.error` okuyor), yanına makine tarafından okunabilir `code`, log'la eşleştirmek için
+ * `requestId` ve doğrulama hatasında alan bazında `fieldErrors` eklenir.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import type { ApiErrorResponse } from "@/contracts/errors";
+import { describeIssue, toFieldErrors } from "@/lib/api/field-errors";
+import { logger } from "@/lib/logger";
 
 // Çıktı tipi T; girdi serbest (z.preprocess'li şemalar da kabul edilir)
 type Schema<T> = z.ZodType<T, z.ZodTypeDef, unknown>;
-import { logger } from "@/lib/logger";
 
 export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
-    message: string
+    message: string,
+    /** Alan → mesaj: form ilgili alanın altında gösterir (iş kuralı hataları da verebilir) */
+    public fieldErrors?: Readonly<Record<string, string>>
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
-
-// Zod'un İngilizce varsayılan mesajlarının yerine geçer; şemada verilen mesajlar önceliklidir
-const turkishErrorMap: z.ZodErrorMap = (issue) => ({
-  message: issue.path.length > 0 ? `Geçersiz alan: ${issue.path.join(".")}` : "Geçersiz istek gövdesi.",
-});
 
 /**
  * İsteğin JSON gövdesini okur ve şemayla doğrular; başarısızlıkta 400 ApiError fırlatır.
@@ -104,13 +104,32 @@ export function parseQuery<T>(request: NextRequest, schema: Schema<T>): T {
   return validate(schema, query);
 }
 
+const issueKey = (path: readonly (string | number)[], message: string) => `${path.join(".")}\n${message}`;
+
 function validate<T>(schema: Schema<T>, data: unknown): T {
   if (findUnstorableString(data)) {
     throw new ApiError(400, "INVALID_CHARACTERS", "İstek geçersiz karakter içeriyor.");
   }
-  const result = schema.safeParse(data, { errorMap: turkishErrorMap });
+  // Zod'un İngilizce varsayılan mesajlarının yerine geçer; şemada verilen mesajlar önceliklidir
+  // ve bu eşlemeye hiç gelmez. Buradan çıkan nedenler alan adını içermez: `described` hangi
+  // sorunların böyle olduğunu tutar, özet metnine alan adı yalnız onlar için eklenir.
+  const described = new Set<string>();
+  const result = schema.safeParse(data, {
+    errorMap: (issue) => {
+      if (issue.path.length === 0) return { message: "Geçersiz istek gövdesi." };
+      const message = describeIssue(issue);
+      described.add(issueKey(issue.path, message));
+      return { message };
+    },
+  });
   if (!result.success) {
-    throw new ApiError(400, "VALIDATION_ERROR", result.error.issues[0]?.message ?? "Geçersiz istek.");
+    const { issues } = result.error;
+    const first = issues[0];
+    let summary = first?.message ?? "Geçersiz istek.";
+    if (first && described.has(issueKey(first.path, first.message))) {
+      summary = `Geçersiz alan: ${first.path.join(".")}. ${first.message}`;
+    }
+    throw new ApiError(400, "VALIDATION_ERROR", summary, toFieldErrors(issues));
   }
   return result.data;
 }
@@ -154,13 +173,18 @@ export function withApiHandler(
     } catch (error) {
       if (error instanceof ApiError) {
         response = NextResponse.json(
-          { error: error.message, code: error.code, requestId },
+          {
+            error: error.message,
+            code: error.code,
+            requestId,
+            ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
+          } satisfies ApiErrorResponse,
           { status: error.status, headers: { "Cache-Control": "no-store, private" } }
         );
       } else {
         unhandled = error;
         response = NextResponse.json(
-          { error: "Sunucu hatası. Lütfen tekrar deneyin.", code: "INTERNAL_ERROR", requestId },
+          { error: "Sunucu hatası. Lütfen tekrar deneyin.", code: "INTERNAL_ERROR", requestId } satisfies ApiErrorResponse,
           { status: 500, headers: { "Cache-Control": "no-store, private" } }
         );
       }

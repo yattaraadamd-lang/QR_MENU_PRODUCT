@@ -53,9 +53,9 @@ export default function Input({
             Boolean(leftIcon) && styles.withLeftIcon,
             (Boolean(rightIcon) || showPasswordToggle) && styles.withRightIcon,
             large && styles.large,
-            Boolean(error) && styles.invalid,
             className,
           )}
+          // Kırmızı çerçeve aria-invalid'den gelir (globals.css)
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           {...props}

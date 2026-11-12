@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useState, type FormEvent, type InputHTMLAttributes } from "react";
+import { BUSINESS_LIMITS } from "@/contracts/business";
+import { PASSWORD_LIMITS } from "@/contracts/users";
 import { useApiMutation } from "@/hooks/useApiMutation";
 import { cn } from "@/lib/cn";
 import Button from "@/components/ui/Button";
@@ -8,7 +10,7 @@ import Field from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
 import { eyebrowClass } from "@/components/ui/tone";
-import { ADMIN_PASSWORD_MAX, ADMIN_PASSWORD_MIN, businessesApi } from "./businesses.api";
+import { businessesApi } from "./businesses.api";
 import type { CreateBusinessInput } from "./types";
 
 const EMPTY: CreateBusinessInput = {
@@ -21,7 +23,10 @@ const EMPTY: CreateBusinessInput = {
   adminPassword: "",
 };
 
-interface FieldDef extends Pick<InputHTMLAttributes<HTMLInputElement>, "type" | "placeholder" | "autoComplete"> {
+/** Uzunluk sınırları sunucu şemasıyla ortak sabitlerden (contracts) */
+type InputProps = Pick<InputHTMLAttributes<HTMLInputElement>, "type" | "placeholder" | "autoComplete" | "minLength" | "maxLength">;
+
+interface FieldDef extends InputProps {
   readonly key: keyof CreateBusinessInput;
   readonly label: string;
   readonly required?: boolean;
@@ -34,13 +39,20 @@ const NAME_FIELD: FieldDef = {
   required: true,
   placeholder: "Örn: Lezzet Cafe",
   autoComplete: "organization",
+  maxLength: BUSINESS_LIMITS.name,
 };
 /** Geniş ekranda yan yana */
 const CONTACT_FIELDS: readonly FieldDef[] = [
   { key: "email", label: "İşletme E-posta", type: "email", placeholder: "isletme@ornek.com", autoComplete: "off" },
-  { key: "phone", label: "Telefon", type: "tel", placeholder: "05xx xxx xx xx", autoComplete: "off" },
+  { key: "phone", label: "Telefon", type: "tel", placeholder: "05xx xxx xx xx", autoComplete: "off", maxLength: BUSINESS_LIMITS.phone },
 ];
-const ADDRESS_FIELD: FieldDef = { key: "address", label: "Adres", placeholder: "İşletme adresi", autoComplete: "off" };
+const ADDRESS_FIELD: FieldDef = {
+  key: "address",
+  label: "Adres",
+  placeholder: "İşletme adresi",
+  autoComplete: "off",
+  maxLength: BUSINESS_LIMITS.address,
+};
 
 // Süper adminin kendi e-posta/şifresi önerilmesin: yeni hesap alanları
 const ADMIN_FIELDS: readonly FieldDef[] = [
@@ -51,9 +63,11 @@ const ADMIN_FIELDS: readonly FieldDef[] = [
     label: "Admin Şifresi",
     type: "password",
     required: true,
-    placeholder: `En az ${ADMIN_PASSWORD_MIN} karakter`,
+    placeholder: `En az ${PASSWORD_LIMITS.min} karakter`,
     autoComplete: "new-password",
-    hint: `${ADMIN_PASSWORD_MIN}–${ADMIN_PASSWORD_MAX} karakter, en az 1 harf ve 1 rakam içermeli`,
+    minLength: PASSWORD_LIMITS.min,
+    maxLength: PASSWORD_LIMITS.max,
+    hint: `${PASSWORD_LIMITS.min}–${PASSWORD_LIMITS.max} karakter, en az 1 harf ve 1 rakam içermeli`,
   },
 ];
 
@@ -78,7 +92,6 @@ export default function CreateBusinessDialog({ onClose, onCreated }: CreateBusin
   const renderField = (field: FieldDef) => {
     const inputId = `${id}-${field.key}`;
     const hintId = field.hint ? `${inputId}-hint` : undefined;
-    const isPassword = field.key === "adminPassword";
     return (
       <Field key={field.key} label={`${field.label}${field.required ? " *" : ""}`} htmlFor={inputId}>
         <input
@@ -88,8 +101,8 @@ export default function CreateBusinessDialog({ onClose, onCreated }: CreateBusin
           placeholder={field.placeholder}
           autoComplete={field.autoComplete}
           required={field.required}
-          minLength={isPassword ? ADMIN_PASSWORD_MIN : undefined}
-          maxLength={isPassword ? ADMIN_PASSWORD_MAX : undefined}
+          minLength={field.minLength}
+          maxLength={field.maxLength}
           aria-describedby={hintId}
           value={form[field.key]}
           onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}

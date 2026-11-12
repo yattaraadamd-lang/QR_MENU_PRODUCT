@@ -14,6 +14,12 @@ export type CancelReasonCode =
   | "BUSINESS_NOT_ACCEPTING"
   | "OTHER";
 
+/**
+ * Müşterinin sipariş notu ve ürün notu ile personelin iptal/red nedeninin azami uzunluğu.
+ * cancelReason sunucuya giden birleşik metnin sınırıdır ("Etiket: açıklama").
+ */
+export const ORDER_LIMITS = { note: 500, itemNote: 200, cancelReason: 500 } as const;
+
 export interface OrderItemDTO {
   readonly id: string;
   /** "Stokta yok" ile iptal ederken işaretlenecek ürün */
