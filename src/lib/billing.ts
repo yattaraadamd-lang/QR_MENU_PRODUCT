@@ -2,6 +2,7 @@
  * iyzico ↔ BusinessSubscription senkronizasyonu
  */
 
+import "server-only";
 import type { BusinessSubscription } from "@prisma/client";
 import { logger } from "./logger";
 import { prisma } from "./prisma";

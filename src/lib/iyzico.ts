@@ -10,6 +10,7 @@
  * iyzico API'sinden yeniden okunur.
  */
 
+import "server-only";
 import crypto from "crypto";
 import { SubscriptionStatus } from "@prisma/client";
 

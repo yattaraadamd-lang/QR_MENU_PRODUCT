@@ -6,6 +6,7 @@
  * - Tek kullanımlık, 7 gün geçerli.
  */
 
+import "server-only";
 import crypto from "crypto";
 
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;

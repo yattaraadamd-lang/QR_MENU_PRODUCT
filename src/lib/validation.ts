@@ -5,6 +5,7 @@
  * src/contracts'taki `*_LIMITS` sabitlerinden gelir: form (maxLength) aynı sabiti okur (FE-ARCH-3.4).
  */
 
+import "server-only";
 import { z } from "zod";
 import { OrderStatus, TableStatus, ServiceRequestType, RequestStatus, StockStatus, OrderCancelReasonCode, PaymentMethod } from "@prisma/client";
 import { BUSINESS_LIMITS } from "@/contracts/business";

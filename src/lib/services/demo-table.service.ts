@@ -1,3 +1,4 @@
+import "server-only";
 import { prisma } from "@/lib/prisma";
 import { DEMO_IDLE_RELEASE_MS } from "@/lib/demo";
 import { closeTable } from "@/lib/services/table-flow.service";

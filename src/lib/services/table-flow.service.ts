@@ -6,6 +6,7 @@
  * İdempotent tasarım: aynı işlem 2 kez yapılsa bile bozulmaz.
  */
 
+import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { BillPaymentStatus, PaymentStatus, PrismaClient, RequestStatus, TableStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";

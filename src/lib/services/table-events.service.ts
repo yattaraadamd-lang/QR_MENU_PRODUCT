@@ -1,3 +1,4 @@
+import "server-only";
 import type { PrismaClient, TableEventSource, TableStatus } from "@prisma/client";
 
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;

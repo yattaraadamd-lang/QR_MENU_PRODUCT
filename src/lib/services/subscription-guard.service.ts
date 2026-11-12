@@ -5,6 +5,7 @@
  * and subscription status (ACTIVE, TRIAL vs EXPIRED, PAST_DUE, CANCELLED).
  */
 
+import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getRequestLogger } from "@/lib/logger";

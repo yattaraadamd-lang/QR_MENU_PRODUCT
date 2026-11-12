@@ -8,6 +8,7 @@
  * - userAgent is truncated to essential info
  */
 
+import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";

@@ -1,3 +1,4 @@
+import "server-only";
 import { headers as incomingHeaders } from "next/headers";
 
 /**

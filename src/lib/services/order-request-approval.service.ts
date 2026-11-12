@@ -1,3 +1,4 @@
+import "server-only";
 import { prisma } from "@/lib/prisma";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { writeTableStatus, type TableChangeCause } from "@/lib/services/table-events.service";

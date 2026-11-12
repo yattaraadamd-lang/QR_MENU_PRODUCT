@@ -12,6 +12,7 @@
  * Transaction sonrası socket emit yapılır; socket hatası DB'yi geri almaz.
  */
 
+import "server-only";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus, OrderCancelReasonCode, TableStatus } from "@prisma/client";
 import type { Prisma, PrismaClient } from "@prisma/client";

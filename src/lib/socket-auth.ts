@@ -21,6 +21,7 @@
  * This prevents tampering as user must exist and be active.
  */
 
+import "server-only";
 import { prisma } from "./prisma";
 import crypto from "crypto";
 import type { Socket } from "socket.io";

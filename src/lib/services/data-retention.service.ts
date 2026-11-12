@@ -10,6 +10,7 @@
  * sürece günde bir yoklanır, son başarılı çalışmanın üzerinden bir ay geçtiyse başlar.
  */
 
+import "server-only";
 import { Prisma } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";

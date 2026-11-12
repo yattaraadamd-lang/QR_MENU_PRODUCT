@@ -11,6 +11,7 @@
  * Yerelde okunur çıktı: npm run dev | npx pino-pretty
  */
 
+import "server-only";
 import pino, { type DestinationStream, type Logger } from "pino";
 import { currentRequestId } from "./request-id";
 
