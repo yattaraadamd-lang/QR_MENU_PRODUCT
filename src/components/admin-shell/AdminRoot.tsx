@@ -8,6 +8,7 @@ import AdminSidebar from "@/components/admin-shell/AdminSidebar";
 import AdminTopBar from "@/components/admin-shell/AdminTopBar";
 import AuthSessionProvider from "@/components/AuthSessionProvider";
 import AccessDenied from "@/components/staff/AccessDenied";
+import LiveConnectionAlert from "@/components/staff/LiveConnectionAlert";
 import { useMobileSidebar } from "@/components/staff/useMobileSidebar";
 import Loader from "@/components/ui/Loader";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
@@ -65,6 +66,7 @@ function AdminShell({ children }: { children: ReactNode }) {
           menuButtonRef={sidebar.menuButtonRef}
           onOpenMenu={sidebar.openSidebar}
         />
+        <LiveConnectionAlert className="mx-auto max-w-screen-xl px-5 pt-6" />
         <main id="main-content" key={pathname} className="page-enter mx-auto max-w-screen-xl px-5 py-6">
           {children}
         </main>
