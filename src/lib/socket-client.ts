@@ -169,14 +169,40 @@ export function getSocket(authToken?: string): Socket {
 }
 
 /**
+ * Abone olunduğunda bağlantı yoksa bu süre içinde gelen ilk bağlantıda ekran yenilenmez
+ * (createConnectGate). Sayfa açılışıyla soketin odaya katılması arasında kaçabilecek olayı
+ * ekranların 5–10 sn'lik yoklaması kapatır. Daha geç kurulan ilk bağlantıda (bağlantı hataları,
+ * yeniden denemeler) olay kaçmış olabilir: o zaman yenilenir.
+ */
+const FIRST_CONNECT_GRACE_MS = 2000;
+
+/**
+ * Bir soket aboneliğinde "connect" olayının ekranı yenilemesi gerekip gerekmediği (FE-ARCH-3.5).
+ * Abone olunduğunda bağlantı yoksa, `graceMs` içinde gelen ilk bağlantı sayfanın ilk yüklemesiyle
+ * aynı anı görür: yenileme, ekranın az önce çektiği listeyi ikinci kez ister. Sonraki her bağlantı
+ * ve geç kurulan ilk bağlantı yeniden bağlanmadır: arada kaçan olaylar için yenilenir.
+ * Döndürülen işlev her "connect" olayında bir kez çağrılır.
+ */
+export function createConnectGate(connectedAtSubscribe: boolean, graceMs: number, now: () => number = Date.now) {
+  const subscribedAt = now();
+  let awaitingFirstConnect = !connectedAtSubscribe;
+  return (): boolean => {
+    const isInitialConnect = awaitingFirstConnect && now() - subscribedAt < graceMs;
+    awaitingFirstConnect = false;
+    return !isInitialConnect;
+  };
+}
+
+/**
  * ✅ P0-03 FIX: Kimlikli bağlantı; sunucu kullanıcıyı auth'tan bildiği işletme odasına
  * (yeniden bağlanınca da) kendiliğinden katar, "join_business" gerekmez.
  *
  * İşletme odasına abone ol: `handlers` olay → işleyici. `onReconnect` verilirse yeniden
- * bağlanınca ve bağlantı yokken (yedek polling) çağrılır. Dönen fonksiyon yalnız bu
- * aboneliğin dinleyicilerini kaldırır. Eski connectToBusinessRoom her çağrıda yeni
- * connect/disconnect dinleyicisi ekleyip kaldıramadığından ekran her yeniden abone
- * olduğunda (oturum yenilenmesi, filtre, sayfa geçişi) dinleyiciler birikiyordu.
+ * bağlanınca ve bağlantı yokken (yedek polling) çağrılır; sayfa açılırken kurulan ilk
+ * bağlantıda çağrılmaz (FIRST_CONNECT_GRACE_MS). Dönen fonksiyon yalnız bu aboneliğin
+ * dinleyicilerini kaldırır. Eski connectToBusinessRoom her çağrıda yeni connect/disconnect
+ * dinleyicisi ekleyip kaldıramadığından ekran her yeniden abone olduğunda (oturum
+ * yenilenmesi, filtre, sayfa geçişi) dinleyiciler birikiyordu.
  */
 export function subscribeToBusinessRoom(
   authToken: string,
@@ -188,6 +214,7 @@ export function subscribeToBusinessRoom(
   }
 
   const s = getSocket(authToken);
+  const refreshOnConnect = createConnectGate(s.connected, FIRST_CONNECT_GRACE_MS);
   if (!s.connected) {
     s.auth = { token: authToken };
     s.io.opts.reconnection = true;
@@ -196,7 +223,7 @@ export function subscribeToBusinessRoom(
 
   const handleConnect = () => {
     stopPollingFallback();
-    onReconnect?.();
+    if (refreshOnConnect()) onReconnect?.();
   };
   const handleDisconnect = () => {
     if (onReconnect) startPollingFallback(onReconnect);
