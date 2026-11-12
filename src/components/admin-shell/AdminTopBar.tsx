@@ -15,7 +15,7 @@ export default function AdminTopBar({ sidebarId, sidebarOpen, menuButtonRef, onO
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface-muted px-5 py-3">
       <div className="flex items-center gap-3">
-        {/* .admin-mobile-only görünürlüğü yönetir: display sınıfı ekleme (globals Tailwind'i ezer) */}
+        {/* Görünürlüğü .admin-mobile-only yönetir: display yardımcısı eklemeyin, onu ezer */}
         <button
           ref={menuButtonRef}
           type="button"

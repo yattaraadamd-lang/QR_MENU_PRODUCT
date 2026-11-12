@@ -62,7 +62,7 @@ export default function ServiceSheet({ activeRequests, sending, error, onClose, 
             <button
               key={option.type}
               type="button"
-              className={`service-btn ${styles.serviceItem}`}
+              className={styles.serviceItem}
               aria-disabled={unavailable || undefined}
               onClick={unavailable ? undefined : option.action}
             >

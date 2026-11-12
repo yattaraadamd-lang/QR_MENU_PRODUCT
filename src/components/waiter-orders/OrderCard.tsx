@@ -27,7 +27,7 @@ export default function OrderCard({ order, now, busy, onAdvance, onStop }: Order
   const name = tableDisplayName(order.table);
 
   return (
-    <li className={cn("card relative overflow-hidden transition-opacity", busy && "opacity-70")} aria-busy={busy || undefined}>
+    <li className={cn("card relative overflow-hidden", busy && "opacity-70")} aria-busy={busy || undefined}>
       {order.status === "PENDING" && <ToneStripe tone={status.tone} />}
 
       <div className="flex items-start justify-between gap-3 border-b border-line-subtle px-4 py-3">

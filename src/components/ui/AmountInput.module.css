@@ -1,4 +1,4 @@
-/* .input (globals.css) Tailwind'den sonra geldiği için yazı boyutu birleşik seçiciyle verilir */
+/* .input'un (globals.css) yazı boyutunun yerine geçer: birleşik seçici (0,2,0) yükleme sırasından bağımsız kazanır */
 .amount:global(.input) {
   font-size: 18px;
   font-weight: 700;

@@ -1,5 +1,5 @@
-/* .input (globals.css) Tailwind yardımcılarından sonra geldiği için dolgu ve boyut birleşik
-   seçiciyle (0,2,0) verilir; !important gerekmez. */
+/* .input'un (globals.css) dolgu ve boyutunun yerine geçer: birleşik seçici (0,2,0) yükleme
+   sırasından bağımsız kazanır; !important gerekmez. */
 .withLeftIcon:global(.input) { padding-left: 40px; }
 .withRightIcon:global(.input) { padding-right: 44px; }
 
