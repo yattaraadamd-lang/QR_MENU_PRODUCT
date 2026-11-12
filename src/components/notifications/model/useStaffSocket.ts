@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { isRecord } from "@/lib/api-client";
 import { subscribeToBusinessRoom } from "@/lib/socket-client";
 
 const STAFF_ROLES = new Set(["WAITER", "ADMIN", "SUPER_ADMIN"]);
@@ -32,8 +33,9 @@ export function useStaffSocket(
     const handlers = Object.fromEntries(
       eventsKey.split(",").map((event) => [
         event,
-        (data: Record<string, unknown> | null) => {
-          const payload = data ?? {};
+        (data: unknown) => {
+          // Sunucu her olayda nesne yayar; gelmezse (ya da nesne değilse) boş veriyle bildirilir
+          const payload = isRecord(data) ? data : {};
           if (payload._businessId && payload._businessId !== businessId) return;
           onEventRef.current(event, payload);
         },

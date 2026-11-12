@@ -146,9 +146,9 @@ export const authOptions: NextAuthOptions = {
                 );
               }
             }
-          } catch (rateLimitError: any) {
+          } catch (rateLimitError) {
             // If the error is our rate limit message, re-throw it
-            if (rateLimitError.message?.includes("giriş denemesi")) {
+            if (rateLimitError instanceof Error && rateLimitError.message.includes("giriş denemesi")) {
               throw rateLimitError;
             }
             // Otherwise: fail-closed — reject unknown rate limit errors

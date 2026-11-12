@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { processAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { staffPaymentSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ async function handlePatch(
       case "CARD": method = "CARD"; break;
       case "ONLINE": method = "ONLINE"; break;
       case "OTHER": method = "OTHER"; break;
-      default: method = (existingPayment.method as any) || "CARD"; break;
+      default: method = existingPayment.method || "CARD"; break;
     }
 
     const amount = body.amount ? Number(body.amount) : Number(existingPayment.amount);
@@ -88,13 +89,14 @@ async function handlePatch(
       changeAmount: result.changeAmount,
       isFullyPaid: result.isFullyPaid,
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ApiError) throw error;
+    const { code, name, message } = errorFields(error);
     console.error("[ADMIN_PAYMENT_COMPLETE_FAILED]", {
       endpoint: "/api/admin/payments/[id]/complete",
-      code: error?.code,
-      name: error?.name,
-      message: error?.message,
+      code,
+      name,
+      message,
       paymentId,
     });
 

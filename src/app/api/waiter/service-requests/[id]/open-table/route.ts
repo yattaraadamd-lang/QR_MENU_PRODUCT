@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { checkRateLimit } from "@/lib/unified-rate-limit";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { openTableRequestSchema } from "@/lib/validation";
 import { approveOrderRequest, OrderRequestApprovalError } from "@/lib/services/order-request-approval.service";
 
@@ -174,7 +175,7 @@ async function handlePost(
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ApiError) throw error;
     if (error instanceof OrderRequestApprovalError && error.code === "ALREADY_HANDLED") {
       return NextResponse.json(
@@ -189,7 +190,7 @@ async function handlePost(
       );
     }
     // Prisma unique constraint violation (concurrent open attempts)
-    if (error?.code === "P2002") {
+    if (errorFields(error).code === "P2002") {
       return NextResponse.json(
         { error: "Eşzamanlı masa açma çakışması. Lütfen tekrar deneyin.", code: "OPEN_REQUEST_ALREADY_HANDLED" },
         { status: 409 }

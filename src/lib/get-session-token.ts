@@ -26,10 +26,7 @@ export async function getSessionToken(): Promise<string | null> {
       return null;
     }
 
-    const token =
-      typeof (session as any).accessToken === "string"
-        ? (session as any).accessToken
-        : null;
+    const token = typeof session.accessToken === "string" ? session.accessToken : null;
 
     if (!token || token.split(".").length !== 2) {
       return null;

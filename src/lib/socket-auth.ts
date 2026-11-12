@@ -25,9 +25,17 @@ import { prisma } from "./prisma";
 import crypto from "crypto";
 import type { Socket } from "socket.io";
 
-// Extended error type for socket middleware
+// Extended error type for socket middleware: istemci `data.code`'a bakarak yeniden bağlanmayı keser
 interface ExtendedError extends Error {
-  data?: any;
+  data?: { code: string };
+}
+
+/** lib/auth.ts session callback'inin imzaladığı gövde; imza doğrulandıktan sonra okunur */
+interface SocketTokenPayload {
+  userId?: string;
+  businessId?: string;
+  role?: string;
+  iat?: number;
 }
 
 /**
@@ -76,7 +84,7 @@ export async function authenticateSocket(
 
     // ✅ SECURITY FIX: Verify HMAC signature before trusting token content
     // Token format: base64(JSON) + "." + hex(HMAC-SHA256)
-    let decoded: any;
+    let decoded: SocketTokenPayload | null;
     try {
       const parts = token.split(".");
 
@@ -111,7 +119,7 @@ export async function authenticateSocket(
       }
 
       const jsonString = Buffer.from(payload, 'base64').toString('utf-8');
-      decoded = JSON.parse(jsonString);
+      decoded = JSON.parse(jsonString) as SocketTokenPayload | null;
     } catch (decodeError) {
       if ((decodeError as ExtendedError).data?.code) {
         return next(decodeError as ExtendedError);

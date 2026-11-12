@@ -7,6 +7,7 @@ import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } 
 import { isDemoBusiness } from "@/lib/demo";
 import { releaseIdleDemoTable } from "@/lib/services/demo-table.service";
 import { withApiHandler, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { customerSessionCreateSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -244,16 +245,17 @@ async function createSession(request: NextRequest) {
 
     return res;
   } catch (error) {
+    const { code, message, name } = errorFields(error);
     console.error("Oturum oluşturma hatası:", {
       // ❌ DO NOT log tokens or device keys
-      code: (error as any)?.code,
-      message: (error as any)?.message,
-      name: (error as any)?.name,
+      code,
+      message,
+      name,
     });
     return addSecurityHeaders(
-      NextResponse.json({ 
+      NextResponse.json({
         error: "Oturum oluşturulurken bir hata oluştu",
-        details: process.env.NODE_ENV === "development" ? (error as any)?.message : undefined
+        details: process.env.NODE_ENV === "development" ? message : undefined
       }, { status: 500 })
     );
   }
@@ -328,7 +330,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("Token doğrulama hatası:", {
-      code: (error as any)?.code,
+      code: errorFields(error).code,
       // ❌ DO NOT log tokens
     });
     return addSecurityHeaders(

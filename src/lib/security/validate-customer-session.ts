@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Business, Table, TableSession } from "@prisma/client";
 import crypto from "crypto";
 
 export type CustomerSessionValidationSuccess = {
@@ -18,9 +19,9 @@ export type CustomerSessionValidationSuccess = {
     createdAt: Date;
     updatedAt: Date;
     deviceKeyHash: string | null;
-    table: any;
-    business: any;
-    tableSession: any;
+    table: Table;
+    business: Business;
+    tableSession: TableSession | null;
   };
 };
 

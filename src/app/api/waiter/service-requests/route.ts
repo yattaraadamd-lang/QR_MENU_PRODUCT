@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    const where: any = {
+    const where: Prisma.ServiceRequestWhereInput = {
       businessId,
       // ✅ Ödeme talepleri buraya düşmemeli — Ödemeler sekmesinde gösterilir
       requestType: { not: "PAYMENT_REQUEST" },

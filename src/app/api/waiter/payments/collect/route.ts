@@ -3,6 +3,7 @@ import { requireWaiterOrAdmin, getBusinessId } from "@/lib/auth-helpers";
 import { emitToBusinessRoom } from "@/lib/socket-server";
 import { createDirectAdminPayment, PaymentError } from "@/lib/services/payment.service";
 import { withApiHandler, ApiError, parseJson } from "@/lib/api/handler";
+import { errorFields } from "@/lib/error-fields";
 import { staffPaymentSchema, toPaymentMethod } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -91,35 +92,40 @@ async function handlePost(request: NextRequest) {
     });
 
     try {
-      emitToBusinessRoom(businessId, "payment_collected", {
-        tableNumber: result.table.tableNumber,
-        tableName: result.table.tableName,
-        amount: normalizedAmount,
-        method,
-        receivedAmount: normalizedReceivedAmount,
-        changeAmount: result.changeAmount,
-        remainingAmount: Number(result.bill.remainingAmount),
-        paymentStatus: result.bill.paymentStatus,
-        collectedBy: operatorName,
-      });
+      // Yeni ödemede adisyon ve masa hep okunur; tip, zaten ödenmiş (idempotent) yolu da kapsar
+      const { table, bill } = result;
+      if (table && bill) {
+        emitToBusinessRoom(businessId, "payment_collected", {
+          tableNumber: table.tableNumber,
+          tableName: table.tableName,
+          amount: normalizedAmount,
+          method,
+          receivedAmount: normalizedReceivedAmount,
+          changeAmount: result.changeAmount,
+          remainingAmount: Number(bill.remainingAmount),
+          paymentStatus: bill.paymentStatus,
+          collectedBy: operatorName,
+        });
+      }
 
-      if (result.isFullyPaid) {
+      if (table && result.isFullyPaid) {
         emitToBusinessRoom(businessId, "table_status_update", {
-          tableId: result.table.id,
+          tableId: table.id,
           status: "EMPTY",
-          message: `${result.table.tableName || "Masa " + result.table.tableNumber} hesabı ödendi.`,
+          message: `${table.tableName || "Masa " + table.tableNumber} hesabı ödendi.`,
         });
       }
     } catch { /* socket opsiyonel */ }
 
     return NextResponse.json({ payment: result.payment, bill: result.bill, changeAmount: result.changeAmount }, { status: 201 });
-  } catch (e: any) {
+  } catch (e) {
     if (e instanceof ApiError) throw e;
+    const { code, name, message } = errorFields(e);
     console.error("[PAYMENT_COLLECT_FAILED]", {
       endpoint: "/api/waiter/payments/collect",
-      code: e?.code,
-      name: e?.name,
-      message: e?.message,
+      code,
+      name,
+      message,
       userRole,
     });
 

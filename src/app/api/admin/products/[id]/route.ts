@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   requireAdmin,
@@ -77,7 +78,7 @@ async function handlePut(
   }
 
   // ✅ Boş string alanları temizle (categoryId, allergens, ingredients "" → null)
-  const updateData: any = { ...input };
+  const updateData: Prisma.ProductUncheckedUpdateInput = { ...input };
   if (updateData.categoryId === "") updateData.categoryId = null;
   if (updateData.allergens === "") updateData.allergens = null;
   if (updateData.ingredients === "") updateData.ingredients = null;

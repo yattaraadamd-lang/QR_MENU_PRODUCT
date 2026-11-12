@@ -14,7 +14,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { OrderStatus, OrderCancelReasonCode, TableStatus } from "@prisma/client";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { recalculateTableStatus } from "@/lib/services/table-flow.service";
 import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";
@@ -50,8 +50,28 @@ export type CancelOrderInput = {
 };
 
 // ─── Sonuç tipi ──────────────────────────────────────────────────────────
+/** İptal sonrası yanıtta dönen sipariş: kalemler ve masa adı */
+const CANCELLED_ORDER_INCLUDE = {
+  items: {
+    select: {
+      id: true,
+      productId: true,
+      productName: true,
+      quantity: true,
+      unitPrice: true,
+      totalPrice: true,
+    },
+  },
+  table: {
+    select: {
+      tableNumber: true,
+      tableName: true,
+    },
+  },
+} satisfies Prisma.OrderInclude;
+
 export type CancelOrderResult = {
-  order: any;
+  order: Prisma.OrderGetPayload<{ include: typeof CANCELLED_ORDER_INCLUDE }>;
   tableStatus: TableStatus;
   stockUpdatedProductIds: string[];
   billUpdated: boolean;
@@ -384,24 +404,7 @@ export async function cancelOrderAndSyncState(
       // ── 7. Güncellenen siparişi döndür ───────────────────────────────
       const updatedOrder = await tx.order.findUnique({
         where: { id: orderId },
-        include: {
-          items: {
-            select: {
-              id: true,
-              productId: true,
-              productName: true,
-              quantity: true,
-              unitPrice: true,
-              totalPrice: true,
-            },
-          },
-          table: {
-            select: {
-              tableNumber: true,
-              tableName: true,
-            },
-          },
-        },
+        include: CANCELLED_ORDER_INCLUDE,
       });
 
       if (!updatedOrder) {

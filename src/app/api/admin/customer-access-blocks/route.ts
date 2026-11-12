@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/tenant";
 
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // ── Where koşulu ────────────────────────────────────────────────────
-    let where: any = { businessId };
+    const where: Prisma.CustomerAccessBlockWhereInput = { businessId };
     if (statusFilter === "active") {
       where.revokedAt = null;
     } else if (statusFilter === "revoked") {

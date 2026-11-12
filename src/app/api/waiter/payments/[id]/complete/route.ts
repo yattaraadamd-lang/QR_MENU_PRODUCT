@@ -32,7 +32,7 @@ async function handlePatch(
       },
       { status: 403 }
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof ApiError) throw error;
     return NextResponse.json(
       { success: false, error: "İşlem reddedildi.", code: "FORBIDDEN" },

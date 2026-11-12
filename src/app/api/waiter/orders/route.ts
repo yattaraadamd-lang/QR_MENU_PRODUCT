@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import type { WaiterOrderListResponse } from "@/contracts/orders";
 import { ORDER_LIST_SELECT, toOrderDTO } from "@/lib/api/orders.dto";
 import { prisma } from "@/lib/prisma";
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
     // Build where clause
-    const where: any = { businessId };
+    const where: Prisma.OrderWhereInput = { businessId };
 
     // ✅ Handle legacy "status" param first (active/completed) — frontend uses these
     const legacyStatus = searchParams.get("status");
@@ -53,11 +54,9 @@ export async function GET(request: NextRequest) {
         if (filterValidation.data.tableId) {
           where.tableId = filterValidation.data.tableId;
         }
-        if (filterValidation.data.startDate) {
-          where.createdAt = { ...where.createdAt, gte: filterValidation.data.startDate };
-        }
-        if (filterValidation.data.endDate) {
-          where.createdAt = { ...where.createdAt, lte: filterValidation.data.endDate };
+        const { startDate, endDate } = filterValidation.data;
+        if (startDate || endDate) {
+          where.createdAt = { ...(startDate ? { gte: startDate } : {}), ...(endDate ? { lte: endDate } : {}) };
         }
       }
     }

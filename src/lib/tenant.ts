@@ -156,7 +156,6 @@ export interface QRSessionResult {
     tableName: string | null;
     businessId: string;
     qrToken: string;
-    business?: any;
   };
 }
 

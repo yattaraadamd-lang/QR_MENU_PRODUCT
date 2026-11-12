@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { validateBody } from "@/lib/validation";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
+import { errorFields } from "@/lib/error-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -141,9 +142,9 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error) {
     // Eşzamanlı aynı e-posta / slug
-    if (error?.code === "P2002") {
+    if (errorFields(error).code === "P2002") {
       return NextResponse.json({ error: "Bu e-posta adresi zaten kullanılıyor" }, { status: 400 });
     }
     console.error("İşletme kaydı hatası:", error);

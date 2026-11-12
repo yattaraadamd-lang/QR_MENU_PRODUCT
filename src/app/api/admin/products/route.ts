@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, getBusinessIdFromSession } from "@/lib/tenant";
 import { validateQuery, createProductSchema, updateProductSchema, productFilterSchema } from "@/lib/validation";
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const filterValidation = validateQuery(productFilterSchema, searchParams);
     
-    const where: any = {
+    const where: Prisma.ProductWhereInput = {
       businessId,
       isDeleted: false,
     };

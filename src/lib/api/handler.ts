@@ -158,7 +158,7 @@ export function withApiHandler<C>(
 ): (request: NextRequest, context: C) => Promise<Response>;
 export function withApiHandler(
   name: string,
-  handler: (request: NextRequest, context?: any) => Promise<Response>
+  handler: (request: NextRequest, context?: unknown) => Promise<Response>
 ) {
   return async (request: NextRequest, context?: unknown) => {
     const startedAt = Date.now();

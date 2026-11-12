@@ -103,13 +103,11 @@ const layerRules = [
   },
   // Sözleşme katmanı (FE-ARCH-3.1): src/contracts API ile ekranın ortak tipleridir, en alt katman.
   // Tipler istemci paketine girmez. İzin verilen tek değer alan sınırıdır (FE-ARCH-3.4):
-  // `export const X_LIMITS = { alan: sayı } as const`. Yalnız kendi klasöründen import eder, any
-  // taşımaz. Prisma enum eşitliği: src/lib/api/contracts-sync.ts
+  // `export const X_LIMITS = { alan: sayı } as const`. Yalnız kendi klasöründen import eder.
+  // Prisma enum eşitliği: src/lib/api/contracts-sync.ts
   {
     files: ["src/contracts/**/*.ts"],
-    plugins: { "@typescript-eslint": tsPlugin },
     rules: {
-      "@typescript-eslint/no-explicit-any": "error",
       "no-restricted-syntax": [
         "error",
         {
@@ -130,8 +128,8 @@ const layerRules = [
       ],
     },
   },
-  // İstemci kodunda any yok; tipsiz değerin (JSON, kütüphane geri çağrısı) alanına erişim ve
-  // ataması da tip farkında kurallarla yakalanır (FE-ARCH-2.5). Sunucu tarafı FE-ARCH-3.6 ile.
+  // İstemci kodunda tipsiz değerin (JSON, kütüphane geri çağrısı) alanına erişim ve ataması da
+  // tip farkında kurallarla yakalanır (FE-ARCH-2.5). any yasağı tüm src için aşağıda.
   {
     files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}", "src/app/**/*.tsx"],
     languageOptions: {
@@ -140,7 +138,6 @@ const layerRules = [
     },
     plugins: { "@typescript-eslint": tsPlugin },
     rules: {
-      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unsafe-member-access": "error",
       "@typescript-eslint/no-unsafe-assignment": "error",
       "@typescript-eslint/no-unsafe-call": "error",
@@ -149,6 +146,14 @@ const layerRules = [
       // `.catch(() => {})` gibi gövdesiz işlev de gerekçe yorumu ister (FE-ARCH-2.6)
       "@typescript-eslint/no-empty-function": "error",
     },
+  },
+  // any yok: istemci, sözleşme ve sunucu (FE-ARCH-3.6). Yakalanan hata `unknown` kalır ve
+  // lib/error-fields ile okunur; Prisma girdisi Prisma.*WhereInput / *UpdateInput, işlem
+  // istemcisi Prisma.TransactionClient, dış JSON beklenen yanıt tipiyle yazılır.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    plugins: { "@typescript-eslint": tsPlugin },
+    rules: { "@typescript-eslint/no-explicit-any": "error" },
   },
 ];
 
