@@ -3,8 +3,8 @@ import { scanAndAddProduct, tableQrPath, toast, VIEWPORT } from "./support/custo
 
 /**
  * Müşteri akışı uçtan uca (FE-ARCH-2.4): masa güveninin istemci tarafını korur.
- * QR → menü → sepet → sipariş talebi (onay kodu) → demo otomatik onayı → sipariş; aynı masaya
- * ikinci cihaz sipariş talebi veremez. QR token'ı yönetici uçlarından alınır (demo seed ister).
+ * QR → menü → sepet → sipariş talebi (onay kodu) → demo otomatik onayı → sipariş → garson çağırma;
+ * aynı masaya ikinci cihaz sipariş talebi veremez. QR token'ı yönetici uçlarından alınır (demo seed ister).
  * CI her koşuda taze veritabanı kullanır; yerelde kullanılmamış bir masa seçin (E2E_CUSTOMER_TABLE).
  */
 
@@ -31,6 +31,20 @@ test.describe("müşteri akışı", () => {
     await expect(toast(page, "Masanız açıldı")).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "Siparişi gönder" }).click();
     await expect(toast(page, "Siparişiniz gönderildi")).toBeVisible();
+
+    // Hizmet talebi (FE-ARCH-3.9c): masa açıkken garson çağrılır; bekleyen çağrı varken menüde kilitli
+    const openService = () => page.getByRole("button", { name: "Hizmet", exact: true }).click();
+    const sheet = page.locator("dialog[open]");
+    await openService();
+    await sheet.getByRole("button", { name: /^Garson çağır/ }).click();
+    await sheet.locator("label.reason-option").first().click();
+    await sheet.getByRole("button", { name: "Garson çağır", exact: true }).click();
+    await expect(toast(page, "Garson çağrıldı")).toBeVisible();
+    await openService();
+    const waiterOption = sheet.getByRole("button", { name: /^Garson çağır/ });
+    await expect(waiterOption).toHaveAttribute("aria-disabled", "true");
+    await expect(waiterOption).toContainText("Çağrınız iletildi, bekleniyor");
+    await sheet.getByRole("button", { name: "Kapat", exact: true }).click();
 
     // İkinci cihaz: menüyü görür, ama masa ilk cihazda olduğu için sipariş talebi reddedilir
     const secondDevice = await browser.newContext({ viewport: VIEWPORT });

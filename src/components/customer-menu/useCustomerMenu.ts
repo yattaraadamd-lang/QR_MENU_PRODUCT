@@ -5,9 +5,11 @@ import { toast } from "sonner";
 import { orderable, type MenuResponse, type Product } from "./types";
 import { useCart } from "./useCart";
 import { useCustomerSession } from "./useCustomerSession";
+import type { ActionNotifier } from "./actionNotifier";
 import { useMenuData } from "./useMenuData";
-import { useOrderActions, type ActionNotifier } from "./useOrderActions";
+import { useOrderSubmit } from "./useOrderSubmit";
 import { useScrollSpy } from "./useScrollSpy";
+import { useServiceRequest } from "./useServiceRequest";
 import { useTableActivity } from "./useTableActivity";
 
 /**
@@ -70,7 +72,7 @@ export function useCustomerMenu(businessId: string, tableNumber: string, initial
     setActionError(null);
   };
 
-  const actions = useOrderActions({
+  const order = useOrderSubmit({
     notify,
     routeBusinessId: businessId,
     business: menu.business,
@@ -78,18 +80,25 @@ export function useCustomerMenu(businessId: string, tableNumber: string, initial
     session,
     cart,
     orderNote,
-    activeRequests: activity.activeRequests,
     onOrderSent: () => {
       setOrderNote("");
       closeCart();
     },
+    refreshMenu: menu.refresh,
+  });
+  const requests = useServiceRequest({
+    notify,
+    business: menu.business,
+    table: menu.table,
+    session,
+    activeRequests: activity.activeRequests,
     onRequestSent: () => {
       closeService();
       closeWaiter();
     },
-    refreshMenu: menu.refresh,
     refreshRequests: activity.refreshRequests,
   });
+  const actions = { ...order, ...requests };
 
   const addToCart = useCallback((p: Product, note?: string) => {
     if (!orderable(p)) {

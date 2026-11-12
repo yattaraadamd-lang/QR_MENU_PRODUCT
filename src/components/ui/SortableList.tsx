@@ -1,35 +1,15 @@
 "use client";
 
-// dnd-kit yalnız bu dosyada: ekranlar bunu kullanan listeyi React.lazy ile yükler, ilk paket küçük kalır
-import { useEffect, useRef, type ReactNode } from "react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type Announcements,
-  type DragEndEvent,
-  type UniqueIdentifier,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+// dnd-kit yalnız bu dosyada ve useSortableList'te: ekranlar bunu kullanan listeyi React.lazy ile
+// yükler, ilk paket küçük kalır
+import type { ReactNode } from "react";
+import { DndContext } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import { cn } from "@/lib/cn";
 import Button from "./Button";
-
-type Direction = "up" | "down";
-
-const SCREEN_READER_INSTRUCTIONS = {
-  draggable:
-    "Taşımak için Boşluk tuşuna basın, ok tuşlarıyla yerini değiştirin. Bırakmak için yeniden Boşluk, vazgeçmek için Esc tuşuna basın.",
-};
+import { useSortableList, type MoveDirection } from "./useSortableList";
 
 export interface SortableRowParts {
   /** Sürükleme tutamağı (klavyede Boşluk + oklar) */
@@ -53,7 +33,7 @@ interface SortableListProps<T extends { readonly id: string }> {
   itemClassName?: string;
 }
 
-/** Sıralanabilir liste: sürükle-bırak, klavye ve ok düğmeleri; duyurular Türkçe */
+/** Sıralanabilir liste: sürükle-bırak, klavye ve ok düğmeleri; duyurular Türkçe. Davranış useSortableList'te. */
 export default function SortableList<T extends { readonly id: string }>({
   items,
   label,
@@ -63,57 +43,10 @@ export default function SortableList<T extends { readonly id: string }>({
   className,
   itemClassName,
 }: SortableListProps<T>) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-  const listRef = useRef<HTMLUListElement>(null);
-  const focusAfterMove = useRef<{ id: string; direction: Direction } | null>(null);
-
-  // Taşınan satır DOM'da yer değiştirince odak düşer; uca geldiyse o yöndeki düğme kapanır
-  useEffect(() => {
-    const target = focusAfterMove.current;
-    if (!target) return;
-    focusAfterMove.current = null;
-    const row = Array.from(listRef.current?.children ?? []).find(
-      (el) => (el as HTMLElement).dataset.sortableId === target.id,
-    );
-    const button =
-      row?.querySelector<HTMLButtonElement>(`[data-move="${target.direction}"]:not(:disabled)`) ??
-      row?.querySelector<HTMLButtonElement>("[data-move]:not(:disabled)");
-    button?.focus();
-  }, [items]);
-
-  const step = (id: string, overId: string, direction: Direction) => {
-    focusAfterMove.current = { id, direction };
-    onMove(id, overId);
-  };
-
-  const nameOf = (id: UniqueIdentifier) => {
-    const item = items.find((entry) => entry.id === id);
-    return item ? getName(item) : "Öğe";
-  };
-  const positionOf = (id: UniqueIdentifier) => items.findIndex((entry) => entry.id === id) + 1;
-  const announcements: Announcements = {
-    onDragStart: ({ active }) => `${nameOf(active.id)} taşınıyor.`,
-    onDragOver: ({ active, over }) =>
-      over ? `${nameOf(active.id)}, ${positionOf(over.id)}. sıranın üzerinde.` : `${nameOf(active.id)} bir sıranın üzerinde değil.`,
-    onDragEnd: ({ active, over }) =>
-      over ? `${nameOf(active.id)} ${positionOf(over.id)}. sıraya bırakıldı.` : `${nameOf(active.id)} bırakıldı.`,
-    onDragCancel: ({ active }) => `Taşıma iptal edildi, ${nameOf(active.id)} yerinde kaldı.`,
-  };
-
-  const handleDragEnd = ({ active, over }: DragEndEvent) => {
-    if (over && active.id !== over.id) onMove(String(active.id), String(over.id));
-  };
+  const { listRef, step, dndContextProps } = useSortableList({ items, getName, onMove });
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-      accessibility={{ announcements, screenReaderInstructions: SCREEN_READER_INSTRUCTIONS }}
-    >
+    <DndContext {...dndContextProps}>
       <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
         <ul ref={listRef} aria-label={label} className={className}>
           {items.map((item, index) => (
@@ -142,7 +75,7 @@ interface SortableRowProps {
   index: number;
   previousId?: string;
   nextId?: string;
-  onStep: (id: string, overId: string, direction: Direction) => void;
+  onStep: (id: string, overId: string, direction: MoveDirection) => void;
   className?: string;
   children: (parts: SortableRowParts) => ReactNode;
 }

@@ -1,21 +1,15 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
 import { Star } from "lucide-react";
 import { PRODUCT_LIMITS } from "@/contracts/products";
-import { useApiMutation } from "@/hooks/useApiMutation";
-import { FIELDS_INVALID, useFieldErrors } from "@/hooks/useFieldErrors";
 import AmountInput from "@/components/ui/AmountInput";
 import Button from "@/components/ui/Button";
-import Field, { invalidProps } from "@/components/ui/Field";
+import Field from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
-import { EMPTY_PRODUCT_FORM, isFormValid, STOCK, STOCK_VALUES, toFormValues, toProductInput } from "./productModel";
-import { productsApi } from "./products.api";
-import type { ProductDTO, ProductFormValues, StockStatus } from "./types";
-
-/** Sunucunun hatasını altında gösterebildiğimiz alanlar (istek gövdesindeki adlarıyla) */
-const ERROR_FIELDS = ["name", "description", "price", "ingredients", "allergens"] as const;
+import { STOCK, STOCK_VALUES } from "./productModel";
+import type { ProductDTO, StockStatus } from "./types";
+import { useProductForm } from "./useProductForm";
 
 interface ProductFormDialogProps {
   /** null: yeni ürün */
@@ -28,25 +22,7 @@ interface ProductFormDialogProps {
 }
 
 export default function ProductFormDialog({ product, categories, nextOrder, onClose, onSaved }: ProductFormDialogProps) {
-  const [values, setValues] = useState<ProductFormValues>(() => (product ? toFormValues(product) : EMPTY_PRODUCT_FORM));
-  const save = useApiMutation(productsApi.save);
-  const fields = useFieldErrors(ERROR_FIELDS);
-  const id = useId();
-  const canSubmit = isFormValid(values) && !save.pending;
-  const set = <K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) => {
-    setValues((prev) => ({ ...prev, [key]: value }));
-    fields.clear(key);
-  };
-  /** Alanın id'si ve hataya bağlayan öznitelikleri */
-  const bind = (key: (typeof ERROR_FIELDS)[number]) => ({ id: `${id}-${key}`, ...invalidProps(fields.error(key), `${id}-${key}`) });
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canSubmit) return;
-    const result = await save.run(product?.id ?? null, toProductInput(values), nextOrder);
-    if (result.ok) onSaved(product ? "Ürün güncellendi" : "Ürün eklendi");
-    else if (fields.capture(result)) save.setError(FIELDS_INVALID);
-  };
+  const { id, values, set, bind, fields, save, canSubmit, handleSubmit } = useProductForm({ product, nextOrder, onSaved });
 
   return (
     <Modal
