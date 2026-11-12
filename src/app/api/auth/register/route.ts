@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     const rl = await rateLimit({ ...UNIFIED_RATE_LIMITS.WAITER_REGISTER, identifier: `register_${getClientIp(request)}` });
     if (!rl.success) return createRateLimitResponse(rl);
 
-    const body = await request.json();
+    const body: unknown = await request.json();
 
     // ✅ Zod strict validation
     const parseResult = registerSchema.safeParse(body);

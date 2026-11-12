@@ -1,3 +1,4 @@
+import type { ActiveRequestsResponse } from "@/contracts/requests";
 import { apiRequest, isRecord, type ApiResult } from "@/lib/api-client";
 import type { ActiveRequests, AuthStatus, MenuResponse } from "./types";
 
@@ -140,15 +141,12 @@ export interface TableActivity {
 /** Masanın bekleyen talepleri; okunamazsa null (son durum ekranda kalır) */
 export async function getActiveRequests(businessId: string, tableId: string, token: string | null): Promise<TableActivity | null> {
   const query = new URLSearchParams({ tableId, businessId });
-  const result = await apiRequest<unknown>(`/api/customer/active-requests?${query}`, { headers: sessionHeaders(token) });
-  if (!result.ok || !isRecord(result.data)) return null;
-  const { activeRequests, requestDetails } = result.data;
-  return {
-    activeRequests: isRecord(activeRequests)
-      ? Object.fromEntries(Object.entries(activeRequests).map(([type, active]) => [type, Boolean(active)]))
-      : {},
-    verificationCode: isRecord(requestDetails) ? verificationCodeOf(requestDetails.ORDER_REQUEST) : null,
-  };
+  const result = await apiRequest<Partial<ActiveRequestsResponse> | null>(`/api/customer/active-requests?${query}`, {
+    headers: sessionHeaders(token),
+  });
+  if (!result.ok || !result.data) return null;
+  const { activeRequests = {}, requestDetails } = result.data;
+  return { activeRequests, verificationCode: requestDetails?.ORDER_REQUEST?.verificationCode || null };
 }
 
 /** Canlı adisyon: `paid` yalnız adisyon kaydı varken gelir (yoksa siparişlerden toplam) */

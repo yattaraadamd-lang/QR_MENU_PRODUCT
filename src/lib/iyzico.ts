@@ -220,19 +220,39 @@ export function mapIyzicoStatus(status: string): SubscriptionStatus {
 
 // ─── Webhook ────────────────────────────────────────────────────────────────
 
+/** Abonelik bildiriminin imzaya giren alanları */
+export interface IyzicoWebhookEvent {
+  iyziEventType?: string;
+  subscriptionReferenceCode?: string;
+  orderReferenceCode?: string;
+  customerReferenceCode?: string;
+}
+
+/** Bildirim gövdesinin ham alanları: imza doğrulanana dek hiçbirine güvenilmez */
+interface WebhookBody {
+  readonly iyziEventType?: unknown;
+  readonly subscriptionReferenceCode?: unknown;
+  readonly orderReferenceCode?: unknown;
+  readonly customerReferenceCode?: unknown;
+}
+
+/** Gövdeden imza alanlarını okur; metin olmayan alan yok sayılır (imza o zaman tutmaz) */
+export function readWebhookEvent(payload: unknown): IyzicoWebhookEvent {
+  const body: WebhookBody = typeof payload === "object" && payload !== null ? payload : {};
+  const text = (value: unknown) => (typeof value === "string" ? value : undefined);
+  return {
+    iyziEventType: text(body.iyziEventType),
+    subscriptionReferenceCode: text(body.subscriptionReferenceCode),
+    orderReferenceCode: text(body.orderReferenceCode),
+    customerReferenceCode: text(body.customerReferenceCode),
+  };
+}
+
 /**
  * X-IYZ-SIGNATURE-V3 doğrulaması (abonelik bildirimleri).
  * İmza: HMAC-SHA256(secretKey, merchantId + secretKey + eventType + subscriptionReferenceCode + orderReferenceCode + customerReferenceCode)
  */
-export function verifyWebhookSignature(
-  signature: string | null,
-  payload: {
-    iyziEventType?: string;
-    subscriptionReferenceCode?: string;
-    orderReferenceCode?: string;
-    customerReferenceCode?: string;
-  }
-) {
+export function verifyWebhookSignature(signature: string | null, payload: IyzicoWebhookEvent) {
   const secretKey = process.env.IYZICO_SECRET_KEY;
   const merchantId = process.env.IYZICO_MERCHANT_ID;
   if (!signature || !secretKey || !merchantId) return false;

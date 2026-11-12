@@ -8,13 +8,10 @@
 
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import type { BillPaymentStatus, PaymentStatus, PrismaClient, RequestStatus, TableStatus } from "@prisma/client";
+import type { BillPaymentStatus, PaymentStatus, Prisma, RequestStatus, TableStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { writeTableStatus, type TableChangeCause, type TableEventReason } from "@/lib/services/table-events.service";
 import { BILLABLE_ORDER_STATUSES, computeClosedTableStatus, computeOpenTableStatus } from "@/lib/services/table-status";
-
-// Transaction client tipi
-type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. MASA AÇMA
@@ -102,7 +99,7 @@ export async function getActiveTableSession(tableId: string, businessId: string)
 /**
  * Transaction client ile aktif session getirir (transaction içinde kullanım için).
  */
-async function getActiveSessionTx(tx: TxClient, tableId: string, businessId: string) {
+async function getActiveSessionTx(tx: Prisma.TransactionClient, tableId: string, businessId: string) {
   return tx.tableSession.findFirst({
     where: { tableId, businessId, status: "ACTIVE" },
     include: { bill: true },
@@ -130,7 +127,7 @@ export async function getOpenBill(tableSessionId: string) {
  * Sipariş garson onayından geçtikten sonra bill.totalAmount ve remainingAmount günceller.
  * Transaction client alır (dış transaction içinden çağrılır).
  */
-export async function updateBillAfterOrder(tx: TxClient, tableSessionId: string) {
+export async function updateBillAfterOrder(tx: Prisma.TransactionClient, tableSessionId: string) {
   const bill = await tx.bill.findFirst({
     where: { tableSessionId, status: "OPEN" },
   });
@@ -526,7 +523,7 @@ const OPEN_PAYMENT_STATUSES: PaymentStatus[] = ["PENDING", "AWAITING_ADMIN_APPRO
  * hesaplanan durumu yazar ve döndürür. Masa açma ve kapatma dışındaki her değişiklik buradan geçer.
  */
 export async function recalculateTableStatus(
-  tx: TxClient,
+  tx: Prisma.TransactionClient,
   opts: { businessId: string; tableId: string },
   cause: TableChangeCause
 ): Promise<TableStatus> {

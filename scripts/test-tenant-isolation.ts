@@ -8,9 +8,13 @@
  * 4. Input Validation (Zod Schemas)
  * 5. Tenant Isolation Helpers & Scopes
  * 6. Login Input Limits & Session Revocation
+ * 7. Rate limit sıfırlama
+ * 8. iyzico bildirim imzası (gövde okuma + HMAC)
  */
 
+import crypto from "crypto";
 import { hashDeviceKey, generateDeviceKey } from "../src/lib/security/device-block";
+import { readWebhookEvent, verifyWebhookSignature } from "../src/lib/iyzico";
 import { checkPlanQuota } from "../src/lib/services/subscription-guard.service";
 import { cuidSchema, emailSchema, priceSchema, createTableSchema, createOrderSchema, updateStaffSchema } from "../src/lib/validation";
 import { createLogger } from "../src/lib/logger";
@@ -190,6 +194,46 @@ async function runTests() {
     assert((await checkRateLimit(key, config)).allowed, "Sıfırlama sonrası yeniden geçer");
   } catch (err: any) {
     assert(false, "Rate limit testleri hata verdi", err.message);
+  }
+
+  // ── Test Suite 8: iyzico bildirim imzası ─────────────────────────────
+  // Rota gövdeyi `readWebhookEvent` ile okur; imzaya yalnız metin alanlar girer
+  console.log("\n📦 Suite 8: iyzico bildirim imzası");
+  const savedEnv = { IYZICO_SECRET_KEY: process.env.IYZICO_SECRET_KEY, IYZICO_MERCHANT_ID: process.env.IYZICO_MERCHANT_ID };
+  try {
+    process.env.IYZICO_SECRET_KEY = "test-webhook-secret";
+    process.env.IYZICO_MERCHANT_ID = "test-merchant";
+    const body = {
+      iyziEventType: "subscription.order.success",
+      subscriptionReferenceCode: "sub-1",
+      orderReferenceCode: "ord-1",
+      customerReferenceCode: "cus-1",
+    };
+    const signature = crypto
+      .createHmac("sha256", "test-webhook-secret")
+      .update("test-merchant" + "test-webhook-secret" + "subscription.order.success" + "sub-1" + "ord-1" + "cus-1")
+      .digest("hex");
+
+    assert(verifyWebhookSignature(signature, readWebhookEvent(body)), "Doğru imza kabul edilir");
+    assert(verifyWebhookSignature(signature.toUpperCase(), readWebhookEvent(body)), "Büyük harfli imza da kabul edilir");
+    assert(
+      !verifyWebhookSignature(signature, readWebhookEvent({ ...body, subscriptionReferenceCode: "sub-2" })),
+      "Değiştirilen alan reddedilir"
+    );
+    assert(
+      !verifyWebhookSignature(signature, readWebhookEvent({ ...body, orderReferenceCode: 1 })),
+      "Metin olmayan alan imzaya girmez, bildirim reddedilir"
+    );
+    assert(!verifyWebhookSignature(signature, readWebhookEvent(null)), "Gövdesiz bildirim reddedilir");
+    assert(!verifyWebhookSignature(null, readWebhookEvent(body)), "İmzasız bildirim reddedilir");
+    assert(readWebhookEvent(body).subscriptionReferenceCode === "sub-1", "Abonelik referansı gövdeden okunur");
+  } catch (err: any) {
+    assert(false, "iyzico imza testleri hata verdi", err.message);
+  } finally {
+    for (const [key, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   }
 
   // ── Summary ──────────────────────────────────────────────────────────

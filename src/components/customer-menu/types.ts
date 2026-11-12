@@ -1,4 +1,5 @@
 import type { CustomerAuthorizationStatus } from "@/contracts/customer-session";
+import type { ActiveRequestsResponse } from "@/contracts/requests";
 
 export type Product = {
   id: string;
@@ -23,7 +24,7 @@ export type MenuResponse = { business: Business; table: TableInfo; categories: C
 export type AuthStatus = CustomerAuthorizationStatus | "TABLE_ALREADY_CLAIMED";
 
 /** /api/customer/active-requests: tür → bekleyen talep var mı (ör. CALL_WAITER, PAYMENT_REQUEST_BLOCKED) */
-export type ActiveRequests = Record<string, boolean>;
+export type ActiveRequests = ActiveRequestsResponse["activeRequests"];
 
 export type LiveBill = { total: number | null; paid: number };
 

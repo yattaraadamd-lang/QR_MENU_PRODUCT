@@ -1,7 +1,5 @@
 import "server-only";
-import type { PrismaClient, TableEventSource, TableStatus } from "@prisma/client";
-
-type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+import type { Prisma, TableEventSource, TableStatus } from "@prisma/client";
 
 /** Durum değişikliğinin nedeni; ekrandaki metinler components/admin-tables/tableEventModel.ts'te */
 export type TableEventReason =
@@ -35,7 +33,7 @@ export interface TableChangeCause {
  * biri olmadan diğeri kalmaz. Durum aynıysa hiçbir şey yazılmaz.
  */
 export async function writeTableStatus(
-  tx: TxClient,
+  tx: Prisma.TransactionClient,
   target: { businessId: string; tableId: string },
   toStatus: TableStatus,
   cause: TableChangeCause

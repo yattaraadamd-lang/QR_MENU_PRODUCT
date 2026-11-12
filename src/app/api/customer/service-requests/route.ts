@@ -376,11 +376,11 @@ async function createServiceRequest(request: NextRequest) {
         });
 
         return newRequest;
-      }).catch((error) => {
+      }).catch((error: unknown) => {
         // Eşzamanlı ikinci talep (çift tıklama): yukarıdaki kontroller ikisinde de boş görür;
         // ikinci kaydı oturum başına tek bekleyen sipariş talebi indeksi ya da aynı
         // idempotencyKey reddeder
-        if (error?.code === "P2002") return null;
+        if (errorFields(error).code === "P2002") return null;
         throw error;
       });
 
