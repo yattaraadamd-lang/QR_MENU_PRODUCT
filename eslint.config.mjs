@@ -102,8 +102,9 @@ const layerRules = [
     },
   },
   // Sözleşme katmanı (FE-ARCH-3.1): src/contracts API ile ekranın ortak tipleridir, en alt katman.
-  // Yalnız tip içerir (istemci paketine girmez), yalnız kendi klasöründen import eder, any taşımaz.
-  // Prisma enum eşitliği: src/lib/api/contracts-sync.ts
+  // Tipler istemci paketine girmez. İzin verilen tek değer alan sınırıdır (FE-ARCH-3.4):
+  // `export const X_LIMITS = { alan: sayı } as const`. Yalnız kendi klasöründen import eder, any
+  // taşımaz. Prisma enum eşitliği: src/lib/api/contracts-sync.ts
   {
     files: ["src/contracts/**/*.ts"],
     plugins: { "@typescript-eslint": tsPlugin },
@@ -112,8 +113,10 @@ const layerRules = [
       "no-restricted-syntax": [
         "error",
         {
-          selector: ":matches(VariableDeclaration, FunctionDeclaration, ClassDeclaration, TSEnumDeclaration, ExportDefaultDeclaration)",
-          message: "Sözleşme yalnız tip içerir: değer (sabit, işlev, enum) istemci paketine girer. Değeri kullanan katmana koyun.",
+          selector:
+            ":matches(FunctionDeclaration, ClassDeclaration, TSEnumDeclaration, ExportDefaultDeclaration, VariableDeclaration[kind!='const'], VariableDeclarator[id.name!=/_LIMITS$/], VariableDeclarator[init.typeAnnotation.typeName.name!='const'], Property[value.type!='Literal'], SpreadElement)",
+          message:
+            "Sözleşmedeki tek değer türü alan sınırıdır: `export const X_LIMITS = { alan: sayı } as const`. Başka değer (işlev, enum, hesaplanan sabit) onu kullanan katmana konur.",
         },
         {
           selector: "ImportDeclaration[importKind!='type'], ExportNamedDeclaration[source][exportKind!='type'], ExportAllDeclaration[exportKind!='type']",
@@ -196,6 +199,14 @@ export default [
           message:
             "Statik inline style yerine Tailwind sınıfı ya da token kullanın. Değer çalışma anında hesaplanıyorsa: // eslint-disable-next-line no-restricted-syntax -- neden",
         })),
+        // Alan sınırı kapısı (FE-ARCH-3.4): maxLength/minLength sayıyla yazılmaz, sunucu şemasıyla
+        // ortak sabitten okunur (src/contracts `*_LIMITS`)
+        {
+          selector:
+            "JSXAttribute[name.name=/^(max|min)Length$/] > Literal, JSXAttribute[name.name=/^(max|min)Length$/] > JSXExpressionContainer > Literal",
+          message:
+            "Uzunluk sınırını src/contracts'taki *_LIMITS sabitinden okuyun: sunucu şeması da aynı sabiti kullanır.",
+        },
       ],
     },
   },

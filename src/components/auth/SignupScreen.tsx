@@ -4,8 +4,9 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { SIGNUP_BUSINESS_NAME_LIMITS } from "@/contracts/business";
 import AuthShell from "@/components/auth/AuthShell";
-import { AuthCard, AuthHeader, AuthLinks, BackHomeLink, FormAlert, authStyles as styles } from "@/components/auth/AuthParts";
+import { AuthCard, AuthHeader, AuthLinks, BackHomeLink, FormAlert, NEW_PASSWORD_PROPS, PERSON_NAME_PROPS, authStyles as styles } from "@/components/auth/AuthParts";
 import { SIGNUP_ASIDE } from "@/components/auth/asides";
 import { signupBusiness } from "./auth.api";
 
@@ -72,13 +73,14 @@ function SignupForm() {
           <div>
             <label htmlFor="f-isletme-adi" className={styles.label}>İşletme adı *</label>
             <input id="f-isletme-adi" type="text" name="businessName" value={formData.businessName} onChange={handleChange}
-              className="input" placeholder="Lezzet Kafe" required minLength={2} autoComplete="organization" />
+              className="input" placeholder="Lezzet Kafe" required minLength={SIGNUP_BUSINESS_NAME_LIMITS.min}
+              maxLength={SIGNUP_BUSINESS_NAME_LIMITS.max} autoComplete="organization" />
           </div>
 
           <div>
             <label htmlFor="f-ad-soyad" className={styles.label}>Ad soyad *</label>
             <input id="f-ad-soyad" type="text" name="name" value={formData.name} onChange={handleChange}
-              className="input" placeholder="Ahmet Yılmaz" required minLength={2} autoComplete="name" />
+              className="input" placeholder="Ahmet Yılmaz" {...PERSON_NAME_PROPS} autoComplete="name" />
           </div>
 
           <div>
@@ -90,7 +92,7 @@ function SignupForm() {
           <div>
             <label htmlFor="f-sifre" className={styles.label}>Şifre *</label>
             <input id="f-sifre" type="password" name="password" value={formData.password} onChange={handleChange}
-              className="input" placeholder="En az 12 karakter, harf ve rakam" required minLength={12} maxLength={72}
+              className="input" {...NEW_PASSWORD_PROPS}
               autoComplete="new-password" />
           </div>
 

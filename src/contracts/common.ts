@@ -1,7 +1,9 @@
 /**
- * Sözleşme katmanı (FE-ARCH-3.1): API ile ekranın ortak tipleri. Yalnız tip içerir, istemci
- * paketine girmez (lint zorlar). Sunucu Prisma satırını bu tiplere src/lib/api/*.dto.ts'te eşler.
- * Enum'ların Prisma şemasıyla aynı kaldığını src/lib/api/contracts-sync.ts derleme anında denetler.
+ * Sözleşme katmanı (FE-ARCH-3.1): API ile ekranın ortak tipleri ve alan sınırları. Tipler istemci
+ * paketine girmez. İzin verilen tek değer alan sınırıdır (`*_LIMITS`, FE-ARCH-3.4): sunucu şeması
+ * ve form alanı aynı sabiti okur. Başka değer giremez (lint zorlar).
+ * Sunucu Prisma satırını bu tiplere src/lib/api/*.dto.ts'te eşler. Enum'ların Prisma şemasıyla
+ * aynı kaldığını src/lib/api/contracts-sync.ts derleme anında denetler.
  */
 
 /** Prisma Decimal JSON'da metin olarak gelir ("120.5") */

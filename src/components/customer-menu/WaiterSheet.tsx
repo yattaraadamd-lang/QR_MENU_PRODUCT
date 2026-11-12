@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { SERVICE_REQUEST_LIMITS } from "@/contracts/requests";
 import FormError from "@/components/ui/FormError";
 import MenuSheet from "./MenuSheet";
 import SheetHeader from "./SheetHeader";
@@ -49,7 +50,7 @@ export default function WaiterSheet({ error, onClose, onSubmit, sending }: Props
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Açıklama yazın"
-              maxLength={200}
+              maxLength={SERVICE_REQUEST_LIMITS.reason}
               className={`input mb-3.5 ${styles.note}`}
             />
           </>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { SIGNUP_BUSINESS_NAME_LIMITS } from "@/contracts/business";
+import { PASSWORD_LIMITS, PERSON_NAME_LIMITS } from "@/contracts/users";
 import { prisma } from "@/lib/prisma";
 import { validateBody } from "@/lib/validation";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
@@ -9,14 +11,22 @@ import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 export const dynamic = "force-dynamic";
 
 const signupSchema = z.object({
-  businessName: z.string().trim().min(2, "İşletme adı en az 2 karakter olmalı").max(100),
-  name: z.string().trim().min(2, "Ad soyad en az 2 karakter olmalı").max(100),
+  businessName: z
+    .string()
+    .trim()
+    .min(SIGNUP_BUSINESS_NAME_LIMITS.min, `İşletme adı en az ${SIGNUP_BUSINESS_NAME_LIMITS.min} karakter olmalı`)
+    .max(SIGNUP_BUSINESS_NAME_LIMITS.max),
+  name: z
+    .string()
+    .trim()
+    .min(PERSON_NAME_LIMITS.min, `Ad soyad en az ${PERSON_NAME_LIMITS.min} karakter olmalı`)
+    .max(PERSON_NAME_LIMITS.max),
   email: z.string().trim().toLowerCase().email("Geçerli bir e-posta girin").max(254),
-  // Garson kaydıyla aynı politika: 12-72 karakter, en az 1 harf + 1 rakam
+  // Garson kaydıyla aynı politika: PASSWORD_LIMITS, en az 1 harf + 1 rakam
   password: z
     .string()
-    .min(12, "Şifre en az 12 karakter olmalı")
-    .max(72, "Şifre en fazla 72 karakter olabilir")
+    .min(PASSWORD_LIMITS.min, `Şifre en az ${PASSWORD_LIMITS.min} karakter olmalı`)
+    .max(PASSWORD_LIMITS.max, `Şifre en fazla ${PASSWORD_LIMITS.max} karakter olabilir`)
     .regex(/[a-zA-Z]/, "Şifre en az 1 harf içermeli")
     .regex(/[0-9]/, "Şifre en az 1 rakam içermeli"),
   phone: z.string().trim().max(30).optional().nullable(),

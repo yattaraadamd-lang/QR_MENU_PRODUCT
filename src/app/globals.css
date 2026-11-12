@@ -405,6 +405,14 @@
   }
   .input::placeholder { color: var(--text-muted); }
   select.input { cursor: pointer; }
+  /* Geçersiz alan: görünüm duruma bağlı, aria-invalid'den gelir (ui/Field invalidProps, ui/Input).
+     Hata rengi :hover ve :focus'ta da kalır. */
+  .input[aria-invalid="true"],
+  .input[aria-invalid="true"]:hover,
+  .input[aria-invalid="true"]:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent);
+  }
 
   /* ─── Badges ─────────────────────────────────────────────────────────────── */
   .badge {

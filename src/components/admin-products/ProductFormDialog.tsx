@@ -2,15 +2,20 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { Star } from "lucide-react";
+import { PRODUCT_LIMITS } from "@/contracts/products";
 import { useApiMutation } from "@/hooks/useApiMutation";
+import { FIELDS_INVALID, useFieldErrors } from "@/hooks/useFieldErrors";
 import AmountInput from "@/components/ui/AmountInput";
 import Button from "@/components/ui/Button";
-import Field from "@/components/ui/Field";
+import Field, { invalidProps } from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import Modal from "@/components/ui/Modal";
-import { EMPTY_PRODUCT_FORM, isFormValid, PRODUCT_LIMITS, STOCK, STOCK_VALUES, toFormValues, toProductInput } from "./productModel";
+import { EMPTY_PRODUCT_FORM, isFormValid, STOCK, STOCK_VALUES, toFormValues, toProductInput } from "./productModel";
 import { productsApi } from "./products.api";
 import type { ProductDTO, ProductFormValues, StockStatus } from "./types";
+
+/** Sunucunun hatasını altında gösterebildiğimiz alanlar (istek gövdesindeki adlarıyla) */
+const ERROR_FIELDS = ["name", "description", "price", "ingredients", "allergens"] as const;
 
 interface ProductFormDialogProps {
   /** null: yeni ürün */
@@ -25,16 +30,22 @@ interface ProductFormDialogProps {
 export default function ProductFormDialog({ product, categories, nextOrder, onClose, onSaved }: ProductFormDialogProps) {
   const [values, setValues] = useState<ProductFormValues>(() => (product ? toFormValues(product) : EMPTY_PRODUCT_FORM));
   const save = useApiMutation(productsApi.save);
+  const fields = useFieldErrors(ERROR_FIELDS);
   const id = useId();
   const canSubmit = isFormValid(values) && !save.pending;
-  const set = <K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) =>
+  const set = <K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: value }));
+    fields.clear(key);
+  };
+  /** Alanın id'si ve hataya bağlayan öznitelikleri */
+  const bind = (key: (typeof ERROR_FIELDS)[number]) => ({ id: `${id}-${key}`, ...invalidProps(fields.error(key), `${id}-${key}`) });
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) return;
     const result = await save.run(product?.id ?? null, toProductInput(values), nextOrder);
     if (result.ok) onSaved(product ? "Ürün güncellendi" : "Ürün eklendi");
+    else if (fields.capture(result)) save.setError(FIELDS_INVALID);
   };
 
   return (
@@ -54,10 +65,10 @@ export default function ProductFormDialog({ product, categories, nextOrder, onCl
         </>
       }
     >
-      <form id={`${id}-form`} onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-        <Field label="Ürün Adı" htmlFor={`${id}-name`}>
+      <form id={`${id}-form`} ref={fields.formRef} onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <Field label="Ürün Adı" htmlFor={`${id}-name`} error={fields.error("name")}>
           <input
-            id={`${id}-name`}
+            {...bind("name")}
             className="input"
             value={values.name}
             onChange={(e) => set("name", e.target.value)}
@@ -68,9 +79,9 @@ export default function ProductFormDialog({ product, categories, nextOrder, onCl
             data-autofocus
           />
         </Field>
-        <Field label="Açıklama" htmlFor={`${id}-description`}>
+        <Field label="Açıklama" htmlFor={`${id}-description`} error={fields.error("description")}>
           <textarea
-            id={`${id}-description`}
+            {...bind("description")}
             className="input h-16 resize-none"
             value={values.description}
             onChange={(e) => set("description", e.target.value)}
@@ -79,8 +90,8 @@ export default function ProductFormDialog({ product, categories, nextOrder, onCl
           />
         </Field>
         <div className="grid grid-cols-2 items-start gap-3">
-          <Field label="Fiyat (₺)" htmlFor={`${id}-price`}>
-            <AmountInput id={`${id}-price`} value={values.price} onChange={(e) => set("price", e.target.value)} required />
+          <Field label="Fiyat (₺)" htmlFor={`${id}-price`} error={fields.error("price")}>
+            <AmountInput {...bind("price")} value={values.price} onChange={(e) => set("price", e.target.value)} required />
           </Field>
           <Field label="Kategori" htmlFor={`${id}-category`}>
             <select
@@ -118,9 +129,9 @@ export default function ProductFormDialog({ product, categories, nextOrder, onCl
             ))}
           </select>
         </Field>
-        <Field label="İçindekiler" htmlFor={`${id}-ingredients`}>
+        <Field label="İçindekiler" htmlFor={`${id}-ingredients`} error={fields.error("ingredients")}>
           <input
-            id={`${id}-ingredients`}
+            {...bind("ingredients")}
             className="input"
             value={values.ingredients}
             onChange={(e) => set("ingredients", e.target.value)}
@@ -128,9 +139,9 @@ export default function ProductFormDialog({ product, categories, nextOrder, onCl
             maxLength={PRODUCT_LIMITS.ingredients}
           />
         </Field>
-        <Field label="Alerjenler" htmlFor={`${id}-allergens`}>
+        <Field label="Alerjenler" htmlFor={`${id}-allergens`} error={fields.error("allergens")}>
           <input
-            id={`${id}-allergens`}
+            {...bind("allergens")}
             className="input"
             value={values.allergens}
             onChange={(e) => set("allergens", e.target.value)}

@@ -10,11 +10,8 @@ export interface CategoryDTO {
   readonly _count: { readonly products: number };
 }
 
+/** Alan sınırları: contracts/categories.ts CATEGORY_LIMITS (sunucu şemasıyla ortak) */
 export interface CategoryInput {
   readonly name: string;
   readonly icon: string | null;
 }
-
-/** lib/validation.ts createCategorySchema ile aynı */
-export const CATEGORY_NAME_MAX = 100;
-export const CATEGORY_ICON_MAX = 50;

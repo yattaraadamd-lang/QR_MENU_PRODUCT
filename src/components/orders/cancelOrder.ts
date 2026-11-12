@@ -1,3 +1,4 @@
+import { ORDER_LIMITS } from "@/contracts/orders";
 import type { CancelPayload, CancelReasonCode, OrderDTO } from "./types";
 
 /** Sipariş reddetme/iptal: nedenler ve saf kurallar (garson + admin ortak) */
@@ -10,6 +11,16 @@ export const CANCEL_REASONS: readonly { readonly value: CancelReasonCode; readon
   { value: "BUSINESS_NOT_ACCEPTING", label: "İşletme sipariş almıyor" },
   { value: "OTHER", label: "Diğer" },
 ];
+
+const LABEL_SEPARATOR = ": ";
+
+/**
+ * Açıklama alanının azami uzunluğu. Sunucu sınırı (ORDER_LIMITS.cancelReason) giden birleşik
+ * metne ("Etiket: açıklama") uygulanır; en uzun etiket kadar yer ayrılmazsa uzun bir açıklama
+ * sunucuda reddedilirdi.
+ */
+export const CANCEL_NOTE_MAX =
+  ORDER_LIMITS.cancelReason - Math.max(...CANCEL_REASONS.map((reason) => reason.label.length)) - LABEL_SEPARATOR.length;
 
 export interface OrderProduct {
   readonly id: string;
@@ -43,7 +54,7 @@ export function validateCancel(values: CancelFormValues): string | null {
 function reasonText(reason: CancelReasonCode, note: string): string {
   if (reason === "OTHER") return note;
   const label = CANCEL_REASONS.find((r) => r.value === reason)?.label ?? reason;
-  return note ? `${label}: ${note}` : label;
+  return note ? `${label}${LABEL_SEPARATOR}${note}` : label;
 }
 
 /** Doğrulanmış formdan istek gövdesi */

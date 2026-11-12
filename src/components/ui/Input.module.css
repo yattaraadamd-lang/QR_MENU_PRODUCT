@@ -8,11 +8,3 @@
 @media (min-width: 641px) {
   .large:global(.input) { font-size: 15px; }
 }
-
-/* Hata rengi :hover ve :focus'ta da kalır */
-.invalid:global(.input),
-.invalid:global(.input):hover,
-.invalid:global(.input):focus {
-  border-color: var(--danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent);
-}

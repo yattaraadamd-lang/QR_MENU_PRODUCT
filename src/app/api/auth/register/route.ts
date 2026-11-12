@@ -7,6 +7,7 @@ import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import { rateLimit, getClientIp, UNIFIED_RATE_LIMITS, createRateLimitResponse } from "@/lib/unified-rate-limit";
+import { PASSWORD_LIMITS, PERSON_NAME_LIMITS } from "@/contracts/users";
 
 export const dynamic = "force-dynamic";
 
@@ -43,11 +44,15 @@ const COMMON_PASSWORDS = [
 
 // ✅ Zod strict schema
 const registerSchema = z.object({
-  name: z.string().trim().min(2, "İsim en az 2 karakter olmalıdır").max(100, "İsim en fazla 100 karakter olabilir"),
+  name: z
+    .string()
+    .trim()
+    .min(PERSON_NAME_LIMITS.min, `İsim en az ${PERSON_NAME_LIMITS.min} karakter olmalıdır`)
+    .max(PERSON_NAME_LIMITS.max, `İsim en fazla ${PERSON_NAME_LIMITS.max} karakter olabilir`),
   email: z.string().email("Geçerli bir e-posta adresi giriniz").max(254),
   password: z.string()
-    .min(12, "Şifre en az 12 karakter olmalıdır")
-    .max(72, "Şifre en fazla 72 karakter olabilir"),
+    .min(PASSWORD_LIMITS.min, `Şifre en az ${PASSWORD_LIMITS.min} karakter olmalıdır`)
+    .max(PASSWORD_LIMITS.max, `Şifre en fazla ${PASSWORD_LIMITS.max} karakter olabilir`),
   phone: z.string().max(20).optional().nullable(),
   inviteCode: z.string().min(1, "Davet kodu zorunludur").max(200),
 }).strict(); // ✅ Reject unknown fields

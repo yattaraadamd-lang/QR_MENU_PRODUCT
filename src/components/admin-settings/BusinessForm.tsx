@@ -1,12 +1,17 @@
 "use client";
 
 import { useId, useState, type FormEvent } from "react";
+import { BUSINESS_LIMITS } from "@/contracts/business";
 import { useApiMutation } from "@/hooks/useApiMutation";
+import { FIELDS_INVALID, useFieldErrors } from "@/hooks/useFieldErrors";
 import Button from "@/components/ui/Button";
-import Field from "@/components/ui/Field";
+import Field, { invalidProps } from "@/components/ui/Field";
 import FormError from "@/components/ui/FormError";
 import { businessApi, toBusinessInput, toFormValues } from "./business.api";
-import { BUSINESS_LIMITS, type BusinessDTO, type BusinessFormValues } from "./types";
+import type { BusinessDTO, BusinessFormValues } from "./types";
+
+/** Sunucunun hatasını altında gösterebildiğimiz alanlar (istek gövdesindeki adlarıyla) */
+const ERROR_FIELDS = ["name", "description", "phone", "email", "address"] as const;
 
 interface BusinessFormProps {
   business: BusinessDTO;
@@ -17,25 +22,36 @@ interface BusinessFormProps {
 export default function BusinessForm({ business, onSaved }: BusinessFormProps) {
   const [values, setValues] = useState<BusinessFormValues>(() => toFormValues(business));
   const save = useApiMutation(businessApi.update);
+  const fields = useFieldErrors(ERROR_FIELDS);
   const id = useId();
   const canSubmit = values.name.trim().length > 0 && !save.pending;
-  const set = (key: keyof BusinessFormValues, value: string) => setValues((prev) => ({ ...prev, [key]: value }));
+  const set = (key: keyof BusinessFormValues, value: string) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    fields.clear(key);
+  };
+  /** Alanın id'si ve hataya bağlayan öznitelikleri */
+  const bind = (key: keyof BusinessFormValues) => ({ id: `${id}-${key}`, ...invalidProps(fields.error(key), `${id}-${key}`) });
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canSubmit) return;
     const result = await save.run(toBusinessInput(values));
-    if (!result.ok) return;
+    // Başarıda önceki alan hataları da temizlenir
+    const invalid = fields.capture(result);
+    if (!result.ok) {
+      if (invalid) save.setError(FIELDS_INVALID);
+      return;
+    }
     // Kırpılan boşluklar da formda görünsün
     setValues(toFormValues(result.data.business));
     onSaved(result.data.business);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="card flex max-w-[600px] flex-col gap-4 p-6">
-      <Field label="İşletme Adı" htmlFor={`${id}-name`}>
+    <form ref={fields.formRef} onSubmit={handleSubmit} className="card flex max-w-[600px] flex-col gap-4 p-6">
+      <Field label="İşletme Adı" htmlFor={`${id}-name`} error={fields.error("name")}>
         <input
-          id={`${id}-name`}
+          {...bind("name")}
           className="input"
           value={values.name}
           onChange={(e) => set("name", e.target.value)}
@@ -44,9 +60,9 @@ export default function BusinessForm({ business, onSaved }: BusinessFormProps) {
           autoComplete="off"
         />
       </Field>
-      <Field label="Açıklama" htmlFor={`${id}-description`}>
+      <Field label="Açıklama" htmlFor={`${id}-description`} error={fields.error("description")}>
         <textarea
-          id={`${id}-description`}
+          {...bind("description")}
           className="input h-20 resize-none"
           value={values.description}
           onChange={(e) => set("description", e.target.value)}
@@ -66,9 +82,9 @@ export default function BusinessForm({ business, onSaved }: BusinessFormProps) {
         </p>
       </Field>
       <div className="grid items-start gap-3 sm:grid-cols-2">
-        <Field label="Telefon" htmlFor={`${id}-phone`}>
+        <Field label="Telefon" htmlFor={`${id}-phone`} error={fields.error("phone")}>
           <input
-            id={`${id}-phone`}
+            {...bind("phone")}
             className="input"
             type="tel"
             value={values.phone}
@@ -77,9 +93,9 @@ export default function BusinessForm({ business, onSaved }: BusinessFormProps) {
             autoComplete="off"
           />
         </Field>
-        <Field label="E-posta" htmlFor={`${id}-email`}>
+        <Field label="E-posta" htmlFor={`${id}-email`} error={fields.error("email")}>
           <input
-            id={`${id}-email`}
+            {...bind("email")}
             className="input"
             type="email"
             value={values.email}
@@ -88,9 +104,9 @@ export default function BusinessForm({ business, onSaved }: BusinessFormProps) {
           />
         </Field>
       </div>
-      <Field label="Adres" htmlFor={`${id}-address`}>
+      <Field label="Adres" htmlFor={`${id}-address`} error={fields.error("address")}>
         <textarea
-          id={`${id}-address`}
+          {...bind("address")}
           className="input h-[60px] resize-none"
           value={values.address}
           onChange={(e) => set("address", e.target.value)}

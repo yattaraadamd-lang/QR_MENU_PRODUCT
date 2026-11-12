@@ -1,10 +1,26 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft } from "lucide-react";
+import { PASSWORD_LIMITS, PERSON_NAME_LIMITS } from "@/contracts/users";
 import { enterDelay } from "@/components/ui/motion-style";
 import styles from "./auth.module.css";
 
 /** Hesap sayfası yapı taşları: başlık, kart, hata, bağlantılar */
+
+/** Yeni şifre alanı (kayıt, davetle katılma): uzunluk sunucu kuralıyla aynı sabitten */
+export const NEW_PASSWORD_PROPS = {
+  placeholder: `En az ${PASSWORD_LIMITS.min} karakter, harf ve rakam`,
+  required: true,
+  minLength: PASSWORD_LIMITS.min,
+  maxLength: PASSWORD_LIMITS.max,
+} as const;
+
+/** Ad soyad alanı: uzunluk sunucu kuralıyla aynı sabitten */
+export const PERSON_NAME_PROPS = {
+  required: true,
+  minLength: PERSON_NAME_LIMITS.min,
+  maxLength: PERSON_NAME_LIMITS.max,
+} as const;
 
 interface AuthHeaderProps {
   readonly eyebrow: string;

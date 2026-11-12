@@ -1,11 +1,21 @@
 /**
  * Zod Validation Schemas
- * 
- * Tüm API endpoint'leri için input validation
+ *
+ * Tüm API endpoint'leri için input validation. Form alanı olan metinlerin uzunluk sınırı
+ * src/contracts'taki `*_LIMITS` sabitlerinden gelir: form (maxLength) aynı sabiti okur (FE-ARCH-3.4).
  */
 
 import { z } from "zod";
 import { OrderStatus, TableStatus, ServiceRequestType, RequestStatus, StockStatus, OrderCancelReasonCode, PaymentMethod } from "@prisma/client";
+import { BUSINESS_LIMITS } from "@/contracts/business";
+import { CATEGORY_LIMITS } from "@/contracts/categories";
+import { ACCESS_BLOCK_LIMITS } from "@/contracts/customer-session";
+import { ORDER_LIMITS } from "@/contracts/orders";
+import { PAYMENT_LIMITS } from "@/contracts/payments";
+import { PRODUCT_LIMITS } from "@/contracts/products";
+import { SERVICE_REQUEST_LIMITS } from "@/contracts/requests";
+import { TABLE_LIMITS } from "@/contracts/tables";
+import { PASSWORD_LIMITS } from "@/contracts/users";
 import { ApiError, hasUnstorableChars } from "@/lib/api/handler";
 
 // ============================================================================
@@ -32,14 +42,14 @@ export const httpUrlSchema = z
 // ============================================================================
 
 export const createTableSchema = z.object({
-  tableNumber: z.string().min(1).max(50),
-  tableName: z.string().min(1).max(100).optional(),
+  tableNumber: z.string().min(1).max(TABLE_LIMITS.number),
+  tableName: z.string().min(1).max(TABLE_LIMITS.name).optional(),
   qrCode: z.string().optional(),
 });
 
 export const updateTableSchema = z.object({
-  tableNumber: z.string().min(1).max(50).optional(),
-  tableName: z.string().min(1).max(100).optional().nullable(),
+  tableNumber: z.string().min(1).max(TABLE_LIMITS.number).optional(),
+  tableName: z.string().min(1).max(TABLE_LIMITS.name).optional().nullable(),
   status: z.nativeEnum(TableStatus).optional(),
   isActive: z.boolean().optional(),
 });
@@ -49,29 +59,29 @@ export const updateTableSchema = z.object({
 // ============================================================================
 
 export const createProductSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().max(1000).optional().nullable(),
+  name: z.string().min(1).max(PRODUCT_LIMITS.name),
+  description: z.string().max(PRODUCT_LIMITS.description).optional().nullable(),
   price: priceSchema,
   categoryId: z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/).optional().nullable(), // ✅ Demo ID + CUID + null desteklenir
   image: httpUrlSchema.optional().nullable(),
   isAvailable: z.boolean().default(true),
   stockStatus: z.nativeEnum(StockStatus).default("IN_STOCK"),
-  allergens: z.string().max(500).optional().nullable().or(z.literal("")),
-  ingredients: z.string().max(1000).optional().nullable().or(z.literal("")),
+  allergens: z.string().max(PRODUCT_LIMITS.allergens).optional().nullable().or(z.literal("")),
+  ingredients: z.string().max(PRODUCT_LIMITS.ingredients).optional().nullable().or(z.literal("")),
   isPopular: z.boolean().optional().default(false), // ✅ Admin formdan geliyor
   sortOrder: z.number().int().min(0).optional().default(0), // ✅ Admin formdan geliyor
 });
 
 export const updateProductSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  description: z.string().max(1000).optional().nullable(),
+  name: z.string().min(1).max(PRODUCT_LIMITS.name).optional(),
+  description: z.string().max(PRODUCT_LIMITS.description).optional().nullable(),
   price: priceSchema.optional(),
   categoryId: z.string().min(1).max(200).regex(/^[a-zA-Z0-9_-]+$/).optional().nullable(), // ✅ Demo ID + CUID + null desteklenir
   image: httpUrlSchema.optional().nullable(),
   isAvailable: z.boolean().optional(),
   stockStatus: z.nativeEnum(StockStatus).optional(),
-  allergens: z.string().max(500).optional().nullable().or(z.literal("")),
-  ingredients: z.string().max(1000).optional().nullable().or(z.literal("")),
+  allergens: z.string().max(PRODUCT_LIMITS.allergens).optional().nullable().or(z.literal("")),
+  ingredients: z.string().max(PRODUCT_LIMITS.ingredients).optional().nullable().or(z.literal("")),
   isDeleted: z.boolean().optional(),
   isPopular: z.boolean().optional(), // ✅ Admin formdan geliyor
   sortOrder: z.number().int().min(0).optional(), // ✅ Admin formdan geliyor
@@ -85,15 +95,15 @@ export const updateProductSchema = z.object({
 // description/displayOrder vardı, icon/sortOrder yoktu: oluşturma her seferinde Prisma
 // "Unknown argument displayOrder" ile 500 veriyor, düzenleme icon/sortOrder'ı sessizce atıyordu.
 export const createCategorySchema = z.object({
-  name: z.string().trim().min(1, "Kategori adı gereklidir").max(100),
-  icon: z.string().max(50).nullish(),
+  name: z.string().trim().min(1, "Kategori adı gereklidir").max(CATEGORY_LIMITS.name),
+  icon: z.string().max(CATEGORY_LIMITS.icon).nullish(),
   sortOrder: nonNegativeIntSchema.default(0),
   isActive: z.boolean().default(true),
 });
 
 export const updateCategorySchema = z.object({
-  name: z.string().trim().min(1, "Kategori adı gereklidir").max(100).optional(),
-  icon: z.string().max(50).nullish(),
+  name: z.string().trim().min(1, "Kategori adı gereklidir").max(CATEGORY_LIMITS.name).optional(),
+  icon: z.string().max(CATEGORY_LIMITS.icon).nullish(),
   sortOrder: nonNegativeIntSchema.optional(),
   isActive: z.boolean().optional(),
 });
@@ -117,7 +127,7 @@ export const createOrderSchema = z.object({
 
 export const updateOrderStatusSchema = z.object({
   status: z.nativeEnum(OrderStatus),
-  cancellationReason: z.string().max(500).optional().nullable(),
+  cancellationReason: z.string().max(ORDER_LIMITS.cancelReason).optional().nullable(),
   reasonCode: z.nativeEnum(OrderCancelReasonCode).optional().nullable(),
   outOfStockProductIds: z.array(z.string().min(1).max(200)).max(100).optional().nullable(),
 });
@@ -147,12 +157,12 @@ export const updateServiceRequestSchema = z.object({
 // User/Staff Schemas
 // ============================================================================
 
-// Kayıt ve garson kaydıyla aynı politika: 12-72 karakter (bcrypt 72 bayttan sonrasını yok sayar),
+// Kayıt ve garson kaydıyla aynı politika: PASSWORD_LIMITS (bcrypt 72 bayttan sonrasını yok sayar),
 // en az 1 harf + 1 rakam
 const staffPasswordSchema = z
   .string()
-  .min(12, "Şifre en az 12 karakter olmalıdır")
-  .max(72, "Şifre en fazla 72 karakter olabilir")
+  .min(PASSWORD_LIMITS.min, `Şifre en az ${PASSWORD_LIMITS.min} karakter olmalıdır`)
+  .max(PASSWORD_LIMITS.max, `Şifre en fazla ${PASSWORD_LIMITS.max} karakter olabilir`)
   .regex(/[a-zA-Z]/, "Şifre en az 1 harf içermelidir")
   .regex(/[0-9]/, "Şifre en az 1 rakam içermelidir");
 
@@ -176,10 +186,10 @@ export const updateStaffSchema = z.object({
 
 // 🔒 SECURITY: isActive bilerek yok — askıya alınan işletmeyi yalnız Super Admin açabilir
 export const updateBusinessSchema = z.object({
-  name: z.string().trim().min(1).max(200).optional(),
-  description: z.string().max(1000).optional().nullable(),
-  address: z.string().max(500).optional().nullable(),
-  phone: z.string().max(30).optional().nullable(),
+  name: z.string().trim().min(1).max(BUSINESS_LIMITS.name).optional(),
+  description: z.string().max(BUSINESS_LIMITS.description).optional().nullable(),
+  address: z.string().max(BUSINESS_LIMITS.address).optional().nullable(),
+  phone: z.string().max(BUSINESS_LIMITS.phone).optional().nullable(),
   // Ayarlar formu sunucu mesajını gösterir: "a@b" tarayıcı doğrulamasından geçer, burada takılır
   email: z.string().email("Geçerli bir e-posta adresi girin.").optional().nullable().or(z.literal("")),
   logo: httpUrlSchema.optional().nullable().or(z.literal("")),
@@ -230,12 +240,12 @@ export const customerOrderCreateSchema = z.object({
           .int("Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır.")
           .min(1, "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır.")
           .max(100, "Geçersiz ürün adedi. Adet 1-100 arasında tam sayı olmalıdır."),
-        customerNote: storableTextSchema(200, "Ürün notu").nullish(),
+        customerNote: storableTextSchema(ORDER_LIMITS.itemNote, "Ürün notu").nullish(),
       })
     )
     .min(1, "Geçersiz sipariş bilgileri")
     .max(50, "Bir siparişte maksimum 50 farklı ürün olabilir."),
-  note: storableTextSchema(500, "Sipariş notu").nullish(),
+  note: storableTextSchema(ORDER_LIMITS.note, "Sipariş notu").nullish(),
   idempotencyKey: idempotencyKeySchema
     .min(8, "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır.")
     .max(128, "Idempotency key format geçersiz. 8-128 karakter arası string olmalıdır.")
@@ -247,9 +257,9 @@ export const customerServiceRequestCreateSchema = z.object({
   businessId: cuidSchema,
   tableId: cuidSchema,
   requestType: z.string().max(50),
-  note: storableTextSchema(500, "Not alanı").nullish(),
-  reason: storableTextSchema(200, "Sebep alanı").nullish(),
-  orderNote: storableTextSchema(500, "Sipariş notu").nullish(),
+  note: storableTextSchema(SERVICE_REQUEST_LIMITS.note, "Not alanı").nullish(),
+  reason: storableTextSchema(SERVICE_REQUEST_LIMITS.reason, "Sebep alanı").nullish(),
+  orderNote: storableTextSchema(ORDER_LIMITS.note, "Sipariş notu").nullish(),
   idempotencyKey: idempotencyKeySchema.nullish(),
   // Yalnız ORDER_REQUEST önizlemesi; adet route'ta 1-99 aralığına sıkıştırılıyor
   items: z
@@ -257,7 +267,7 @@ export const customerServiceRequestCreateSchema = z.object({
       z.object({
         productId: cuidSchema,
         quantity: z.number().finite().nullish(),
-        customerNote: storableTextSchema(200, "Ürün notu").nullish(),
+        customerNote: storableTextSchema(ORDER_LIMITS.itemNote, "Ürün notu").nullish(),
       })
     )
     .max(50, "Bir siparişte maksimum 50 farklı ürün olabilir.")
@@ -267,7 +277,7 @@ export const customerServiceRequestCreateSchema = z.object({
 export const customerPaymentRequestSchema = z.object({
   businessId: cuidSchema,
   tableId: cuidSchema,
-  note: storableTextSchema(500, "Not alanı").nullish(),
+  note: storableTextSchema(SERVICE_REQUEST_LIMITS.note, "Not alanı").nullish(),
 });
 
 export const customerActiveRequestsQuerySchema = z.object({
@@ -334,12 +344,13 @@ const sortItemsSchema = z
 export const categoryReorderSchema = z.object({ items: sortItemsSchema });
 export const productReorderSchema = z.object({ items: sortItemsSchema });
 
+// Önceden 2000'di; form zaten 500'le sınırlıyordu, artık ikisi aynı sabit
 export const accessBlockRevokeSchema = z.object({
-  note: storableTextSchema(2000, "Not").nullish(),
+  note: storableTextSchema(ACCESS_BLOCK_LIMITS.note, "Not").nullish(),
 });
 
 export const adminOrderCancelSchema = z.object({
-  cancelReason: storableTextSchema(500, "İptal nedeni").nullish(),
+  cancelReason: storableTextSchema(ORDER_LIMITS.cancelReason, "İptal nedeni").nullish(),
   reasonCode: z.string().max(50).nullish(),
   outOfStockProductIds: z.array(cuidSchema).max(100).nullish(),
 });
@@ -351,12 +362,12 @@ export const staffPaymentSchema = z.object({
   receivedAmount: amountInputSchema.nullish(),
   method: z.string().max(20).nullish(),
   paymentMethod: z.string().max(20).nullish(),
-  note: storableTextSchema(500, "Not").nullish(),
+  note: storableTextSchema(PAYMENT_LIMITS.note, "Not").nullish(),
   idempotencyKey: idempotencyKeySchema.max(128).nullish(),
 });
 
 export const paymentRejectSchema = z.object({
-  reason: storableTextSchema(500, "Red nedeni").nullish(),
+  reason: storableTextSchema(PAYMENT_LIMITS.rejectReason, "Red nedeni").nullish(),
 });
 
 export const forceCloseTableSchema = z.object({
@@ -387,10 +398,10 @@ export const tableSessionCloseSchema = z.object({
 
 // Zorunluluk, e-posta biçimi ve şifre politikası route'ta kendi mesajlarıyla denetlenir
 export const superAdminBusinessCreateSchema = z.object({
-  name: storableTextSchema(200, "İşletme adı").nullish(),
+  name: storableTextSchema(BUSINESS_LIMITS.name, "İşletme adı").nullish(),
   email: z.string().max(254).nullish(),
-  phone: z.string().max(30).nullish(),
-  address: storableTextSchema(500, "Adres").nullish(),
+  phone: z.string().max(BUSINESS_LIMITS.phone).nullish(),
+  address: storableTextSchema(BUSINESS_LIMITS.address, "Adres").nullish(),
   adminName: storableTextSchema(100, "Admin adı").nullish(),
   adminEmail: z.string().max(254).nullish(),
   adminPassword: z.string().max(200).nullish(),
