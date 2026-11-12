@@ -1,3 +1,4 @@
+import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { Business, Table, TableSession } from "@prisma/client";
 import crypto from "crypto";

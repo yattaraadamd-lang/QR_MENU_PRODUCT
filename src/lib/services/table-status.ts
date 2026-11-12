@@ -1,3 +1,4 @@
+import "server-only";
 import type { OrderStatus, TableStatus } from "@prisma/client";
 
 /**

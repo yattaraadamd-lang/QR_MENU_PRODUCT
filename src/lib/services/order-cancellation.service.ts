@@ -12,18 +12,16 @@
  * Transaction sonrası socket emit yapılır; socket hatası DB'yi geri almaz.
  */
 
+import "server-only";
 import { prisma } from "@/lib/prisma";
 import { OrderStatus, OrderCancelReasonCode, TableStatus } from "@prisma/client";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { recalculateTableStatus } from "@/lib/services/table-flow.service";
 import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";
 import { emitToBusinessRoom, SOCKET_EVENTS } from "@/lib/socket-server";
 import { createAuditLog, AuditActions } from "@/lib/services/audit-log.service";
 import { getRequestLogger } from "@/lib/logger";
-
-// Transaction client tipi
-type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
 // ─── Error sınıfı ────────────────────────────────────────────────────────
 export class OrderCancellationError extends Error {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma, RequestStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import type { ActiveRequestFlag, ActiveRequestsResponse, PendingOrderRequestDetail } from "@/contracts/requests";
 import { prisma } from "@/lib/prisma";
 import { hashCustomerSessionToken } from "@/lib/customer-session-utils";
 import { withApiHandler, parseQuery } from "@/lib/api/handler";
@@ -63,11 +64,8 @@ async function getActiveRequests(request: NextRequest) {
     },
   });
 
-  const activeRequests: Record<string, boolean> = {};
-  const requestDetails: Record<
-    string,
-    { verificationCode: string | null; expiresAt: string | null; status: RequestStatus }
-  > = {};
+  const activeRequests: Partial<Record<ActiveRequestFlag, boolean>> = {};
+  const requestDetails: { ORDER_REQUEST?: PendingOrderRequestDetail } = {};
 
   for (const req of activeReqs) {
     activeRequests[req.requestType] = true;
@@ -91,5 +89,7 @@ async function getActiveRequests(request: NextRequest) {
     if (activeRequests["PAYMENT_REQUEST"]) activeRequests["CALL_WAITER_BLOCKED"] = true;
   }
 
-  return NextResponse.json({ activeRequests, requestDetails }, { headers: securityHeaders });
+  return NextResponse.json({ activeRequests, requestDetails } satisfies ActiveRequestsResponse, {
+    headers: securityHeaders,
+  });
 }

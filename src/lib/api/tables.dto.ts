@@ -1,3 +1,4 @@
+import "server-only";
 import type { Bill, Prisma } from "@prisma/client";
 import type { BillDetailDTO, TableBillDTO, TableDTO } from "@/contracts/tables";
 import { BILLABLE_ORDER_STATUSES } from "@/lib/services/table-status";

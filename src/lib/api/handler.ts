@@ -9,6 +9,7 @@
  * `requestId` ve doğrulama hatasında alan bazında `fieldErrors` eklenir.
  */
 
+import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import type { ApiErrorResponse } from "@/contracts/errors";

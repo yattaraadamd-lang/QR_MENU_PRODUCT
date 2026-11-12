@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * Herkese açık demo işletmesi. Akışı gerçek işletmeyle aynıdır (QR kanıtı, salt görüntüleme, garson
  * onayı); yalnız başına deneyen ziyaretçi takılmasın diye iki farkı vardır: onay gecikirse sistem

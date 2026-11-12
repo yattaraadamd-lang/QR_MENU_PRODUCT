@@ -5,6 +5,8 @@
  * Vercel/serverless ortamında io yoktur → emit sessizce atlanır (polling yeterlidir).
  */
 
+import "server-only";
+
 declare global {
   // eslint-disable-next-line no-var
   var __socketIO: import("socket.io").Server | undefined;

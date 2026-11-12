@@ -128,10 +128,11 @@ const layerRules = [
       ],
     },
   },
-  // İstemci kodunda tipsiz değerin (JSON, kütüphane geri çağrısı) alanına erişim ve ataması da
-  // tip farkında kurallarla yakalanır (FE-ARCH-2.5). any yasağı tüm src için aşağıda.
+  // Tipsiz değerin (JSON, kütüphane geri çağrısı) alanına erişim ve ataması da tip farkında
+  // kurallarla yakalanır: istemcide FE-ARCH-2.5'ten, sunucuda FE-ARCH-3.9'dan beri. Sınırdaki
+  // değer (`request.json()`, `JSON.parse`) `unknown` alınıp daraltılır. any yasağı aşağıda.
   {
-    files: ["src/components/**/*.{ts,tsx}", "src/hooks/**/*.{ts,tsx}", "src/app/**/*.tsx"],
+    files: ["src/**/*.{ts,tsx}"],
     languageOptions: {
       parser: tsParser,
       parserOptions: { projectService: true, tsconfigRootDir: fileURLToPath(new URL(".", import.meta.url)) },

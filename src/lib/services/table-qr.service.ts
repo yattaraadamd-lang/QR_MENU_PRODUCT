@@ -1,3 +1,4 @@
+import "server-only";
 import QRCode from "qrcode";
 import { prisma } from "@/lib/prisma";
 import { generateQrToken } from "@/lib/qr-token";

@@ -5,6 +5,7 @@
  * Her API route'u businessId kontrolü yapmalıdır.
  */
 
+import "server-only";
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
 import {

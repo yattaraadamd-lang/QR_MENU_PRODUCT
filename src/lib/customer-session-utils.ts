@@ -9,6 +9,7 @@
  * ❌ DO NOT log, store, or include raw tokens in error responses.
  */
 
+import "server-only";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 

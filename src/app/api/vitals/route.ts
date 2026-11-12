@@ -18,6 +18,15 @@ const NAMES = new Set(["LCP", "INP", "CLS", "FCP", "TTFB"]);
 const RATINGS = new Set(["good", "needs-improvement", "poor"]);
 const SECRET_PATH_RE = /^\/(qr|auth\/join)\/[^/[]+/;
 
+/** İstemcinin gönderdiği ölçü: her alan aşağıda tek tek doğrulanır */
+interface VitalPayload {
+  readonly name?: unknown;
+  readonly value?: unknown;
+  readonly rating?: unknown;
+  readonly navigationType?: unknown;
+  readonly route?: unknown;
+}
+
 // Tarayıcı beacon'ı yeniden denemez; her durumda 204 (yalnız aşırı büyük gövde 413)
 const noContent = () => new Response(null, { status: 204 });
 
@@ -40,14 +49,15 @@ export async function POST(request: NextRequest) {
   const text = await request.text();
   if (text.length > MAX_BODY_BYTES) return new Response(null, { status: 413 });
 
-  let payload: Record<string, unknown>;
+  let parsed: unknown;
   try {
-    payload = JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch {
     return noContent();
   }
-  if (typeof payload !== "object" || payload === null) return noContent();
+  if (typeof parsed !== "object" || parsed === null) return noContent();
 
+  const payload: VitalPayload = parsed;
   const { name, value, rating, navigationType } = payload;
   const route = sanitizeRoute(payload.route);
   if (typeof name !== "string" || !NAMES.has(name)) return noContent();

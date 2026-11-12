@@ -1,3 +1,4 @@
+import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { AdminOrderDTO, OrderDTO } from "@/contracts/orders";
 

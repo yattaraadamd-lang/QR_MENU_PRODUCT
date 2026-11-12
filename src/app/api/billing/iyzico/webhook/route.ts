@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWebhookSignature } from "@/lib/iyzico";
+import { readWebhookEvent, verifyWebhookSignature } from "@/lib/iyzico";
 import { syncIyzicoSubscription } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
@@ -8,15 +8,15 @@ export const dynamic = "force-dynamic";
 // iyzico panelinde bildirim URL'si olarak tanımlanmalı.
 export async function POST(request: NextRequest) {
   try {
-    const payload = await request.json();
+    const event = readWebhookEvent(await request.json());
 
-    if (!verifyWebhookSignature(request.headers.get("x-iyz-signature-v3"), payload)) {
+    if (!verifyWebhookSignature(request.headers.get("x-iyz-signature-v3"), event)) {
       return NextResponse.json({ error: "Geçersiz imza" }, { status: 401 });
     }
 
-    if (payload.subscriptionReferenceCode) {
+    if (event.subscriptionReferenceCode) {
       // Gövdedeki durum kullanılmaz — iyzico'dan güncel durum okunur
-      await syncIyzicoSubscription(payload.subscriptionReferenceCode);
+      await syncIyzicoSubscription(event.subscriptionReferenceCode);
     }
 
     return NextResponse.json({ received: true });

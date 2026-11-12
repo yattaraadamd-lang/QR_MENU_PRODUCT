@@ -8,6 +8,8 @@
  * clean automatic key expiration, and rate limit header helpers.
  */
 
+import "server-only";
+
 interface RateLimitEntry {
   count: number;
   resetAt: number;
