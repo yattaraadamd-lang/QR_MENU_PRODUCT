@@ -1,8 +1,13 @@
+"use client";
+
 import ProductCard from "./ProductCard";
 import type { Category, Product } from "./types";
+import { usePageLoaded } from "./usePageLoaded";
 import styles from "./customer-menu.module.css";
 
-// İlk ekranda görünen kart sayısı kadar görsel hemen iner, gerisi kaydırınca
+// İlk ekranda görünen kart sayısı kadar görsel hemen iner (LCP öğesi bunlardan biri: kartlar
+// .stagger ile sırayla açıldığı için Chrome çoğu zaman ikincisini seçiyor). Gerisi sayfa yüklenince
+// eklenir ve kaydırdıkça iner (loading="lazy").
 const PRIORITY_IMAGES = 2;
 
 type Props = {
@@ -15,6 +20,7 @@ type Props = {
 
 /** Kategori bölümleri ve ürün kartları */
 export default function MenuSections({ categories, sectionRef, onOpen, onAdd }: Props) {
+  const pageLoaded = usePageLoaded();
   let imageIndex = 0;
 
   return (
@@ -33,16 +39,20 @@ export default function MenuSections({ categories, sectionRef, onOpen, onAdd }: 
             <span className={styles.sectionCount}>{cat.products.length} ürün</span>
           </h2>
           <div className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
-            {cat.products.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                categoryIcon={cat.icon}
-                priority={!!p.image && imageIndex++ < PRIORITY_IMAGES}
-                onOpen={onOpen}
-                onAdd={onAdd}
-              />
-            ))}
+            {cat.products.map((p) => {
+              const priority = !!p.image && imageIndex++ < PRIORITY_IMAGES;
+              return (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  categoryIcon={cat.icon}
+                  priority={priority}
+                  showImage={priority || pageLoaded}
+                  onOpen={onOpen}
+                  onAdd={onAdd}
+                />
+              );
+            })}
           </div>
         </section>
       ))}

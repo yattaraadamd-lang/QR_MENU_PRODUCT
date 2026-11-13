@@ -68,6 +68,14 @@ export const DEMO_PRODUCTS = [
 ];
 export const DEMO_PRODUCT_IDS = DEMO_PRODUCTS.map((product) => product.id);
 
+/**
+ * Ürün görseli: public/images/demo-menu/<id'nin "prod-" sonrası>.webp (800×450; 5'i Gemini ile
+ * üretildi, 11'i Unsplash lisanslı fotoğraf). Canlı DB'deki demo ürünlerine
+ * 20261112120000_demo_product_images migration'ı yazar; ürün eklenir ya da görsel değişirse o
+ * listeyi de güncelle.
+ */
+export const demoProductImage = (productId: string) => `/images/demo-menu/${productId.replace(/^prod-/, "")}.webp`;
+
 const TABLE_NAMES = ["Masa 1", "Masa 2", "Masa 3", "Masa 4", "Bahçe 1", "Bahçe 2", "Teras 1", "Teras 2", "VIP 1", "VIP 2"];
 export const DEMO_TABLE_NUMBERS = TABLE_NAMES.map((_, index) => String(index + 1));
 
@@ -109,7 +117,7 @@ async function syncMenu(db: Prisma.TransactionClient) {
     const fields = {
       ...product,
       businessId: DEMO_BUSINESS_ID,
-      image: null,
+      image: demoProductImage(id),
       isAvailable: true,
       stockStatus: StockStatus.IN_STOCK,
       sortOrder: index + 1,

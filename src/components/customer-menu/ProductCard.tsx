@@ -18,12 +18,14 @@ type Props = {
   categoryIcon: string | null;
   /** İlk ekrandaki kartlar: görsel hemen ve yüksek öncelikle iner */
   priority?: boolean;
+  /** false: görsel kutusu yerini tutar, <img> sonra eklenir (ilk ekranın görseliyle yarışmasın) */
+  showImage?: boolean;
   onOpen: (p: Product) => void;
   onAdd: (p: Product) => void;
 };
 
 // memo: sepete ekleme yalnız sepet ve alt barı yeniden çizer, ürün listesini değil
-function ProductCard({ product: p, categoryIcon, priority = false, onOpen, onAdd }: Props) {
+function ProductCard({ product: p, categoryIcon, priority = false, showImage = true, onOpen, onAdd }: Props) {
   const sl = stockLabel(p);
   const ok = orderable(p);
   // Stoksuz üründe yalnız görsel soluklaşır; metin okunur kalır (kontrast)
@@ -41,16 +43,18 @@ function ProductCard({ product: p, categoryIcon, priority = false, onOpen, onAdd
       {p.image ? (
         <div className={styles.media}>
           {/* Arka plan görseli yerine <img>: tarayıcı ekran dışındakileri indirmez (loading="lazy") */}
-          <img
-            src={p.image}
-            alt=""
-            width={600}
-            height={168}
-            loading={priority ? "eager" : "lazy"}
-            fetchPriority={priority ? "high" : "auto"}
-            decoding="async"
-            className={dim}
-          />
+          {showImage && (
+            <img
+              src={p.image}
+              alt=""
+              width={600}
+              height={168}
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
+              decoding="async"
+              className={dim}
+            />
+          )}
           <div className={styles.mediaShade} />
           <div className={styles.mediaBadges}>
             {p.isPopular && <span className={`badge ${styles.popular}`}>Popüler</span>}
