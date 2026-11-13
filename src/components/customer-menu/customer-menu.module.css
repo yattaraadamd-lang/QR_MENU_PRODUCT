@@ -311,6 +311,8 @@
 .allergen { border: 1px solid rgba(180, 35, 24, 0.25); background: rgba(229, 72, 77, 0.06); }
 .allergen .infoLabel,
 .allergen .infoText { color: var(--danger-text); }
+.sheetMedia { aspect-ratio: 16 / 9; margin-bottom: 16px; overflow: hidden; border-radius: 14px; background: var(--bg-hover); }
+.sheetMedia img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .lead { margin-bottom: 16px; font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
 .noteField { margin-bottom: 16px; }
 .fieldLabel { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }

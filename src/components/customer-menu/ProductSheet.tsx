@@ -30,6 +30,12 @@ export default function ProductSheet({ product, onClose, onAdd }: Props) {
     <MenuSheet onClose={onClose}>
       <SheetHeader title={product.name} onClose={onClose} />
       <div className={styles.sheetBody}>
+        {/* Karttaki görselin aynısı (önbellekten gelir); ad başlıkta olduğu için süs, alt boş */}
+        {product.image && (
+          <div className={styles.sheetMedia}>
+            <img src={product.image} alt="" width={800} height={450} decoding="async" />
+          </div>
+        )}
         {product.description && <p className={styles.lead}>{product.description}</p>}
         {product.ingredients && (
           <div className={styles.infoBox}>
